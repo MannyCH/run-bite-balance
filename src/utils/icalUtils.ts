@@ -50,7 +50,7 @@ export async function fetchICalRuns(url: string): Promise<Partial<Run>[]> {
       const paceMinutes = 5.5; // 5:30 pace
       const duration = Math.round(distance * paceMinutes * 60); // Convert to seconds
       
-      // Create run object
+      // Create run object with pace as string (as expected by the type)
       const run: Partial<Run> = {
         title,
         date: event.start,

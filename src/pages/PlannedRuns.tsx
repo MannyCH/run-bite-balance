@@ -1,11 +1,10 @@
-
 import React from "react";
 import MainLayout from "../components/Layout/MainLayout";
 import { useApp } from "@/context/AppContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { format, isSameDay } from "date-fns";
-import { MapPin, Route, Run, Calendar as CalendarIcon } from "lucide-react";
+import { MapPin, Route, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -64,7 +63,7 @@ const PlannedRuns: React.FC = () => {
             className="mt-4 md:mt-0 flex items-center gap-2"
             disabled={isLoadingImportedRuns}
           >
-            <Run className="h-4 w-4" />
+            <Route className="h-4 w-4" />
             {isLoadingImportedRuns ? "Importing..." : "Refresh Imported Runs"}
           </Button>
         </div>
