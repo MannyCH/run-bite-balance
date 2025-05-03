@@ -8,15 +8,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 const ActivityTimeline: React.FC = () => {
   const { meals, runs, selectedDate } = useApp();
 
-  // Combine meals and runs for the timeline
-  const activities = [
+  // Combine meals and runs for the timeline with proper typing
+  type MealActivity = {
+    type: "meal";
+  } & Omit<typeof meals[0], "type">;
+
+  type RunActivity = {
+    type: "run";
+  } & Omit<typeof runs[0], "type">;
+
+  type Activity = MealActivity | RunActivity;
+
+  // Create properly typed activities array
+  const activities: Activity[] = [
     ...meals.map((meal) => ({
       ...meal,
-      type: "meal",
+      type: "meal" as const,
     })),
     ...runs.map((run) => ({
       ...run,
-      type: "run",
+      type: "run" as const,
     })),
   ];
 
@@ -68,7 +79,7 @@ const ActivityTimeline: React.FC = () => {
                 {format(new Date(dateKey), "EEEE, MMMM d")}
               </div>
               <div className="space-y-4">
-                {activities.map((activity, index) => (
+                {activities.map((activity) => (
                   <div
                     key={`${activity.type}-${activity.id}`}
                     className="flex items-start space-x-4"
@@ -93,28 +104,28 @@ const ActivityTimeline: React.FC = () => {
                         {activity.type === "meal" ? (
                           <div className="flex flex-wrap gap-2 mt-2">
                             <span className="bg-teal-50 text-teal-700 text-xs px-2 py-1 rounded">
-                              {activity.calories} cal
+                              {(activity as MealActivity).calories} cal
                             </span>
                             <span className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded">
-                              P: {activity.protein}g
+                              P: {(activity as MealActivity).protein}g
                             </span>
                             <span className="bg-yellow-50 text-yellow-700 text-xs px-2 py-1 rounded">
-                              C: {activity.carbs}g
+                              C: {(activity as MealActivity).carbs}g
                             </span>
                             <span className="bg-red-50 text-red-700 text-xs px-2 py-1 rounded">
-                              F: {activity.fat}g
+                              F: {(activity as MealActivity).fat}g
                             </span>
                           </div>
                         ) : (
                           <div className="flex flex-wrap gap-2 mt-2">
                             <span className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded">
-                              {activity.distance} km
+                              {(activity as RunActivity).distance} km
                             </span>
                             <span className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded">
-                              {Math.floor(activity.duration / 60)} min
+                              {Math.floor((activity as RunActivity).duration / 60)} min
                             </span>
                             <span className="bg-purple-50 text-purple-700 text-xs px-2 py-1 rounded">
-                              {activity.pace}/km
+                              {(activity as RunActivity).pace}/km
                             </span>
                           </div>
                         )}

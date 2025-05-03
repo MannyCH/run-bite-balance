@@ -87,7 +87,7 @@ const PastMeals: React.FC = () => {
                         ))}
                       </Pie>
                       <Tooltip 
-                        formatter={(value, name) => [`${Math.round(value)} cal`, name]}
+                        formatter={(value: number, name: string) => [`${Math.round(value)} cal`, name]}
                       />
                       <Legend />
                     </PieChart>
