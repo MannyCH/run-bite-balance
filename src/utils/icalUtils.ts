@@ -2,11 +2,18 @@
 import ICAL from 'ical';
 import { Run } from '@/context/AppContext';
 
-const DEFAULT_PACE = "5:30";
+const DEFAULT_PACE = 5.5; // 5:30 pace as number (minutes as decimal)
 
 export async function fetchICalRuns(url: string): Promise<Partial<Run>[]> {
   try {
-    const response = await fetch(url);
+    // Use a CORS proxy to avoid CORS issues with external calendar feeds
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    const response = await fetch(proxyUrl);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    
     const data = await response.text();
     const parsedData = ICAL.parseICS(data);
     
@@ -16,8 +23,8 @@ export async function fetchICalRuns(url: string): Promise<Partial<Run>[]> {
     for (const key in parsedData) {
       const event = parsedData[key];
       
-      // Skip non-VEVENT entries and past events
-      if (event.type !== 'VEVENT' || !event.start || event.start < new Date()) {
+      // Skip non-VEVENT entries
+      if (event.type !== 'VEVENT' || !event.start) {
         continue;
       }
       
@@ -46,13 +53,9 @@ export async function fetchICalRuns(url: string): Promise<Partial<Run>[]> {
         }
       }
       
-      // Default duration based on pace of 5:30 per km
-      const paceMinutes = 5.5; // 5:30 pace
+      // Default duration based on pace
+      const paceMinutes = DEFAULT_PACE; // 5.5 minutes per km
       const duration = Math.round(distance * paceMinutes * 60); // Convert to seconds
-      
-      // Looking at the Run interface in AppContext.tsx, the pace property is a number type
-      // Let's convert our string pace to a number (minutes as decimal)
-      const paceValue = paceMinutes; // Use the numeric pace value directly
       
       // Create run object
       const run: Partial<Run> = {
@@ -60,7 +63,7 @@ export async function fetchICalRuns(url: string): Promise<Partial<Run>[]> {
         date: event.start,
         distance,
         duration,
-        pace: paceValue,
+        pace: paceMinutes, // Use numeric pace value
         isPlanned: true,
         route: event.location || undefined,
         isImported: true, // Flag to identify imported runs

@@ -84,7 +84,16 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
   // Automatically import runs when the component mounts
   useEffect(() => {
-    importRunsFromIcal(ICAL_URL).catch(console.error);
+    const loadImportedRuns = async () => {
+      try {
+        await importRunsFromIcal(ICAL_URL);
+        console.log("Initial iCal runs imported successfully");
+      } catch (error) {
+        console.error("Failed to import initial iCal runs:", error);
+      }
+    };
+    
+    loadImportedRuns();
   }, []);
 
   const addMeal = (meal: Omit<Meal, "id">) => {
@@ -136,22 +145,26 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   const importRunsFromIcal = async (url: string) => {
     setIsLoadingImportedRuns(true);
     try {
+      console.log("Fetching iCal runs from:", url);
+      
       // Remove existing imported runs
       const filteredRuns = runs.filter(run => !run.isImported);
       
       // Fetch new runs from iCal
       const importedRuns = await fetchICalRuns(url);
+      console.log("Imported runs:", importedRuns.length);
       
       // Add IDs to imported runs and add to state
       const newRuns = importedRuns.map(run => ({
         ...run,
         id: `imported-${Math.random().toString(36).substr(2, 9)}`,
-        pace: typeof run.pace === 'number' ? run.pace : run.pace || "5:30",
       })) as Run[];
       
       setRuns([...filteredRuns, ...newRuns]);
+      return newRuns.length;
     } catch (error) {
       console.error('Error importing runs:', error);
+      throw error;
     } finally {
       setIsLoadingImportedRuns(false);
     }
