@@ -1,7 +1,7 @@
-
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { addDays, subDays, startOfWeek, format } from "date-fns";
 import { mockMeals, mockRuns, mockRecipes } from "../data/mockData";
+import { fetchICalRuns } from "@/utils/icalUtils";
 
 // Types
 export interface Meal {
@@ -27,6 +27,7 @@ export interface Run {
   isPlanned: boolean;
   route?: string;
   imgUrl?: string;
+  isImported?: boolean; // New flag to identify imported runs
 }
 
 export interface Recipe {
@@ -54,6 +55,8 @@ interface AppContextType {
   updateRun: (run: Run) => void;
   removeRun: (id: string) => void;
   planRecipeAsMeal: (recipe: Recipe, date: Date) => void;
+  importRunsFromIcal: (url: string) => Promise<void>;
+  isLoadingImportedRuns: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -70,11 +73,19 @@ interface AppProviderProps {
   children: ReactNode;
 }
 
+const ICAL_URL = "https://runningcoach.me/calendar/ical/e735d0722a98c308a459f60216f9cd5adc29d107/basic.ics?morning_at=09:00&evening_at=20:00";
+
 export const AppProvider = ({ children }: AppProviderProps) => {
   const [meals, setMeals] = useState<Meal[]>(mockMeals);
   const [runs, setRuns] = useState<Run[]>(mockRuns);
   const [recipes] = useState<Recipe[]>(mockRecipes);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [isLoadingImportedRuns, setIsLoadingImportedRuns] = useState<boolean>(false);
+
+  // Automatically import runs when the component mounts
+  useEffect(() => {
+    importRunsFromIcal(ICAL_URL).catch(console.error);
+  }, []);
 
   const addMeal = (meal: Omit<Meal, "id">) => {
     const newMeal = {
@@ -122,6 +133,30 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     });
   };
 
+  const importRunsFromIcal = async (url: string) => {
+    setIsLoadingImportedRuns(true);
+    try {
+      // Remove existing imported runs
+      const filteredRuns = runs.filter(run => !run.isImported);
+      
+      // Fetch new runs from iCal
+      const importedRuns = await fetchICalRuns(url);
+      
+      // Add IDs to imported runs and add to state
+      const newRuns = importedRuns.map(run => ({
+        ...run,
+        id: `imported-${Math.random().toString(36).substr(2, 9)}`,
+        pace: typeof run.pace === 'number' ? run.pace : run.pace || "5:30",
+      })) as Run[];
+      
+      setRuns([...filteredRuns, ...newRuns]);
+    } catch (error) {
+      console.error('Error importing runs:', error);
+    } finally {
+      setIsLoadingImportedRuns(false);
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -137,6 +172,8 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         updateRun,
         removeRun,
         planRecipeAsMeal,
+        importRunsFromIcal,
+        isLoadingImportedRuns,
       }}
     >
       {children}

@@ -5,10 +5,13 @@ import { useApp } from "@/context/AppContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { format, isSameDay } from "date-fns";
-import { MapPin } from "lucide-react";
+import { MapPin, Route, Run, Calendar as CalendarIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 
 const PlannedRuns: React.FC = () => {
-  const { runs, meals, selectedDate, setSelectedDate } = useApp();
+  const { runs, meals, selectedDate, setSelectedDate, importRunsFromIcal, isLoadingImportedRuns } = useApp();
+  const { toast } = useToast();
 
   // Filter for planned runs only
   const plannedRuns = runs.filter((run) => run.isPlanned);
@@ -30,13 +33,41 @@ const PlannedRuns: React.FC = () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  const handleRefreshImportedRuns = async () => {
+    try {
+      await importRunsFromIcal("https://runningcoach.me/calendar/ical/e735d0722a98c308a459f60216f9cd5adc29d107/basic.ics?morning_at=09:00&evening_at=20:00");
+      toast({
+        title: "Runs Successfully Imported",
+        description: "Your running calendar has been updated with the latest imported runs.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error Importing Runs",
+        description: "There was a problem importing your runs. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <MainLayout>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Planned Runs</h1>
-        <p className="text-gray-600">
-          View your upcoming runs and how they align with your meal schedule
-        </p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Planned Runs</h1>
+            <p className="text-gray-600">
+              View your upcoming runs and how they align with your meal schedule
+            </p>
+          </div>
+          <Button 
+            onClick={handleRefreshImportedRuns} 
+            className="mt-4 md:mt-0 flex items-center gap-2"
+            disabled={isLoadingImportedRuns}
+          >
+            <Run className="h-4 w-4" />
+            {isLoadingImportedRuns ? "Importing..." : "Refresh Imported Runs"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -80,7 +111,7 @@ const PlannedRuns: React.FC = () => {
                   {selectedDateRuns.map((run) => (
                     <div
                       key={run.id}
-                      className="flex flex-col md:flex-row bg-white rounded-lg shadow overflow-hidden"
+                      className={`flex flex-col md:flex-row bg-white rounded-lg shadow overflow-hidden ${run.isImported ? 'border-l-4 border-blue-500' : ''}`}
                     >
                       {run.imgUrl && (
                         <div className="md:w-1/3">
@@ -94,8 +125,15 @@ const PlannedRuns: React.FC = () => {
                       <div className="p-4 flex-1">
                         <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
                           <div className="flex items-center">
-                            <MapPin className="mr-2 h-5 w-5 text-blue-500" />
-                            <h3 className="text-lg font-semibold">{run.title}</h3>
+                            {run.isImported ? (
+                              <Route className="mr-2 h-5 w-5 text-blue-500" />
+                            ) : (
+                              <MapPin className="mr-2 h-5 w-5 text-blue-500" />
+                            )}
+                            <h3 className="text-lg font-semibold">
+                              {run.title} 
+                              {run.isImported && <span className="text-xs text-blue-500 ml-2 bg-blue-100 px-2 py-1 rounded-full">Imported</span>}
+                            </h3>
                           </div>
                           <span className="text-gray-500">
                             {format(new Date(run.date), "h:mm a")}

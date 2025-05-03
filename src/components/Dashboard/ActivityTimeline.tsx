@@ -2,7 +2,7 @@
 import React from "react";
 import { format } from "date-fns";
 import { useApp } from "@/context/AppContext";
-import { MapPin, UtensilsCrossed } from "lucide-react";
+import { MapPin, UtensilsCrossed, Route } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const ActivityTimeline: React.FC = () => {
@@ -85,9 +85,17 @@ const ActivityTimeline: React.FC = () => {
                     className="flex items-start space-x-4"
                   >
                     <div className="flex-shrink-0">
-                      <div className={`p-2 rounded-full ${activity.type === "meal" ? "bg-teal-100 text-teal-600" : "bg-blue-100 text-blue-600"}`}>
+                      <div className={`p-2 rounded-full ${
+                        activity.type === "meal" 
+                          ? "bg-teal-100 text-teal-600" 
+                          : (activity as RunActivity).isImported 
+                            ? "bg-blue-100 text-blue-600" 
+                            : "bg-blue-100 text-blue-600"
+                      }`}>
                         {activity.type === "meal" ? (
                           <UtensilsCrossed className="h-5 w-5" />
+                        ) : (activity as RunActivity).isImported ? (
+                          <Route className="h-5 w-5" />
                         ) : (
                           <MapPin className="h-5 w-5" />
                         )}
@@ -95,7 +103,14 @@ const ActivityTimeline: React.FC = () => {
                     </div>
                     <div className="flex-1 bg-white rounded-lg shadow p-4">
                       <div className="flex justify-between items-center">
-                        <h3 className="font-medium">{activity.title}</h3>
+                        <div className="flex items-center">
+                          <h3 className="font-medium">{activity.title}</h3>
+                          {activity.type === "run" && (activity as RunActivity).isImported && (
+                            <span className="text-xs text-blue-500 ml-2 bg-blue-100 px-1.5 py-0.5 rounded-full">
+                              Imported
+                            </span>
+                          )}
+                        </div>
                         <span className="text-sm text-gray-500">
                           {format(new Date(activity.date), "h:mm a")}
                         </span>
