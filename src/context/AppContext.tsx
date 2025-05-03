@@ -142,7 +142,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     });
   };
 
-  const importRunsFromIcal = async (url: string) => {
+  const importRunsFromIcal = async (url: string): Promise<void> => {
     setIsLoadingImportedRuns(true);
     try {
       console.log("Fetching iCal runs from:", url);
@@ -161,7 +161,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       })) as Run[];
       
       setRuns([...filteredRuns, ...newRuns]);
-      return newRuns.length;
+      // Don't return anything to match the Promise<void> type
     } catch (error) {
       console.error('Error importing runs:', error);
       throw error;
