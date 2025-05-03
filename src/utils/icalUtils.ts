@@ -50,13 +50,17 @@ export async function fetchICalRuns(url: string): Promise<Partial<Run>[]> {
       const paceMinutes = 5.5; // 5:30 pace
       const duration = Math.round(distance * paceMinutes * 60); // Convert to seconds
       
-      // Create run object with pace as string (as expected by the type)
+      // Looking at the Run interface in AppContext.tsx, the pace property is a number type
+      // Let's convert our string pace to a number (minutes as decimal)
+      const paceValue = paceMinutes; // Use the numeric pace value directly
+      
+      // Create run object
       const run: Partial<Run> = {
         title,
         date: event.start,
         distance,
         duration,
-        pace: DEFAULT_PACE,
+        pace: paceValue,
         isPlanned: true,
         route: event.location || undefined,
         isImported: true, // Flag to identify imported runs
