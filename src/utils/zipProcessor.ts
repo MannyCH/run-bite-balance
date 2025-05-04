@@ -89,4 +89,66 @@ export const processImagesFromZip = async (
           console.error(`❌ Error processing image ${fileName}:`, err);
         } finally {
           processedImages++;
-          if (p
+          if (progressCallback) {
+            const percent = 20 + (processedImages / imageFiles.length) * 30;
+            progressCallback(
+              `Uploaded ${processedImages}/${imageFiles.length} images`,
+              Math.round(percent)
+            );
+          }
+        }
+      })
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY));
+  }
+
+  return imageMap;
+};
+
+/**
+ * Main function to extract recipes and related images from a ZIP file
+ */
+export const extractRecipesFromZip = async (
+  file: File,
+  progressCallback?: ProgressCallback
+): Promise<any[]> => {
+  const JSZip = (await import('jszip')).default;
+  const { readFileAsArrayBuffer } = await import('./zipFileReader');
+  const { parseRecipesFromJSON } = await import('./recipeParser');
+
+  try {
+    progressCallback?.("Reading ZIP file...", 5);
+
+    const fileBuffer = await readFileAsArrayBuffer(file);
+
+    progressCallback?.("Unzipping contents...", 10);
+    const zipContents = await JSZip.loadAsync(fileBuffer);
+
+    const jsonFiles: string[] = [];
+    const imageFiles: string[] = [];
+
+    Object.keys(zipContents.files).forEach((fileName) => {
+      if (!zipContents.files[fileName].dir) {
+        if (fileName.toLowerCase().endsWith(".json")) {
+          jsonFiles.push(fileName);
+        } else if (/\.(jpe?g|png|gif|webp|avif)$/i.test(fileName)) {
+          imageFiles.push(fileName);
+        }
+      }
+    });
+
+    progressCallback?.(`Found ${jsonFiles.length} recipes and ${imageFiles.length} images`, 15);
+
+    const imageMap = await processImagesFromZip(zipContents, imageFiles, progressCallback);
+
+    progressCallback?.("Processing recipe data...", 60);
+    const recipes = await parseRecipesFromJSON(zipContents, jsonFiles, imageMap, progressCallback);
+
+    progressCallback?.("Recipe import complete!", 100);
+    return recipes;
+  } catch (error) {
+    console.error("Error extracting recipes from ZIP:", error);
+    throw new Error(`Failed to process ZIP: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
