@@ -77,8 +77,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         variant: "destructive",
       });
     } else {
-      // Update local state
-      setProfile(prevProfile => prevProfile ? { ...prevProfile, ...profileData } : null);
+      // Update local state - ensuring we don't overwrite the entire profile with just the new data
+      setProfile(prevProfile => prevProfile ? { ...prevProfile, ...result.profileData } : null);
       
       toast({
         title: "Profile updated",
@@ -98,8 +98,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         description: result.error.message,
         variant: "destructive",
       });
-    } else {
-      // Update local state
+    } else if (result.profileData) {
+      // Update local state with the data returned from the service
       setProfile(prevProfile => 
         prevProfile ? { ...prevProfile, ...result.profileData } : null
       );

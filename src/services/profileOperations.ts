@@ -35,7 +35,7 @@ export async function checkOnboardingStatus(userId: string | undefined): Promise
 
 export async function saveProfile(userId: string | undefined, profileData: Partial<UserProfile>) {
   if (!userId) {
-    return { error: new Error('User not authenticated') };
+    return { error: new Error('User not authenticated'), profileData: null };
   }
 
   try {
@@ -64,23 +64,27 @@ export async function saveProfile(userId: string | undefined, profileData: Parti
       })
       .eq('id', userId);
 
-    return { error };
+    return { error, profileData: error ? null : profileData };
   } catch (error: any) {
     console.error('Error saving profile:', error);
-    return { error };
+    return { error, profileData: null };
   }
 }
 
 export async function saveProfileFormData(userId: string | undefined, formData: any) {
   if (!userId) {
-    return { error: new Error('User not authenticated') };
+    return { error: new Error('User not authenticated'), profileData: null };
   }
 
   try {
     const result = await saveProfileToSupabase(userId, formData, calculateBMR);
-    return result;
+    // Ensure we always return a consistent object structure
+    return { 
+      error: result.error, 
+      profileData: result.profileData || null 
+    };
   } catch (error: any) {
     console.error('Error saving profile form data:', error);
-    return { error };
+    return { error, profileData: null };
   }
 }
