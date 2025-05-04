@@ -85,21 +85,23 @@ async function generateAIMealPlan(
       
       IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", "dinner", or "snack". Do not use any other values.
       
-      The response should be a JSON array following this exact structure, with one entry per day:
-      [
-        {
-          "date": "YYYY-MM-DD",
-          "meals": [
-            {
-              "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", or "snack" - no other values
-              "recipe_id": "the-recipe-id", 
-              "explanation": "Why this recipe is appropriate for this meal"
-            },
-            // more meals for this day
-          ]
-        },
-        // more days
-      ]
+      The response should be a JSON object following this exact structure:
+      {
+        "days": [
+          {
+            "date": "YYYY-MM-DD",
+            "meals": [
+              {
+                "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", or "snack" - no other values
+                "recipe_id": "the-recipe-id", 
+                "explanation": "Why this recipe is appropriate for this meal"
+              },
+              // more meals for this day
+            ]
+          },
+          // more days
+        ]
+      }
       
       Only include recipes from the provided list. Ensure every meal has a valid recipe_id from the list.`
     };
@@ -110,7 +112,7 @@ async function generateAIMealPlan(
     // Make the request to OpenAI
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4o", // Updated to use gpt-4o
+        model: "gpt-4o", 
         messages: [
           prompt,
           {
@@ -186,7 +188,20 @@ serve(async (req) => {
     });
     
     // Get the request body
-    const { userId, startDate, endDate } = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid JSON in request body' 
+      }), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+    
+    const { userId, startDate, endDate } = requestBody;
     
     if (!userId || !startDate || !endDate) {
       return new Response(JSON.stringify({ 
@@ -209,9 +224,19 @@ serve(async (req) => {
     if (profileError) {
       console.error('Error fetching user profile:', profileError);
       return new Response(JSON.stringify({ 
-        error: 'Failed to fetch user profile' 
+        error: 'Failed to fetch user profile',
+        details: profileError.message
       }), { 
         status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+    
+    if (!profile) {
+      return new Response(JSON.stringify({ 
+        error: 'User profile not found'
+      }), { 
+        status: 404, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
@@ -224,14 +249,24 @@ serve(async (req) => {
     if (recipesError) {
       console.error('Error fetching recipes:', recipesError);
       return new Response(JSON.stringify({ 
-        error: 'Failed to fetch recipes' 
+        error: 'Failed to fetch recipes',
+        details: recipesError.message
       }), { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
     
-    console.log(`Fetched ${recipes ? recipes.length : 0} recipes for meal planning`);
+    if (!recipes || recipes.length === 0) {
+      return new Response(JSON.stringify({ 
+        error: 'No recipes found in the database'
+      }), { 
+        status: 404, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+    
+    console.log(`Fetched ${recipes.length} recipes for meal planning`);
     
     // Generate AI meal plan
     try {
@@ -246,6 +281,7 @@ serve(async (req) => {
       console.log("Meal plan generated successfully");
       
       return new Response(JSON.stringify(result), { 
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     } catch (aiError) {
@@ -257,7 +293,7 @@ serve(async (req) => {
         error: aiError.message || 'Error generating AI meal plan',
         fallback: true 
       }), { 
-        status: 500, 
+        status: 200, // Important: Return 200 even for fallback so frontend can handle it
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
