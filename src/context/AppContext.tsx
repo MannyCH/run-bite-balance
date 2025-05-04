@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { addDays, subDays, startOfWeek, format } from "date-fns";
 import { mockMeals, mockRuns, mockRecipes } from "../data/mockData";
@@ -210,6 +211,11 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     try {
       console.log('Importing recipes to Supabase:', newRecipes.length);
       
+      // Verify Supabase connection
+      if (!supabase || typeof supabase.from !== 'function') {
+        throw new Error('Supabase connection not established. Please check your Supabase integration.');
+      }
+      
       // Add IDs if not present and prepare for Supabase
       const recipesWithIds = newRecipes.map(recipe => ({
         ...recipe,
@@ -217,7 +223,6 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         created_at: new Date().toISOString()
       }));
       
-      // Fix: Modified Supabase query to handle the insert operation correctly
       // First insert the data
       const { error: insertError } = await supabase
         .from('recipes')
@@ -228,21 +233,21 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         throw new Error(`Failed to save recipes: ${insertError.message}`);
       }
       
-      // Then fetch the newly inserted data in a separate query
+      console.log('Successfully inserted recipes, now fetching them back');
+      
+      // Then fetch all recipes in a separate query to update state
       const { data, error: selectError } = await supabase
         .from('recipes')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(newRecipes.length);
+        .select('*');
       
       if (selectError) {
-        console.error('Error fetching inserted recipes:', selectError);
+        console.error('Error fetching recipes after insert:', selectError);
       }
       
       if (data) {
-        console.log('Successfully imported recipes:', data.length);
-        // Update the local state with the new recipes from Supabase
-        setRecipes(prev => [...prev, ...(data as Recipe[])]);
+        console.log('Successfully loaded all recipes:', data.length);
+        // Replace the entire recipes state with the fresh data from Supabase
+        setRecipes(data as Recipe[]);
       }
     } catch (error) {
       console.error('Error in importRecipes:', error);
