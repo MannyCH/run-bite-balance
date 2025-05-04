@@ -70,7 +70,7 @@ export const extractRecipesFromZip = async (
     const imageMap: Record<string, string> = {};
 
     // Batch process images in smaller groups to avoid memory issues in Safari
-    const BATCH_SIZE = 5;
+    const BATCH_SIZE = 3; // Reduced batch size for better Safari performance
     const imageBatches = [];
     for (let i = 0; i < imageFiles.length; i += BATCH_SIZE) {
       imageBatches.push(imageFiles.slice(i, i + BATCH_SIZE));
@@ -79,29 +79,34 @@ export const extractRecipesFromZip = async (
     let processedImages = 0;
     // Upload image files to Supabase in batches
     for (const batch of imageBatches) {
-      await Promise.all(batch.map(async (fileName) => {
-        try {
-          const blob = await zipContents.files[fileName].async("blob");
-          const publicUrl = await uploadImageToSupabase(fileName, blob);
-          const baseName = fileName.split("/").pop()?.split(".")[0] || "";
-          if (publicUrl) {
-            imageMap[baseName] = publicUrl;
+      try {
+        await Promise.all(batch.map(async (fileName) => {
+          try {
+            const blob = await zipContents.files[fileName].async("blob");
+            const publicUrl = await uploadImageToSupabase(fileName, blob);
+            const baseName = fileName.split("/").pop()?.split(".")[0] || "";
+            if (publicUrl) {
+              imageMap[baseName] = publicUrl;
+            }
+            processedImages++;
+            const imageProgress = (processedImages / imageFiles.length) * 30;
+            progressCallback?.(`Uploaded ${processedImages}/${imageFiles.length} images`, 20 + imageProgress);
+          } catch (err) {
+            console.error(`Error processing image ${fileName}:`, err);
           }
-          processedImages++;
-          const imageProgress = (processedImages / imageFiles.length) * 30;
-          progressCallback?.(`Uploaded ${processedImages}/${imageFiles.length} images`, 20 + imageProgress);
-        } catch (err) {
-          console.error(`Error processing image ${fileName}:`, err);
-        }
-      }));
-      
-      // Small delay between batches to let the browser breathe
-      await new Promise(resolve => setTimeout(resolve, 50));
+        }));
+        
+        // Longer delay between batches to let the browser breathe in Safari
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (error) {
+        console.error("Error processing image batch:", error);
+        // Continue with next batch even if this one fails
+      }
     }
 
     progressCallback?.("Processing recipe text files...", 50);
 
-    // Process recipe text files in batches
+    // Process recipe text files in smaller batches
     const textBatches = [];
     for (let i = 0; i < txtFiles.length; i += BATCH_SIZE) {
       textBatches.push(txtFiles.slice(i, i + BATCH_SIZE));
@@ -202,8 +207,8 @@ export const extractRecipesFromZip = async (
       const recipeProgress = (processedRecipes / txtFiles.length) * 50;
       progressCallback?.(`Processed ${processedRecipes}/${txtFiles.length} recipes`, 50 + recipeProgress);
       
-      // Small delay between batches
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // Longer delay between batches for Safari
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
     
     console.log(`Successfully extracted ${recipes.length} recipes from ZIP file`);

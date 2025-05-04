@@ -1,10 +1,10 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
 import { extractRecipesFromZip } from "@/utils/zipUtils";
 import { useToast } from "@/hooks/use-toast";
-import { Archive, Check, File, Loader, X } from "lucide-react";
+import { Archive, Check, File, Loader, RefreshCcw, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 
@@ -14,9 +14,27 @@ const RecipeImporter: React.FC = () => {
   const { importRecipes, isLoadingRecipes } = useApp();
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
-  const [importStatus, setImportStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [importStatus, setImportStatus] = useState<'idle' | 'processing' | 'success' | 'error' | 'stalled'>('idle');
   const [importMessage, setImportMessage] = useState<string>("");
   const [progressPercent, setProgressPercent] = useState<number>(0);
+  const [lastProgressUpdate, setLastProgressUpdate] = useState<number>(Date.now());
+
+  // Safari-specific stall detection
+  useEffect(() => {
+    // If we're processing and no update for 15 seconds, consider it stalled
+    if (importStatus === 'processing') {
+      const stallInterval = setInterval(() => {
+        const now = Date.now();
+        if (now - lastProgressUpdate > 15000) {
+          setImportStatus('stalled');
+          setImportMessage('Import appears to be stalled. You can try resetting and importing again.');
+          clearInterval(stallInterval);
+        }
+      }, 5000);
+      
+      return () => clearInterval(stallInterval);
+    }
+  }, [importStatus, lastProgressUpdate]);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     console.log("✅ File input change fired");
@@ -41,6 +59,7 @@ const RecipeImporter: React.FC = () => {
     setImportStatus('idle');
     setImportMessage('');
     setProgressPercent(0);
+    setLastProgressUpdate(Date.now());
 
     toast({
       title: "File selected",
@@ -62,10 +81,11 @@ const RecipeImporter: React.FC = () => {
     setImportStatus('processing');
     setImportMessage('Processing your ZIP file...');
     setProgressPercent(10);
+    setLastProgressUpdate(Date.now());
 
     try {
       // Safari-compatible timeout to ensure UI updates before heavy processing
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
       setProgressPercent(20);
 
       // Extract recipes from ZIP with progress updates
@@ -73,6 +93,7 @@ const RecipeImporter: React.FC = () => {
         console.log(`Progress update: ${phase} - ${percent}%`);
         setImportMessage(phase);
         setProgressPercent(20 + percent * 0.6); // Scale to 20-80% range
+        setLastProgressUpdate(Date.now());
       };
 
       const recipes = await extractRecipesFromZip(file, updateProgress);
@@ -93,9 +114,10 @@ const RecipeImporter: React.FC = () => {
       // Save recipes to Supabase
       setProgressPercent(80);
       setImportMessage('Uploading recipes to Supabase...');
+      setLastProgressUpdate(Date.now());
       
       // Safari-compatible timeout to ensure UI updates
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
       
       await importRecipes(recipes);
       setProgressPercent(100);
@@ -103,6 +125,8 @@ const RecipeImporter: React.FC = () => {
       // Final success state
       setImportStatus('success');
       setImportMessage(`${recipes.length} recipes have been imported successfully to Supabase.`);
+      setLastProgressUpdate(Date.now());
+
       toast({
         title: "Import successful",
         description: `${recipes.length} recipes have been imported and stored in Supabase.`,
@@ -125,6 +149,7 @@ const RecipeImporter: React.FC = () => {
     setImportStatus('idle');
     setImportMessage('');
     setProgressPercent(0);
+    setLastProgressUpdate(Date.now());
     const fileInput = document.getElementById('recipe-zip') as HTMLInputElement;
     if (fileInput) {
       fileInput.value = '';
@@ -196,12 +221,13 @@ const RecipeImporter: React.FC = () => {
               )}
             </Button>
             
-            {(importStatus === 'success' || importStatus === 'error') && (
+            {(importStatus === 'success' || importStatus === 'error' || importStatus === 'stalled') && (
               <Button
                 onClick={resetImporter}
                 variant="outline"
                 className="w-full sm:w-auto mt-4"
               >
+                <RefreshCcw className="h-4 w-4 mr-2" />
                 Reset
               </Button>
             )}
@@ -217,6 +243,17 @@ const RecipeImporter: React.FC = () => {
             </div>
             <Progress value={progressPercent} className="h-2" />
           </div>
+        )}
+
+        {/* Stalled alert */}
+        {importStatus === 'stalled' && (
+          <Alert variant="default" className="bg-amber-50 border-amber-200">
+            <RefreshCcw className="h-4 w-4 text-amber-500" />
+            <AlertDescription className="text-amber-800">
+              The import process appears to be stalled. This might happen with larger ZIP files on Safari. 
+              You can either wait longer or try with a smaller ZIP file (fewer images).
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Success alert */}
