@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 
 const RecipeImporter: React.FC = () => {
+  console.log("✅ RecipeImporter mounted");
   const { importRecipes } = useApp();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
