@@ -6,7 +6,9 @@ import { Recipe } from '@/context/types';
 const BREAKFAST_KEYWORDS = [
   'breakfast', 'morning', 'cereal', 'oatmeal', 'porridge', 'pancake', 'waffle', 
   'toast', 'bagel', 'muffin', 'croissant', 'yogurt', 'granola', 'egg', 
-  'omelet', 'omelette', 'frittata', 'bacon', 'sausage', 'smoothie', 'fruit'
+  'omelet', 'omelette', 'frittata', 'bacon', 'sausage', 'smoothie', 'fruit',
+  'pastry', 'danish', 'scone', 'biscuit', 'coffee cake', 'french toast',
+  'crepe', 'hash brown', 'breakfast burrito', 'avocado toast'
 ];
 
 // Keywords that strongly suggest a recipe is appropriate for lunch
@@ -29,6 +31,12 @@ const SNACK_KEYWORDS = [
   'light', 'small', 'easy'
 ];
 
+// Keywords that should NEVER be considered for breakfast
+const NON_BREAKFAST_KEYWORDS = [
+  'steak', 'roast beef', 'pork chop', 'lasagna', 'curry', 'beer', 'wine',
+  'cocktail', 'whiskey', 'vodka', 'liquor', 'rum'
+];
+
 /**
  * Check if a recipe is appropriate for a specific meal type based on title, categories, and ingredients
  */
@@ -36,6 +44,11 @@ export function isSuitableForMealType(recipe: Recipe, mealType: string): boolean
   if (!recipe) return false;
   
   const titleLower = recipe.title.toLowerCase();
+  
+  // For breakfast, first check if it contains any NON_BREAKFAST keywords
+  if (mealType === 'breakfast' && NON_BREAKFAST_KEYWORDS.some(keyword => titleLower.includes(keyword))) {
+    return false;
+  }
   
   // Check if title explicitly contains meal type
   if (titleLower.includes(mealType.toLowerCase())) {
@@ -80,16 +93,14 @@ export function isSuitableForMealType(recipe: Recipe, mealType: string): boolean
   if (mealType === 'breakfast') {
     // Breakfast typically has fewer calories
     if (recipe.calories < 500) {
-      return true;
-    }
-    
-    // Check for typical breakfast ingredients
-    if (recipe.ingredients && recipe.ingredients.some(ingredient => 
-      ['egg', 'toast', 'cereal', 'milk', 'yogurt', 'oat', 'berr', 'fruit'].some(item => 
-        ingredient.toLowerCase().includes(item)
-      )
-    )) {
-      return true;
+      // Check for typical breakfast ingredients
+      if (recipe.ingredients && recipe.ingredients.some(ingredient => 
+        ['egg', 'toast', 'cereal', 'milk', 'yogurt', 'oat', 'berr', 'fruit'].some(item => 
+          ingredient.toLowerCase().includes(item)
+        )
+      )) {
+        return true;
+      }
     }
   }
   
@@ -140,6 +151,11 @@ export function getMealTypeSuitabilityScores(recipe: Recipe): Record<string, num
   
   const title = recipe.title.toLowerCase();
   
+  // First check for non-breakfast items
+  if (NON_BREAKFAST_KEYWORDS.some(keyword => title.includes(keyword.toLowerCase()))) {
+    scores.breakfast -= 100; // Strong negative signal for breakfast
+  }
+  
   // Check title against meal type keywords
   BREAKFAST_KEYWORDS.forEach(keyword => {
     if (title.includes(keyword.toLowerCase())) scores.breakfast += 1;
@@ -185,6 +201,26 @@ export function getMealTypeSuitabilityScores(recipe: Recipe): Record<string, num
     });
   }
   
+  // Check ingredients for breakfast items
+  if (recipe.ingredients) {
+    const breakfastIngredients = ['egg', 'bread', 'toast', 'cereal', 'milk', 'yogurt', 'oat', 'berry', 'fruit', 'jam', 'honey'];
+    const dinnerIngredients = ['steak', 'roast', 'wine', 'beer', 'potato', 'pasta', 'rice'];
+    
+    breakfastIngredients.forEach(item => {
+      if (recipe.ingredients!.some(ingredient => ingredient.toLowerCase().includes(item))) {
+        scores.breakfast += 1;
+      }
+    });
+    
+    dinnerIngredients.forEach(item => {
+      if (recipe.ingredients!.some(ingredient => ingredient.toLowerCase().includes(item))) {
+        scores.dinner += 1;
+        // Dinner ingredients generally make a recipe less suitable for breakfast
+        scores.breakfast -= 0.5;
+      }
+    });
+  }
+  
   // Apply some calorie heuristics
   if (recipe.calories < 400) {
     scores.breakfast += 1;
@@ -200,3 +236,4 @@ export function getMealTypeSuitabilityScores(recipe: Recipe): Record<string, num
   
   return scores;
 }
+
