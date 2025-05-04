@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import MainLayout from "../components/Layout/MainLayout";
 import { useApp } from "@/context/AppContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -12,6 +12,11 @@ import { Archive } from "lucide-react";
 const SuggestedMeals: React.FC = () => {
   const { recipes, selectedDate, planRecipeAsMeal } = useApp();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Scroll to top when component mounts
+    window.scrollTo(0, 0);
+  }, []);
 
   const handlePlanMeal = (recipe: any, daysToAdd: number) => {
     const planDate = addDays(selectedDate, daysToAdd);
@@ -50,10 +55,24 @@ const SuggestedMeals: React.FC = () => {
               <CardHeader>
                 <CardTitle>{recipe.title}</CardTitle>
                 <CardDescription>
-                  {recipe.calories} calories | P: {recipe.protein}g | C: {recipe.carbs}g | F: {recipe.fat}g
+                  {recipe.calories > 0 ? `${recipe.calories} calories | ` : ''}
+                  {recipe.protein > 0 ? `P: ${recipe.protein}g | ` : ''}
+                  {recipe.carbs > 0 ? `C: ${recipe.carbs}g | ` : ''}
+                  {recipe.fat > 0 ? `F: ${recipe.fat}g` : ''}
+                  {recipe.servings && <div className="mt-1">Serves: {recipe.servings}</div>}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-grow">
+                {recipe.categories && recipe.categories.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-1">
+                    {recipe.categories.map((category, index) => (
+                      <span key={index} className="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-700">
+                        {category}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                
                 {recipe.ingredients && (
                   <div className="mb-4">
                     <h4 className="font-medium mb-1">Ingredients:</h4>
@@ -66,6 +85,17 @@ const SuggestedMeals: React.FC = () => {
                       )}
                     </ul>
                   </div>
+                )}
+                
+                {recipe.website && (
+                  <a 
+                    href={recipe.website} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-500 hover:underline block truncate"
+                  >
+                    View original recipe
+                  </a>
                 )}
               </CardContent>
               <CardFooter className="flex flex-col gap-2">
