@@ -258,17 +258,39 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         );
       }
 
+      // Type safety checks for enum values
+      // Only accept values that are valid for each enum type
+      let genderValue: Gender | null = null;
+      if (basic.gender && ['male', 'female', 'other'].includes(basic.gender)) {
+        genderValue = basic.gender as Gender;
+      }
+
+      let fitnessGoalValue: FitnessGoal | null = null;
+      if (basic.fitnessGoal && ['lose', 'maintain', 'gain'].includes(basic.fitnessGoal)) {
+        fitnessGoalValue = basic.fitnessGoal as FitnessGoal;
+      }
+
+      let activityLevelValue: ActivityLevel | null = null;
+      if (fitness.activityLevel && ['sedentary', 'light', 'moderate', 'active', 'very_active'].includes(fitness.activityLevel)) {
+        activityLevelValue = fitness.activityLevel as ActivityLevel;
+      }
+
+      let mealComplexityValue: MealComplexity | null = null;
+      if (preferences.mealComplexity && ['simple', 'moderate', 'complex'].includes(preferences.mealComplexity)) {
+        mealComplexityValue = preferences.mealComplexity as MealComplexity;
+      }
+
       const profileData = {
-        // Basic info - with proper type casting
+        // Basic info - with proper type checking
         weight: basic.weight,
         height: basic.height,
         age: basic.age,
-        gender: basic.gender as Gender, // Explicit type casting
+        gender: genderValue,
         target_weight: basic.targetWeight,
-        fitness_goal: basic.fitnessGoal as FitnessGoal, // Explicit type casting
+        fitness_goal: fitnessGoalValue,
         
-        // Fitness info - with proper type casting
-        activity_level: fitness.activityLevel as ActivityLevel, // Explicit type casting
+        // Fitness info - with proper type checking
+        activity_level: activityLevelValue,
         ical_feed_url: fitness.icalFeedUrl,
         bmr: bmrValue,
         
@@ -277,10 +299,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         nutritional_theory: dietary.nutritionalTheory,
         food_allergies: dietary.foodAllergies,
         
-        // Preferences - with proper type casting
+        // Preferences - with proper type checking
         preferred_cuisines: preferences.preferredCuisines,
         foods_to_avoid: preferences.foodsToAvoid,
-        meal_complexity: preferences.mealComplexity as MealComplexity, // Explicit type casting
+        meal_complexity: mealComplexityValue,
         
         updated_at: new Date().toISOString()
       };
