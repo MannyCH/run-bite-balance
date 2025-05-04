@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { mockMeals, mockRuns, mockRecipes } from "../data/mockData";
 import { 
@@ -10,6 +9,8 @@ import {
 import { importRunsFromIcal } from "./runService";
 import { importRecipes as importRecipesToDb, loadRecipes } from "./recipeService";
 import { generateId } from "./utils";
+import { ProfileProvider } from "./ProfileContext";
+import OnboardingCheck from "@/components/Auth/OnboardingCheck";
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -143,6 +144,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     }
   };
 
+  // Wrap the children with ProfileProvider and add OnboardingCheck
   return (
     <AppContext.Provider
       value={{
@@ -164,7 +166,10 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         isLoadingRecipes,
       }}
     >
-      {children}
+      <ProfileProvider>
+        <OnboardingCheck />
+        {children}
+      </ProfileProvider>
     </AppContext.Provider>
   );
 };

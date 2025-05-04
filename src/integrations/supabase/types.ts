@@ -9,27 +9,156 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      profiles: {
+      meal_plan_items: {
         Row: {
-          avatar_url: string | null
-          created_at: string
+          calories: number | null
+          carbs: number | null
+          custom_title: string | null
+          date: string
+          fat: number | null
           id: string
-          updated_at: string
-          username: string | null
+          meal_plan_id: string
+          meal_type: string
+          nutritional_context: string | null
+          protein: number | null
+          recipe_id: string | null
         }
         Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          id: string
-          updated_at?: string
-          username?: string | null
+          calories?: number | null
+          carbs?: number | null
+          custom_title?: string | null
+          date: string
+          fat?: number | null
+          id?: string
+          meal_plan_id: string
+          meal_type: string
+          nutritional_context?: string | null
+          protein?: number | null
+          recipe_id?: string | null
         }
         Update: {
-          avatar_url?: string | null
+          calories?: number | null
+          carbs?: number | null
+          custom_title?: string | null
+          date?: string
+          fat?: number | null
+          id?: string
+          meal_plan_id?: string
+          meal_type?: string
+          nutritional_context?: string | null
+          protein?: number | null
+          recipe_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plan_items_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_items_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_plans: {
+        Row: {
+          created_at: string
+          id: string
+          status: string
+          user_id: string
+          week_end_date: string
+          week_start_date: string
+        }
+        Insert: {
           created_at?: string
           id?: string
+          status?: string
+          user_id: string
+          week_end_date: string
+          week_start_date: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          status?: string
+          user_id?: string
+          week_end_date?: string
+          week_start_date?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          activity_level: string | null
+          age: number | null
+          avatar_url: string | null
+          bmr: number | null
+          created_at: string
+          dietary_preferences: string[] | null
+          fitness_goal: string | null
+          food_allergies: string[] | null
+          foods_to_avoid: string[] | null
+          gender: string | null
+          height: number | null
+          ical_feed_url: string | null
+          id: string
+          meal_complexity: string | null
+          nutritional_theory: string | null
+          preferred_cuisines: string[] | null
+          target_weight: number | null
+          updated_at: string
+          username: string | null
+          weight: number | null
+        }
+        Insert: {
+          activity_level?: string | null
+          age?: number | null
+          avatar_url?: string | null
+          bmr?: number | null
+          created_at?: string
+          dietary_preferences?: string[] | null
+          fitness_goal?: string | null
+          food_allergies?: string[] | null
+          foods_to_avoid?: string[] | null
+          gender?: string | null
+          height?: number | null
+          ical_feed_url?: string | null
+          id: string
+          meal_complexity?: string | null
+          nutritional_theory?: string | null
+          preferred_cuisines?: string[] | null
+          target_weight?: number | null
           updated_at?: string
           username?: string | null
+          weight?: number | null
+        }
+        Update: {
+          activity_level?: string | null
+          age?: number | null
+          avatar_url?: string | null
+          bmr?: number | null
+          created_at?: string
+          dietary_preferences?: string[] | null
+          fitness_goal?: string | null
+          food_allergies?: string[] | null
+          foods_to_avoid?: string[] | null
+          gender?: string | null
+          height?: number | null
+          ical_feed_url?: string | null
+          id?: string
+          meal_complexity?: string | null
+          nutritional_theory?: string | null
+          preferred_cuisines?: string[] | null
+          target_weight?: number | null
+          updated_at?: string
+          username?: string | null
+          weight?: number | null
         }
         Relationships: []
       }
