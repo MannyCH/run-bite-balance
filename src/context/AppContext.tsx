@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { addDays, subDays, startOfWeek, format } from "date-fns";
 import { mockMeals, mockRuns, mockRecipes } from "../data/mockData";
@@ -101,6 +100,7 @@ const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
 const saveToStorage = <T,>(key: string, value: T): void => {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    console.log(`Saved ${key} to localStorage`, value);
   } catch (error) {
     console.error(`Error saving ${key} to localStorage:`, error);
   }
@@ -127,6 +127,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
   useEffect(() => {
     saveToStorage('recipes', recipes);
+    console.log("Recipes updated in state:", recipes.length);
   }, [recipes]);
 
   // Automatically import runs when the component mounts

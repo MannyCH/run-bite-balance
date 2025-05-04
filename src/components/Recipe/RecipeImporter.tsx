@@ -78,7 +78,7 @@ const RecipeImporter: React.FC = () => {
 
     try {
       const recipes = await extractRecipesFromZip(file);
-      console.log("✅ Extracted recipes:", recipes);
+      console.log("✅ Extracted recipes:", recipes.length, recipes);
       
       clearInterval(progressInterval);
       setProgressValue(100);
@@ -95,6 +95,8 @@ const RecipeImporter: React.FC = () => {
       }
 
       importRecipes(recipes);
+      console.log("✅ Recipes imported to context state");
+      
       setImportStatus('success');
       setImportMessage(`${recipes.length} recipes have been imported successfully.`);
       toast({
