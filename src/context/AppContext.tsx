@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { addDays, subDays, startOfWeek, format } from "date-fns";
 import { mockMeals, mockRuns, mockRecipes } from "../data/mockData";
@@ -218,15 +217,26 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         created_at: new Date().toISOString()
       }));
       
-      // Insert recipes into Supabase
-      const { data, error } = await supabase
+      // Fix: Modified Supabase query to handle the insert operation correctly
+      // First insert the data
+      const { error: insertError } = await supabase
         .from('recipes')
-        .insert(recipesWithIds)
-        .select();
+        .insert(recipesWithIds);
       
-      if (error) {
-        console.error('Error inserting recipes to Supabase:', error);
-        throw new Error(`Failed to save recipes: ${error.message}`);
+      if (insertError) {
+        console.error('Error inserting recipes to Supabase:', insertError);
+        throw new Error(`Failed to save recipes: ${insertError.message}`);
+      }
+      
+      // Then fetch the newly inserted data in a separate query
+      const { data, error: selectError } = await supabase
+        .from('recipes')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(newRecipes.length);
+      
+      if (selectError) {
+        console.error('Error fetching inserted recipes:', selectError);
       }
       
       if (data) {
