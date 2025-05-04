@@ -1,9 +1,20 @@
-
 import type { default as JSZip } from 'jszip';
 import { uploadImageToSupabase } from './supabaseStorage';
 
 // Define the progress callback type
 export type ProgressCallback = (message: string, percent: number) => void;
+
+const BATCH_SIZE = 1;
+const BATCH_DELAY = 200; // ms between batches
+const UPLOAD_TIMEOUT = 10000; // ms
+
+// Sanitize filenames: replaces spaces, umlauts, special chars
+const sanitizeFilename = (name: string): string =>
+  name
+    .normalize("NFD")                   // convert e.g. ö → o + ¨
+    .replace(/[\u0300-\u036f]/g, "")   // remove accent marks
+    .replace(/\s+/g, "_")              // replace spaces with underscores
+    .replace(/[^a-zA-Z0-9_.-]/g, "");  // remove unsafe characters
 
 // Helper: timeout wrapper
 const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
@@ -28,7 +39,12 @@ const retryUpload = async (
 ): Promise<string | null> => {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const url = await withTimeout(uploadImageToSupabase(fileName, blob), UPLOAD_TIMEOUT);
+      const ext = fileName.split(".").pop() || "jpg";
+      const base = fileName.split("/").pop()?.split(".")[0] || `recipe-${Date.now()}`;
+      const safeName = sanitizeFilename(base);
+      const safePath = `${safeName}.${ext}`;
+
+      const url = await withTimeout(uploadImageToSupabase(safePath, blob), UPLOAD_TIMEOUT);
       if (url) return url;
     } catch (err) {
       console.warn(`❌ Upload failed (attempt ${attempt + 1}) for ${fileName}:`, err);
@@ -38,10 +54,6 @@ const retryUpload = async (
   }
   return null;
 };
-
-const BATCH_SIZE = 1;
-const BATCH_DELAY = 200; // ms between batches
-const UPLOAD_TIMEOUT = 10000; // ms
 
 /**
  * Safely processes and uploads image files from ZIP to Supabase
@@ -77,84 +89,4 @@ export const processImagesFromZip = async (
           console.error(`❌ Error processing image ${fileName}:`, err);
         } finally {
           processedImages++;
-          if (progressCallback) {
-            const percent = 20 + (processedImages / imageFiles.length) * 30;
-            progressCallback(
-              `Uploaded ${processedImages}/${imageFiles.length} images`,
-              Math.round(percent)
-            );
-          }
-        }
-      })
-    );
-
-    await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY));
-  }
-
-  return imageMap;
-};
-
-/**
- * Main function to extract recipes and related images from a ZIP file
- */
-export const extractRecipesFromZip = async (
-  file: File,
-  progressCallback?: ProgressCallback
-): Promise<any[]> => {
-  // Import JSZip dynamically to improve initial load time
-  const JSZip = (await import('jszip')).default;
-  const { readFileAsArrayBuffer } = await import('./zipFileReader');
-  const { parseRecipesFromJSON } = await import('./recipeParser');
-  
-  try {
-    if (progressCallback) {
-      progressCallback("Reading ZIP file...", 5);
-    }
-    
-    // Read the file as an ArrayBuffer
-    const fileBuffer = await readFileAsArrayBuffer(file);
-    
-    // Load the ZIP file contents
-    if (progressCallback) {
-      progressCallback("Unzipping contents...", 10);
-    }
-    const zipContents = await JSZip.loadAsync(fileBuffer);
-    
-    // Identify JSON and image files
-    const jsonFiles: string[] = [];
-    const imageFiles: string[] = [];
-    
-    Object.keys(zipContents.files).forEach((fileName) => {
-      if (!zipContents.files[fileName].dir) {
-        if (fileName.toLowerCase().endsWith(".json")) {
-          jsonFiles.push(fileName);
-        } else if (/\.(jpe?g|png|gif|webp|avif)$/i.test(fileName)) {
-          imageFiles.push(fileName);
-        }
-      }
-    });
-    
-    if (progressCallback) {
-      progressCallback(`Found ${jsonFiles.length} recipes and ${imageFiles.length} images`, 15);
-    }
-    
-    // Process and upload images first
-    const imageMap = await processImagesFromZip(zipContents, imageFiles, progressCallback);
-    
-    // Process recipe JSON files
-    if (progressCallback) {
-      progressCallback("Processing recipe data...", 60);
-    }
-    
-    const recipes = await parseRecipesFromJSON(zipContents, jsonFiles, imageMap, progressCallback);
-    
-    if (progressCallback) {
-      progressCallback("Recipe import complete!", 100);
-    }
-    
-    return recipes;
-  } catch (error) {
-    console.error("Error extracting recipes from ZIP:", error);
-    throw new Error(`Failed to process ZIP: ${error instanceof Error ? error.message : String(error)}`);
-  }
-};
+          if (p
