@@ -19,6 +19,7 @@ export interface Database {
           carbs: number
           fat: number
           imgurl: string | null // Lowercase column name as in the database
+          is_blob_url: boolean | null // Track if the image was a blob URL
           ingredients: string[] | null
           instructions: string[] | null
           categories: string[] | null
@@ -34,6 +35,7 @@ export interface Database {
           carbs: number
           fat: number
           imgurl?: string | null // Lowercase column name as in the database
+          is_blob_url?: boolean | null // Track if the image was a blob URL
           ingredients?: string[] | null
           instructions?: string[] | null
           categories?: string[] | null
@@ -49,6 +51,7 @@ export interface Database {
           carbs?: number
           fat?: number
           imgurl?: string | null // Lowercase column name as in the database
+          is_blob_url?: boolean | null // Track if the image was a blob URL
           ingredients?: string[] | null
           instructions?: string[] | null
           categories?: string[] | null

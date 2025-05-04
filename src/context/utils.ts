@@ -34,16 +34,13 @@ export const recipeToDbFormat = async (recipe: any) => {
   
   // Handle image URL - if it's a blob URL, we need to convert it
   let imageUrl = recipe.imgUrl;
-  if (imageUrl && imageUrl.startsWith('blob:')) {
-    console.log(`Recipe "${recipe.title}" has blob URL image that needs to be processed`);
-    try {
-      // Leave the blob URL as is - it will be displayed during this session
-      // but won't persist after refresh - we log this for debugging
-      console.log(`Note: Blob URL ${imageUrl} for recipe "${recipe.title}" will not persist after page refresh`);
-    } catch (error) {
-      console.error(`Failed to process image for recipe "${recipe.title}":`, error);
-      imageUrl = null; // Reset to null if there was an error
-    }
+  const isBlobUrl = imageUrl && imageUrl.startsWith('blob:');
+  
+  if (isBlobUrl) {
+    console.log(`Recipe "${recipe.title}" has blob URL image that cannot be persisted to database`);
+    // We can't store blob URLs in the database as they're temporary
+    // Instead, we'll set to null in the database but track the blob status
+    imageUrl = null;
   }
   
   return {
@@ -54,6 +51,7 @@ export const recipeToDbFormat = async (recipe: any) => {
     carbs: recipe.carbs,
     fat: recipe.fat,
     imgurl: imageUrl, // Map from camelCase to lowercase for database
+    is_blob_url: isBlobUrl, // Store whether this was originally a blob URL
     ingredients: recipe.ingredients,
     instructions: recipe.instructions,
     categories: recipe.categories,
@@ -75,6 +73,7 @@ export const dbToRecipeFormat = (recipe: any) => {
     carbs: recipe.carbs,
     fat: recipe.fat,
     imgUrl: recipe.imgurl, // Map from lowercase database field to camelCase
+    isBlobUrl: recipe.is_blob_url || false, // Track blob URL status
     ingredients: recipe.ingredients,
     instructions: recipe.instructions,
     categories: recipe.categories,

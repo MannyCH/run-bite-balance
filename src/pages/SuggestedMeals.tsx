@@ -28,6 +28,58 @@ const SuggestedMeals: React.FC = () => {
     });
   };
 
+  // Helper function for rendering recipe image with fallback
+  const renderRecipeImage = (recipe: any) => {
+    // If there's no image, don't render the image container
+    if (!recipe.imgUrl) {
+      return (
+        <div className="h-48 overflow-hidden relative bg-gray-100 flex items-center justify-center">
+          <div className="text-4xl font-bold text-gray-500">
+            {recipe.title.charAt(0).toUpperCase()}
+          </div>
+        </div>
+      );
+    }
+    
+    // Check if it was a blob URL that needs special handling
+    if (recipe.isBlobUrl) {
+      // For blob URLs that were saved but won't work after refresh, show a fallback
+      return (
+        <div className="h-48 overflow-hidden relative bg-gray-100 flex items-center justify-center">
+          <div className="text-4xl font-bold text-gray-500">
+            {recipe.title.charAt(0).toUpperCase()}
+          </div>
+          <span className="absolute bottom-2 right-2 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">
+            Image unavailable after refresh
+          </span>
+        </div>
+      );
+    }
+    
+    // Regular image with error handling
+    return (
+      <div className="h-48 overflow-hidden relative bg-gray-100">
+        <img
+          src={recipe.imgUrl}
+          alt={recipe.title}
+          className="w-full h-full object-cover transition-transform hover:scale-105"
+          onError={(e) => {
+            // If image fails to load, show recipe title as placeholder
+            (e.target as HTMLImageElement).style.display = 'none';
+            // Add a fallback display of the first letter of the recipe title
+            const parent = (e.target as HTMLImageElement).parentNode as HTMLElement;
+            if (parent) {
+              const placeholderDiv = document.createElement('div');
+              placeholderDiv.className = 'w-full h-full flex items-center justify-center bg-gray-200 text-4xl font-bold text-gray-500';
+              placeholderDiv.textContent = recipe.title.charAt(0).toUpperCase();
+              parent.appendChild(placeholderDiv);
+            }
+          }}
+        />
+      </div>
+    );
+  };
+
   return (
     <MainLayout>
       <div className="mb-8">
@@ -48,27 +100,7 @@ const SuggestedMeals: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {recipes.map((recipe) => (
             <Card key={recipe.id} className="overflow-hidden flex flex-col">
-              {recipe.imgUrl && (
-                <div className="h-48 overflow-hidden relative bg-gray-100">
-                  <img
-                    src={recipe.imgUrl}
-                    alt={recipe.title}
-                    className="w-full h-full object-cover transition-transform hover:scale-105"
-                    onError={(e) => {
-                      // If image fails to load, show recipe title as placeholder
-                      (e.target as HTMLImageElement).style.display = 'none';
-                      // Add a fallback display of the first letter of the recipe title
-                      const parent = (e.target as HTMLImageElement).parentNode as HTMLElement;
-                      if (parent) {
-                        const placeholderDiv = document.createElement('div');
-                        placeholderDiv.className = 'w-full h-full flex items-center justify-center bg-gray-200 text-4xl font-bold text-gray-500';
-                        placeholderDiv.textContent = recipe.title.charAt(0).toUpperCase();
-                        parent.appendChild(placeholderDiv);
-                      }
-                    }}
-                  />
-                </div>
-              )}
+              {renderRecipeImage(recipe)}
               <CardHeader>
                 <CardTitle>{recipe.title}</CardTitle>
                 <CardDescription>

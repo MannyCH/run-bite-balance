@@ -72,6 +72,11 @@ export const loadRecipes = async (): Promise<Recipe[]> => {
 
     if (data) {
       console.log('Loaded recipes from Supabase:', data.length);
+      // Check if we have any blob URLs that won't work after refresh
+      const recipesWithBlobUrls = data.filter(r => r.is_blob_url).length;
+      if (recipesWithBlobUrls > 0) {
+        console.log(`Found ${recipesWithBlobUrls} recipes with blob URLs that won't display correctly`);
+      }
       return data.map(dbToRecipeFormat);
     }
     
