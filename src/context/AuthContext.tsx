@@ -250,7 +250,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // But we'll call signOut just to be sure
       await signOut();
       
-      navigate("/auth");
+      // Remove the navigate call as it's not available in this context
+      // The AuthGuard component will handle redirecting unauthenticated users
       return { error: null };
     } catch (error: any) {
       console.error("Error deleting account:", error);
