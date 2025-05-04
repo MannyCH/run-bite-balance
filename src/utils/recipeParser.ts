@@ -1,86 +1,68 @@
 
-import { Recipe } from "@/context/AppContext";
+import type { ProgressCallback } from './zipProcessor';
 
 /**
- * Parse recipe content from a text file
+ * Parse and process recipe JSON files from a ZIP archive
  */
-export const parseRecipeFromText = (content: string, baseName: string, imageUrl?: string): Recipe | null => {
-  try {
-    const lines = content.split("\n").map(line => line.trim());
+export const parseRecipesFromJSON = async (
+  zipContents: any,
+  jsonFiles: string[],
+  imageMap: Record<string, string>,
+  progressCallback?: ProgressCallback
+): Promise<any[]> => {
+  const recipes: any[] = [];
+  let processedRecipes = 0;
 
-    if (lines.length < 3) return null;
+  for (const fileName of jsonFiles) {
+    try {
+      // Get the JSON content
+      const jsonContent = await zipContents.files[fileName].async("text");
+      const recipeData = JSON.parse(jsonContent);
 
-    const title = lines[0];
+      // Basic validation - ensure it has at least a title
+      if (!recipeData.title) {
+        console.warn(`⚠️ Skipping invalid recipe in ${fileName}: Missing title`);
+        continue;
+      }
 
-    const ingredientsIndex = lines.findIndex(line => line === "Ingredients:");
-    const instructionsIndex = lines.findIndex(line => line === "Instructions:");
-    const servingsIndex = lines.findIndex(line => line === "Servings:");
-    const categoriesIndex = lines.findIndex(line => line === "Categories:");
-    const websiteIndex = lines.findIndex(line => line === "Website:");
+      // Process the recipe - normalize fields
+      const processedRecipe = {
+        id: crypto.randomUUID(),
+        title: recipeData.title,
+        calories: recipeData.calories || 0,
+        protein: recipeData.protein || 0,
+        carbs: recipeData.carbs || 0,
+        fat: recipeData.fat || 0,
+        ingredients: Array.isArray(recipeData.ingredients) ? recipeData.ingredients : [],
+        instructions: Array.isArray(recipeData.instructions) ? recipeData.instructions : [],
+        categories: Array.isArray(recipeData.categories) ? recipeData.categories : [],
+        website: recipeData.website || null,
+        servings: recipeData.servings || null,
+        imgurl: null, // Will be populated below if an image match is found
+        is_blob_url: false,
+        created_at: new Date().toISOString()
+      };
 
-    if (ingredientsIndex === -1 || instructionsIndex === -1) return null;
+      // Match recipe with image using naming conventions
+      const baseName = fileName.split("/").pop()?.split(".")[0] || "";
+      if (imageMap[baseName]) {
+        processedRecipe.imgurl = imageMap[baseName];
+      }
 
-    const ingredients: string[] = [];
-    const instructions: string[] = [];
-    let categories: string[] = [];
-    let website: string | undefined = undefined;
-    let servings: string | undefined = undefined;
-
-    let currentIndex = ingredientsIndex + 1;
-    // Parse ingredients
-    while (currentIndex < instructionsIndex && currentIndex < lines.length) {
-      const line = lines[currentIndex].trim();
-      if (line) ingredients.push(line);
-      currentIndex++;
-    }
-
-    // Parse instructions
-    currentIndex = instructionsIndex + 1;
-    const nextSection = Math.min(
-      ...[servingsIndex, categoriesIndex, websiteIndex].filter(i => i > 0)
-    );
-    
-    while (currentIndex < (nextSection > 0 ? nextSection : lines.length) && currentIndex < lines.length) {
-      const line = lines[currentIndex].trim();
-      if (line) instructions.push(line);
-      currentIndex++;
-    }
-
-    // Parse servings
-    if (servingsIndex > 0) {
-      servings = lines[servingsIndex + 1]?.trim();
-    }
-
-    // Parse categories
-    if (categoriesIndex > 0) {
-      const categoriesLine = lines[categoriesIndex + 1]?.trim();
-      if (categoriesLine) {
-        categories = categoriesLine.split(',').map(cat => cat.trim());
+      recipes.push(processedRecipe);
+    } catch (err) {
+      console.error(`❌ Error processing recipe ${fileName}:`, err);
+    } finally {
+      processedRecipes++;
+      if (progressCallback) {
+        const percent = 60 + (processedRecipes / jsonFiles.length) * 30;
+        progressCallback(
+          `Processed ${processedRecipes}/${jsonFiles.length} recipes`,
+          Math.round(percent)
+        );
       }
     }
-
-    // Parse website
-    if (websiteIndex > 0) {
-      website = lines[websiteIndex + 1]?.trim();
-    }
-
-    // Create recipe object
-    return {
-      id: crypto.randomUUID(),
-      title,
-      calories: 0, // Default values
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      imgUrl: imageUrl,
-      ingredients,
-      instructions,
-      categories,
-      website,
-      servings
-    };
-  } catch (err) {
-    console.error(`Error parsing recipe:`, err);
-    return null;
   }
+
+  return recipes;
 };
