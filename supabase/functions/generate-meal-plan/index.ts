@@ -23,7 +23,7 @@ async function generateAIMealPlan(
   try {
     console.log(`Generating AI meal plan for user ${userId} from ${startDate} to ${endDate}`);
     
-    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY_PERSONAL");
     if (!openaiApiKey) {
       console.error("OpenAI API key not found");
       throw new Error("OpenAI API key not configured");
