@@ -14,6 +14,7 @@ import PastMeals from "./pages/PastMeals";
 import SuggestedMeals from "./pages/SuggestedMeals";
 import PlannedRuns from "./pages/PlannedRuns";
 import Auth from "./pages/Auth";
+import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
               <Route path="/past-meals" element={<AuthGuard><PastMeals /></AuthGuard>} />
               <Route path="/suggested-meals" element={<AuthGuard><SuggestedMeals /></AuthGuard>} />
               <Route path="/planned-runs" element={<AuthGuard><PlannedRuns /></AuthGuard>} />
+              <Route path="/account" element={<AuthGuard><Account /></AuthGuard>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </TooltipProvider>

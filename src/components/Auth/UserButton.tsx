@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/AuthContext";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const UserButton: React.FC = () => {
@@ -29,6 +29,10 @@ const UserButton: React.FC = () => {
     navigate("/auth");
   };
 
+  const handleAccountSettings = () => {
+    navigate("/account");
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -45,6 +49,10 @@ const UserButton: React.FC = () => {
         <DropdownMenuItem disabled className="flex items-center gap-2">
           <User className="h-4 w-4" />
           <span>{user?.email}</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleAccountSettings} className="flex items-center gap-2">
+          <Settings className="h-4 w-4" />
+          <span>Account Settings</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleSignOut} className="flex items-center gap-2 text-red-500">
           <LogOut className="h-4 w-4" />

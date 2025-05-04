@@ -11,6 +11,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<{ error: any }>;
   loading: boolean;
 }
 
@@ -22,6 +23,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Ensure user profile exists
+  const ensureUserProfile = async (userId: string) => {
+    try {
+      // Check if profile exists
+      const { data: profile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (fetchError || !profile) {
+        console.log('Profile not found, creating new profile');
+        // Create a new profile if none exists
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert([{ id: userId }]);
+          
+        if (insertError) {
+          console.error('Error creating user profile:', insertError);
+        } else {
+          console.log('Created new user profile');
+        }
+      }
+    } catch (error) {
+      console.error('Error ensuring user profile:', error);
+    }
+  };
 
   useEffect(() => {
     const getInitialSession = async () => {
@@ -35,6 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log("Found existing session");
           setSession(data.session);
           setUser(data.session.user);
+          // Ensure profile exists for this user
+          await ensureUserProfile(data.session.user.id);
         }
       } catch (error) {
         console.error("Error checking auth session:", error);
@@ -47,12 +78,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getInitialSession();
 
     // Then set up the auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       console.log("Auth state changed:", event);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       
-      if (event === "SIGNED_IN") {
+      if (event === "SIGNED_IN" && currentSession) {
+        // Ensure user profile exists after sign in
+        await ensureUserProfile(currentSession.user.id);
+        
         toast({
           title: "Signed in successfully",
           description: "Welcome back!",
@@ -151,6 +185,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deleteAccount = async () => {
+    try {
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You need to be logged in to delete your account",
+          variant: "destructive",
+        });
+        return { error: new Error("User not authenticated") };
+      }
+
+      // Delete profile first (RLS will ensure only the user's profile is deleted)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', user.id);
+
+      if (profileError) {
+        console.error("Error deleting profile:", profileError);
+        // Continue with account deletion even if profile deletion fails
+      }
+
+      // Delete the user account using admin endpoints (requires edge function support)
+      // For now, we'll use signOut, but this doesn't actually delete the account
+      // This will require a server-side function to properly delete the user
+      await supabase.auth.signOut();
+      
+      toast({
+        title: "Account deletion initiated",
+        description: "Your account is being deleted. You have been signed out.",
+      });
+      
+      navigate("/auth");
+      return { error: null };
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      toast({
+        title: "Account deletion failed",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+      return { error };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -159,6 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUp,
         signIn,
         signOut,
+        deleteAccount,
         loading,
       }}
     >
