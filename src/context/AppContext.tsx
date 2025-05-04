@@ -1,7 +1,9 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { addDays, subDays, startOfWeek, format } from "date-fns";
 import { mockMeals, mockRuns, mockRecipes } from "../data/mockData";
 import { fetchICalRuns } from "@/utils/icalUtils";
+import { supabase } from "@/lib/supabase";
 
 // Types
 export interface Meal {
@@ -60,7 +62,8 @@ interface AppContextType {
   planRecipeAsMeal: (recipe: Recipe, date: Date) => void;
   importRunsFromIcal: (url: string) => Promise<void>;
   isLoadingImportedRuns: boolean;
-  importRecipes: (recipes: Recipe[]) => void;
+  importRecipes: (recipes: Recipe[]) => Promise<void>;
+  isLoadingRecipes: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -82,9 +85,38 @@ const ICAL_URL = "https://runningcoach.me/calendar/ical/e735d0722a98c308a459f602
 export const AppProvider = ({ children }: AppProviderProps) => {
   const [meals, setMeals] = useState<Meal[]>(mockMeals);
   const [runs, setRuns] = useState<Run[]>(mockRuns);
-  const [recipes, setRecipes] = useState<Recipe[]>(mockRecipes);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoadingImportedRuns, setIsLoadingImportedRuns] = useState<boolean>(false);
+  const [isLoadingRecipes, setIsLoadingRecipes] = useState<boolean>(false);
+
+  // Load recipes from Supabase when component mounts
+  useEffect(() => {
+    const fetchRecipes = async () => {
+      setIsLoadingRecipes(true);
+      try {
+        const { data, error } = await supabase
+          .from('recipes')
+          .select('*');
+
+        if (error) {
+          console.error('Error fetching recipes:', error);
+          return;
+        }
+
+        if (data) {
+          console.log('Loaded recipes from Supabase:', data.length);
+          setRecipes(data as Recipe[]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch recipes:', error);
+      } finally {
+        setIsLoadingRecipes(false);
+      }
+    };
+
+    fetchRecipes();
+  }, []);
 
   // Automatically import runs when the component mounts
   useEffect(() => {
@@ -174,8 +206,40 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     }
   };
 
-  const importRecipes = (newRecipes: Recipe[]) => {
-    setRecipes([...recipes, ...newRecipes]);
+  const importRecipes = async (newRecipes: Recipe[]): Promise<void> => {
+    setIsLoadingRecipes(true);
+    try {
+      console.log('Importing recipes to Supabase:', newRecipes.length);
+      
+      // Add IDs if not present and prepare for Supabase
+      const recipesWithIds = newRecipes.map(recipe => ({
+        ...recipe,
+        id: recipe.id || Math.random().toString(36).substr(2, 9),
+        created_at: new Date().toISOString()
+      }));
+      
+      // Insert recipes into Supabase
+      const { data, error } = await supabase
+        .from('recipes')
+        .insert(recipesWithIds)
+        .select();
+      
+      if (error) {
+        console.error('Error inserting recipes to Supabase:', error);
+        throw new Error(`Failed to save recipes: ${error.message}`);
+      }
+      
+      if (data) {
+        console.log('Successfully imported recipes:', data.length);
+        // Update the local state with the new recipes from Supabase
+        setRecipes(prev => [...prev, ...(data as Recipe[])]);
+      }
+    } catch (error) {
+      console.error('Error in importRecipes:', error);
+      throw error;
+    } finally {
+      setIsLoadingRecipes(false);
+    }
   };
 
   return (
@@ -196,6 +260,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         importRunsFromIcal,
         isLoadingImportedRuns,
         importRecipes,
+        isLoadingRecipes,
       }}
     >
       {children}
