@@ -40,6 +40,9 @@ export interface Recipe {
   imgUrl?: string;
   ingredients?: string[];
   instructions?: string[];
+  categories?: string[];
+  website?: string;
+  servings?: string;
 }
 
 interface AppContextType {

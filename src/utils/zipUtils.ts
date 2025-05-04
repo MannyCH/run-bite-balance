@@ -44,6 +44,7 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
       
       if (lines.length < 3) return; // Skip invalid files
       
+      // First line is the title (no explicit "Title:" section)
       const title = lines[0];
       
       // Find section markers

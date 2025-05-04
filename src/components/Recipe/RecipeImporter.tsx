@@ -67,11 +67,11 @@ const RecipeImporter: React.FC = () => {
       </p>
       
       <div className="text-xs bg-gray-100 p-3 rounded mb-4 font-mono">
-        Recipe Title<br />
+        Auberginensalat Mit Ohne Alles<br />
         <br />
         Ingredients:<br />
-        Ingredient 1<br />
-        Ingredient 2<br />
+        Etwa 1/2 Aubergine feines Meersalz<br />
+        etwa 100 g Naturjoghurt<br />
         <br />
         Instructions:<br />
         Step 1<br />
