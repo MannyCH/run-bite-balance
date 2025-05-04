@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { addDays, subDays, startOfWeek, format } from "date-fns";
 import { mockMeals, mockRuns, mockRecipes } from "../data/mockData";
@@ -206,6 +205,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     }
   };
 
+  // Updated importRecipes function to match the table structure in Supabase
   const importRecipes = async (newRecipes: Recipe[]): Promise<void> => {
     setIsLoadingRecipes(true);
     try {
@@ -219,12 +219,17 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       // Add IDs if not present and prepare for Supabase
       const recipesWithIds = newRecipes.map(recipe => ({
         ...recipe,
-        id: recipe.id || Math.random().toString(36).substr(2, 9),
+        id: recipe.id || crypto.randomUUID(),
+        // Ensure the property names match exactly with the database columns
+        // Supabase column names are lowercase, so we need to adjust
+        imgurl: recipe.imgUrl, // Match the lowercase column name in database
         created_at: new Date().toISOString()
       }));
       
+      console.log('Prepared recipes for insert:', recipesWithIds[0]);
+      
       // First insert the data
-      const { error: insertError } = await supabase
+      const { data, error: insertError } = await supabase
         .from('recipes')
         .insert(recipesWithIds);
       
@@ -236,18 +241,36 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       console.log('Successfully inserted recipes, now fetching them back');
       
       // Then fetch all recipes in a separate query to update state
-      const { data, error: selectError } = await supabase
+      const { data: fetchedData, error: selectError } = await supabase
         .from('recipes')
         .select('*');
       
       if (selectError) {
         console.error('Error fetching recipes after insert:', selectError);
+        throw new Error(`Failed to fetch recipes: ${selectError.message}`);
       }
       
-      if (data) {
-        console.log('Successfully loaded all recipes:', data.length);
+      if (fetchedData) {
+        console.log('Successfully loaded all recipes:', fetchedData.length);
+        
+        // Map the fetched data back to our Recipe interface format
+        const mappedRecipes = fetchedData.map(recipe => ({
+          id: recipe.id,
+          title: recipe.title,
+          calories: recipe.calories,
+          protein: recipe.protein,
+          carbs: recipe.carbs,
+          fat: recipe.fat,
+          imgUrl: recipe.imgurl, // Map from lowercase database field to camelCase
+          ingredients: recipe.ingredients,
+          instructions: recipe.instructions,
+          categories: recipe.categories,
+          website: recipe.website,
+          servings: recipe.servings
+        }));
+        
         // Replace the entire recipes state with the fresh data from Supabase
-        setRecipes(data as Recipe[]);
+        setRecipes(mappedRecipes);
       }
     } catch (error) {
       console.error('Error in importRecipes:', error);

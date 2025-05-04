@@ -18,7 +18,7 @@ export interface Database {
           protein: number
           carbs: number
           fat: number
-          imgUrl?: string
+          imgurl?: string // Note the lowercase 'url' to match our database
           ingredients?: string[]
           instructions?: string[]
           categories?: string[]
@@ -33,7 +33,7 @@ export interface Database {
           protein: number
           carbs: number
           fat: number
-          imgUrl?: string
+          imgurl?: string // Note the lowercase 'url' to match our database
           ingredients?: string[]
           instructions?: string[]
           categories?: string[]
@@ -48,7 +48,7 @@ export interface Database {
           protein?: number
           carbs?: number
           fat?: number
-          imgUrl?: string
+          imgurl?: string // Note the lowercase 'url' to match our database
           ingredients?: string[]
           instructions?: string[]
           categories?: string[]

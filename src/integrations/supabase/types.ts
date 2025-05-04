@@ -33,6 +33,54 @@ export type Database = {
         }
         Relationships: []
       }
+      recipes: {
+        Row: {
+          calories: number
+          carbs: number
+          categories: string[] | null
+          created_at: string
+          fat: number
+          id: string
+          imgurl: string | null
+          ingredients: string[] | null
+          instructions: string[] | null
+          protein: number
+          servings: string | null
+          title: string
+          website: string | null
+        }
+        Insert: {
+          calories?: number
+          carbs?: number
+          categories?: string[] | null
+          created_at?: string
+          fat?: number
+          id?: string
+          imgurl?: string | null
+          ingredients?: string[] | null
+          instructions?: string[] | null
+          protein?: number
+          servings?: string | null
+          title: string
+          website?: string | null
+        }
+        Update: {
+          calories?: number
+          carbs?: number
+          categories?: string[] | null
+          created_at?: string
+          fat?: number
+          id?: string
+          imgurl?: string | null
+          ingredients?: string[] | null
+          instructions?: string[] | null
+          protein?: number
+          servings?: string | null
+          title?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
