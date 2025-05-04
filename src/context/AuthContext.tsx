@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email,
         password,
         options: {
-          // Make sure to use the actual deployed URL or preview URL
+          // Use the actual URL of the app
           emailRedirectTo: window.location.origin
         }
       });
@@ -187,7 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const deleteAccount = async () => {
     try {
-      if (!user) {
+      if (!user || !session) {
         toast({
           title: "Error",
           description: "You need to be logged in to delete your account",
@@ -196,26 +196,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: new Error("User not authenticated") };
       }
 
-      // Delete profile first (RLS will ensure only the user's profile is deleted)
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', user.id);
+      // Call our edge function to delete the user account
+      const { error } = await supabase.functions.invoke('delete-account', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        }
+      });
 
-      if (profileError) {
-        console.error("Error deleting profile:", profileError);
-        // Continue with account deletion even if profile deletion fails
+      if (error) {
+        console.error("Error deleting account:", error);
+        toast({
+          title: "Account deletion failed",
+          description: error.message || "An unexpected error occurred",
+          variant: "destructive",
+        });
+        return { error };
       }
-
-      // Delete the user account using admin endpoints (requires edge function support)
-      // For now, we'll use signOut, but this doesn't actually delete the account
-      // This will require a server-side function to properly delete the user
-      await supabase.auth.signOut();
       
       toast({
-        title: "Account deletion initiated",
-        description: "Your account is being deleted. You have been signed out.",
+        title: "Account deleted successfully",
+        description: "Your account has been permanently deleted",
       });
+      
+      // The user should be automatically signed out after account deletion
+      // But we'll call signOut just to be sure
+      await signOut();
       
       navigate("/auth");
       return { error: null };
