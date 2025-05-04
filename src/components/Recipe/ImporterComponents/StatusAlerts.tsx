@@ -1,7 +1,8 @@
 
 import React from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { RefreshCcw, Check, X } from "lucide-react";
+import { RefreshCcw, Check, X, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface StatusAlertsProps {
   importStatus: 'idle' | 'processing' | 'success' | 'error' | 'stalled';
@@ -38,8 +39,20 @@ const StatusAlerts: React.FC<StatusAlertsProps> = ({ importStatus, importMessage
     return (
       <Alert variant="destructive">
         <X className="h-4 w-4" />
-        <AlertDescription>
-          {importMessage}
+        <AlertDescription className="flex flex-col gap-2">
+          <div>{importMessage}</div>
+          
+          {importMessage.includes("No JSON recipe files found") && (
+            <div className="text-sm mt-2 bg-gray-800 text-white p-3 rounded-md">
+              <div className="font-bold mb-1">ZIP file format requirements:</div>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Must contain at least one .json file</li>
+                <li>Each JSON file must have at minimum a "title" field</li>
+                <li>Optional fields: ingredients, instructions, calories, protein, etc.</li>
+                <li>Image files should share the same name as JSON files</li>
+              </ul>
+            </div>
+          )}
         </AlertDescription>
       </Alert>
     );

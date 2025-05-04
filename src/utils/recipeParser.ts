@@ -17,12 +17,30 @@ export const parseRecipesFromJSON = async (
     try {
       // Get the JSON content
       const jsonContent = await zipContents.files[fileName].async("text");
-      const recipeData = JSON.parse(jsonContent);
+      console.log(`Processing JSON file: ${fileName}, content length: ${jsonContent.length}`);
+      
+      // Try to parse JSON and handle potential errors
+      let recipeData;
+      try {
+        recipeData = JSON.parse(jsonContent);
+        console.log(`Successfully parsed JSON for ${fileName}: `, recipeData);
+      } catch (parseError) {
+        console.error(`Failed to parse JSON in ${fileName}:`, parseError);
+        console.log("JSON content sample:", jsonContent.substring(0, 200) + "...");
+        continue; // Skip this file if JSON is invalid
+      }
 
       // Basic validation - ensure it has at least a title
       if (!recipeData.title) {
         console.warn(`⚠️ Skipping invalid recipe in ${fileName}: Missing title`);
-        continue;
+        // Try to create a title from the filename if possible
+        const baseName = fileName.split("/").pop()?.split(".")[0] || "";
+        if (baseName) {
+          recipeData.title = baseName.replace(/_/g, " ").replace(/-/g, " ");
+          console.log(`Created title from filename: ${recipeData.title}`);
+        } else {
+          continue; // Skip if we can't even create a title
+        }
       }
 
       // Process the recipe - normalize fields
@@ -46,10 +64,12 @@ export const parseRecipesFromJSON = async (
       // Match recipe with image using naming conventions
       const baseName = fileName.split("/").pop()?.split(".")[0] || "";
       if (imageMap[baseName]) {
+        console.log(`Found matching image for recipe ${baseName}`);
         processedRecipe.imgurl = imageMap[baseName];
       }
 
       recipes.push(processedRecipe);
+      console.log(`Added recipe: ${processedRecipe.title}`);
     } catch (err) {
       console.error(`❌ Error processing recipe ${fileName}:`, err);
     } finally {
@@ -62,6 +82,10 @@ export const parseRecipesFromJSON = async (
         );
       }
     }
+  }
+
+  if (recipes.length === 0) {
+    console.warn("No valid recipes were found in the ZIP file.");
   }
 
   return recipes;

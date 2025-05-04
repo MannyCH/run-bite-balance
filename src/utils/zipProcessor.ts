@@ -129,22 +129,34 @@ export const extractRecipesFromZip = async (
     const jsonFiles: string[] = [];
     const imageFiles: string[] = [];
 
+    // Debug: Log all files in the ZIP
+    console.log("ZIP contents:", Object.keys(zipContents.files).map(f => ({ name: f, dir: zipContents.files[f].dir })));
+    
     Object.keys(zipContents.files).forEach((fileName) => {
       if (!zipContents.files[fileName].dir) {
         if (fileName.toLowerCase().endsWith(".json")) {
           jsonFiles.push(fileName);
+          console.log("Found JSON file:", fileName);
         } else if (/\.(jpe?g|png|gif|webp|avif)$/i.test(fileName)) {
           imageFiles.push(fileName);
+          console.log("Found image file:", fileName);
         }
       }
     });
 
     progressCallback?.(`Found ${jsonFiles.length} recipes and ${imageFiles.length} images`, 15);
+    console.log(`Found ${jsonFiles.length} JSON files and ${imageFiles.length} image files in ZIP`);
+
+    if (jsonFiles.length === 0) {
+      throw new Error("No JSON recipe files found in the ZIP. Please ensure your ZIP contains valid .json recipe files.");
+    }
 
     const imageMap = await processImagesFromZip(zipContents, imageFiles, progressCallback);
+    console.log("Processed image map:", Object.keys(imageMap).length);
 
     progressCallback?.("Processing recipe data...", 60);
     const recipes = await parseRecipesFromJSON(zipContents, jsonFiles, imageMap, progressCallback);
+    console.log("Processed recipes:", recipes.length);
 
     progressCallback?.("Recipe import complete!", 100);
     return recipes;
