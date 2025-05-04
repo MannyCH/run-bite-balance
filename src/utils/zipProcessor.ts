@@ -1,6 +1,6 @@
 
 import JSZip from "jszip";
-import { Recipe } from "@/context/AppContext";
+import { Recipe } from "@/context/types";
 import { readFileAsArrayBuffer } from "./zipFileReader";
 import { uploadImageToSupabase } from "./supabaseStorage";
 import { parseRecipeFromText } from "./recipeParser";

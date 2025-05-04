@@ -44,6 +44,7 @@ export type Database = {
           imgurl: string | null
           ingredients: string[] | null
           instructions: string[] | null
+          is_blob_url: boolean | null
           protein: number
           servings: string | null
           title: string
@@ -59,6 +60,7 @@ export type Database = {
           imgurl?: string | null
           ingredients?: string[] | null
           instructions?: string[] | null
+          is_blob_url?: boolean | null
           protein?: number
           servings?: string | null
           title: string
@@ -74,6 +76,7 @@ export type Database = {
           imgurl?: string | null
           ingredients?: string[] | null
           instructions?: string[] | null
+          is_blob_url?: boolean | null
           protein?: number
           servings?: string | null
           title?: string
