@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { format, addDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import RecipeImporter from "@/components/Recipe/RecipeImporter";
 
 const SuggestedMeals: React.FC = () => {
   const { recipes, selectedDate, planRecipeAsMeal } = useApp();
@@ -29,6 +30,8 @@ const SuggestedMeals: React.FC = () => {
           Discover recipes from your RecipeChef collection
         </p>
       </div>
+
+      <RecipeImporter />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {recipes.map((recipe) => (

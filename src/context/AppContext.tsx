@@ -57,6 +57,7 @@ interface AppContextType {
   planRecipeAsMeal: (recipe: Recipe, date: Date) => void;
   importRunsFromIcal: (url: string) => Promise<void>;
   isLoadingImportedRuns: boolean;
+  importRecipes: (recipes: Recipe[]) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -78,7 +79,7 @@ const ICAL_URL = "https://runningcoach.me/calendar/ical/e735d0722a98c308a459f602
 export const AppProvider = ({ children }: AppProviderProps) => {
   const [meals, setMeals] = useState<Meal[]>(mockMeals);
   const [runs, setRuns] = useState<Run[]>(mockRuns);
-  const [recipes] = useState<Recipe[]>(mockRecipes);
+  const [recipes, setRecipes] = useState<Recipe[]>(mockRecipes);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoadingImportedRuns, setIsLoadingImportedRuns] = useState<boolean>(false);
 
@@ -170,6 +171,10 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     }
   };
 
+  const importRecipes = (newRecipes: Recipe[]) => {
+    setRecipes([...recipes, ...newRecipes]);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -187,6 +192,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         planRecipeAsMeal,
         importRunsFromIcal,
         isLoadingImportedRuns,
+        importRecipes,
       }}
     >
       {children}
