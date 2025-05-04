@@ -38,7 +38,7 @@ export async function generateMealPlan({
         user_id: userId,
         week_start_date: startDate,
         week_end_date: endDate,
-        status: 'active',
+        status: 'active' as const, // Explicitly type as 'active'
         created_at: new Date().toISOString()
       }, {
         onConflict: 'user_id, week_start_date',
@@ -67,10 +67,17 @@ export async function generateMealPlan({
     // For now, we'll simulate this with a simpler algorithm based on available recipes
     const mealPlanItems = generateMealPlanItems(mealPlan.id, profile, recipes, startDate, endDate);
 
-    // Insert the meal plan items
+    // Insert the meal plan items - make sure each item has required fields
+    const completeItems = mealPlanItems.map(item => ({
+      ...item,
+      date: item.date, // Ensure date is always present
+      meal_plan_id: item.meal_plan_id, // Ensure meal_plan_id is always present
+      meal_type: item.meal_type, // Ensure meal_type is always present
+    }));
+
     const { data: savedItems, error: itemsError } = await supabase
       .from('meal_plan_items')
-      .insert(mealPlanItems)
+      .insert(completeItems)
       .select();
 
     if (itemsError) {
@@ -78,8 +85,18 @@ export async function generateMealPlan({
       return null;
     }
 
+    // Convert the returned data to the expected types
+    const typedMealPlan: MealPlan = {
+      id: mealPlan.id,
+      user_id: mealPlan.user_id,
+      week_start_date: mealPlan.week_start_date,
+      week_end_date: mealPlan.week_end_date,
+      created_at: mealPlan.created_at,
+      status: mealPlan.status as 'draft' | 'active',
+    };
+
     return {
-      mealPlan,
+      mealPlan: typedMealPlan,
       mealPlanItems: savedItems as MealPlanItem[]
     };
   } catch (error) {
@@ -95,8 +112,8 @@ function generateMealPlanItems(
   recipes: Recipe[],
   startDate: string,
   endDate: string
-): Partial<MealPlanItem>[] {
-  const mealPlanItems: Partial<MealPlanItem>[] = [];
+): MealPlanItem[] {
+  const mealPlanItems: MealPlanItem[] = [];
   
   // Calculate how many days we need to plan for
   const start = new Date(startDate);
@@ -281,6 +298,7 @@ function generateMealPlanItems(
       if (breakfast) {
         usedRecipeIds.push(breakfast.id);
         mealPlanItems.push({
+          id: crypto.randomUUID(), // Generate a temporary id
           meal_plan_id: mealPlanId,
           recipe_id: breakfast.id,
           date: dateStr,
@@ -298,6 +316,7 @@ function generateMealPlanItems(
       if (lunch) {
         usedRecipeIds.push(lunch.id);
         mealPlanItems.push({
+          id: crypto.randomUUID(), // Generate a temporary id
           meal_plan_id: mealPlanId,
           recipe_id: lunch.id,
           date: dateStr,
@@ -315,6 +334,7 @@ function generateMealPlanItems(
       if (dinner) {
         usedRecipeIds.push(dinner.id);
         mealPlanItems.push({
+          id: crypto.randomUUID(), // Generate a temporary id
           meal_plan_id: mealPlanId,
           recipe_id: dinner.id,
           date: dateStr,
@@ -331,6 +351,7 @@ function generateMealPlanItems(
       const snack = getRandomRecipe(genericRequirements.meals.snack.calories, genericRequirements.meals.snack.protein, usedRecipeIds);
       if (snack && Math.random() > 0.3) { // 70% chance of having a snack
         mealPlanItems.push({
+          id: crypto.randomUUID(), // Generate a temporary id
           meal_plan_id: mealPlanId,
           recipe_id: snack.id,
           date: dateStr,

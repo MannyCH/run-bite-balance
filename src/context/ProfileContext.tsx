@@ -7,7 +7,11 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   UserProfile, 
   ProfileFormData, 
-  OnboardingStep 
+  OnboardingStep,
+  Gender,
+  FitnessGoal,
+  ActivityLevel,
+  MealComplexity
 } from "@/types/profile";
 
 interface ProfileContextType {
@@ -259,12 +263,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         weight: basic.weight,
         height: basic.height,
         age: basic.age,
-        gender: basic.gender,
+        gender: basic.gender as Gender,
         target_weight: basic.targetWeight,
-        fitness_goal: basic.fitnessGoal,
+        fitness_goal: basic.fitnessGoal as FitnessGoal,
         
         // Fitness info
-        activity_level: fitness.activityLevel,
+        activity_level: fitness.activityLevel as ActivityLevel,
         ical_feed_url: fitness.icalFeedUrl,
         bmr: bmrValue,
         
@@ -276,7 +280,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         // Preferences
         preferred_cuisines: preferences.preferredCuisines,
         foods_to_avoid: preferences.foodsToAvoid,
-        meal_complexity: preferences.mealComplexity,
+        meal_complexity: preferences.mealComplexity as MealComplexity,
         
         updated_at: new Date().toISOString()
       };
