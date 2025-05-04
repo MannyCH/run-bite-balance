@@ -41,21 +41,6 @@ const SuggestedMeals: React.FC = () => {
       );
     }
     
-    // Check if it was a blob URL that needs special handling
-    if (recipe.isBlobUrl) {
-      // For blob URLs that were saved but won't work after refresh, show a fallback
-      return (
-        <div className="h-48 overflow-hidden relative bg-gray-100 flex items-center justify-center">
-          <div className="text-4xl font-bold text-gray-500">
-            {recipe.title.charAt(0).toUpperCase()}
-          </div>
-          <span className="absolute bottom-2 right-2 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">
-            Image unavailable after refresh
-          </span>
-        </div>
-      );
-    }
-    
     // Regular image with error handling
     return (
       <div className="h-48 overflow-hidden relative bg-gray-100">

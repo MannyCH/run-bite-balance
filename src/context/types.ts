@@ -34,7 +34,7 @@ export interface Recipe {
   carbs: number;
   fat: number;
   imgUrl?: string;
-  isBlobUrl?: boolean; // New flag to track if the image URL is a blob
+  isBlobUrl?: boolean; // Keeping this for backward compatibility
   ingredients?: string[];
   instructions?: string[];
   categories?: string[];
