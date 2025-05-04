@@ -78,8 +78,13 @@ const RecipeImporter: React.FC = () => {
         Step 2<br />
         <br />
         Servings: (optional)<br />
+        1 person<br />
+        <br />
         Categories: (optional)<br />
-        Website: (optional)
+        healthy, vegetarian<br />
+        <br />
+        Website: (optional)<br />
+        https://example.com/recipe
       </div>
       
       <div className="flex items-center gap-4">

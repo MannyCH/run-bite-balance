@@ -58,6 +58,9 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
       // Extract ingredients and instructions
       const ingredients: string[] = [];
       const instructions: string[] = [];
+      let categories: string[] = [];
+      let website: string | undefined = undefined;
+      let servings: string | undefined = undefined;
       
       // Get ingredients - read until next section
       let nextSectionAfterIngredients = [instructionsIndex, servingsIndex, categoriesIndex, websiteIndex]
@@ -85,6 +88,38 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
         }
       }
       
+      // Extract servings if available
+      if (servingsIndex !== -1) {
+        const nextSectionAfterServings = [categoriesIndex, websiteIndex]
+          .filter(index => index > servingsIndex)
+          .sort((a, b) => a - b)[0];
+          
+        if (nextSectionAfterServings) {
+          servings = lines.slice(servingsIndex + 1, nextSectionAfterServings)
+            .filter(line => line.trim() !== '')
+            .join(", ");
+        } else {
+          servings = lines.slice(servingsIndex + 1)
+            .filter(line => line.trim() !== '')
+            .join(", ");
+        }
+      }
+      
+      // Extract categories if available
+      if (categoriesIndex !== -1) {
+        const nextSectionAfterCategories = websiteIndex > categoriesIndex ? websiteIndex : lines.length;
+        const categoriesText = lines.slice(categoriesIndex + 1, nextSectionAfterCategories)
+          .filter(line => line.trim() !== '')
+          .join(", ");
+          
+        categories = categoriesText.split(",").map(cat => cat.trim()).filter(Boolean);
+      }
+      
+      // Extract website if available
+      if (websiteIndex !== -1 && websiteIndex < lines.length - 1) {
+        website = lines[websiteIndex + 1].trim();
+      }
+      
       // Try to find a matching image
       const baseName = fileName.split("/").pop()?.split(".")[0] || "";
       const imgUrl = imageMap[baseName] || undefined;
@@ -105,7 +140,10 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
         fat,
         imgUrl,
         ingredients,
-        instructions
+        instructions,
+        categories,
+        website,
+        servings
       });
     }));
     
