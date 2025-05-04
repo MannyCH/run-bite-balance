@@ -104,6 +104,54 @@ export async function generateMealPlan({
   }
 }
 
+// Add a new simplified function that returns a meal plan based on user's profile data
+export async function generateMealPlanForUser(
+  userId: string
+): Promise<MealPlanResult | null> {
+  try {
+    // Get the user's profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error('Error fetching user profile:', profileError);
+      return null;
+    }
+
+    // Get all available recipes
+    const { data: recipes, error: recipesError } = await supabase
+      .from('recipes')
+      .select('*');
+
+    if (recipesError) {
+      console.error('Error fetching recipes:', recipesError);
+      return null;
+    }
+
+    // Calculate dates for the meal plan (1 week from today)
+    const today = new Date();
+    const startDate = today.toISOString().split('T')[0];
+    const endDate = new Date(today);
+    endDate.setDate(today.getDate() + 6); // 7 days total including today
+    const endDateStr = endDate.toISOString().split('T')[0];
+
+    // Generate the meal plan using the existing function
+    return generateMealPlan({
+      userId,
+      profile: profile as UserProfile,
+      recipes: recipes || [],
+      startDate,
+      endDate: endDateStr
+    });
+  } catch (error) {
+    console.error('Error generating meal plan:', error);
+    return null;
+  }
+}
+
 // Helper function to generate meal plan items based on user profile and available recipes
 function generateMealPlanItems(
   mealPlanId: string,

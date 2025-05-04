@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import MainLayout from "../components/Layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import NutritionSummary from "../components/Dashboard/NutritionSummary";
@@ -7,8 +7,46 @@ import RunSummary from "../components/Dashboard/RunSummary";
 import WeeklyCalendar from "../components/Dashboard/WeeklyCalendar";
 import ActivityTimeline from "../components/Dashboard/ActivityTimeline";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { CalendarCheck } from "lucide-react";
 
 const Index: React.FC = () => {
+  const { user } = useAuth();
+  const [hasMealPlan, setHasMealPlan] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+
+  // Check if user has a meal plan when the component mounts
+  useEffect(() => {
+    const checkMealPlan = async () => {
+      if (!user?.id) return;
+      
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('meal_plans')
+          .select('id')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        if (!error && data && data.length > 0) {
+          setHasMealPlan(true);
+        }
+      } catch (error) {
+        console.error('Error checking meal plan:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkMealPlan();
+  }, [user?.id]);
+
   return (
     <MainLayout>
       <div className="mb-8">
@@ -17,6 +55,23 @@ const Index: React.FC = () => {
           Track your nutrition and training all in one place
         </p>
       </div>
+
+      {hasMealPlan && !isLoading && (
+        <Alert className="mb-6 bg-green-50 border-green-200">
+          <CalendarCheck className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800">Meal Plan Available</AlertTitle>
+          <AlertDescription className="flex justify-between items-center">
+            <span className="text-green-700">You have a personalized meal plan ready to view.</span>
+            <Button 
+              onClick={() => navigate('/meal-planner')}
+              variant="outline" 
+              className="border-green-300 hover:bg-green-100 text-green-800"
+            >
+              View Meal Plan
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
         <WeeklyCalendar />
