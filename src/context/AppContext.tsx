@@ -233,21 +233,29 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       }
       
       // Add IDs if not present and prepare for Supabase
-      const recipesWithIds = newRecipes.map(recipe => ({
-        ...recipe,
+      // Fix: Make sure to map from camelCase to lowercase for database columns
+      const recipesForDb = newRecipes.map(recipe => ({
         id: recipe.id || crypto.randomUUID(),
-        // Ensure the property names match exactly with the database columns
-        // Supabase column names are lowercase, so we need to adjust
-        imgurl: recipe.imgUrl, // Map from camelCase to lowercase column name in database
+        title: recipe.title,
+        calories: recipe.calories,
+        protein: recipe.protein,
+        carbs: recipe.carbs,
+        fat: recipe.fat,
+        imgurl: recipe.imgUrl, // FIXED: Map from camelCase (imgUrl) to lowercase (imgurl) for database
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        categories: recipe.categories,
+        website: recipe.website,
+        servings: recipe.servings,
         created_at: new Date().toISOString()
       }));
       
-      console.log('Prepared recipes for insert:', recipesWithIds[0]);
+      console.log('Prepared recipes for insert:', recipesForDb[0]);
       
       // First insert the data
       const { data, error: insertError } = await supabase
         .from('recipes')
-        .insert(recipesWithIds);
+        .insert(recipesForDb);
       
       if (insertError) {
         console.error('Error inserting recipes to Supabase:', insertError);

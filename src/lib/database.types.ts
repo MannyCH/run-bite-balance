@@ -18,12 +18,12 @@ export interface Database {
           protein: number
           carbs: number
           fat: number
-          imgurl?: string // Note the lowercase 'url' to match our database
-          ingredients?: string[]
-          instructions?: string[]
-          categories?: string[]
-          website?: string
-          servings?: string
+          imgurl: string | null // Lowercase column name as in the database
+          ingredients: string[] | null
+          instructions: string[] | null
+          categories: string[] | null
+          website: string | null
+          servings: string | null
           created_at: string
         }
         Insert: {
@@ -33,12 +33,12 @@ export interface Database {
           protein: number
           carbs: number
           fat: number
-          imgurl?: string // Note the lowercase 'url' to match our database
-          ingredients?: string[]
-          instructions?: string[]
-          categories?: string[]
-          website?: string
-          servings?: string
+          imgurl?: string | null // Lowercase column name as in the database
+          ingredients?: string[] | null
+          instructions?: string[] | null
+          categories?: string[] | null
+          website?: string | null
+          servings?: string | null
           created_at?: string
         }
         Update: {
@@ -48,12 +48,12 @@ export interface Database {
           protein?: number
           carbs?: number
           fat?: number
-          imgurl?: string // Note the lowercase 'url' to match our database
-          ingredients?: string[]
-          instructions?: string[]
-          categories?: string[]
-          website?: string
-          servings?: string
+          imgurl?: string | null // Lowercase column name as in the database
+          ingredients?: string[] | null
+          instructions?: string[] | null
+          categories?: string[] | null
+          website?: string | null
+          servings?: string | null
           created_at?: string
         }
       }
