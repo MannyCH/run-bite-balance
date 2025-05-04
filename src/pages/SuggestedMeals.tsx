@@ -49,11 +49,23 @@ const SuggestedMeals: React.FC = () => {
           {recipes.map((recipe) => (
             <Card key={recipe.id} className="overflow-hidden flex flex-col">
               {recipe.imgUrl && (
-                <div className="h-48 overflow-hidden">
+                <div className="h-48 overflow-hidden relative bg-gray-100">
                   <img
                     src={recipe.imgUrl}
                     alt={recipe.title}
                     className="w-full h-full object-cover transition-transform hover:scale-105"
+                    onError={(e) => {
+                      // If image fails to load, show recipe title as placeholder
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      // Add a fallback display of the first letter of the recipe title
+                      const parent = (e.target as HTMLImageElement).parentNode as HTMLElement;
+                      if (parent) {
+                        const placeholderDiv = document.createElement('div');
+                        placeholderDiv.className = 'w-full h-full flex items-center justify-center bg-gray-200 text-4xl font-bold text-gray-500';
+                        placeholderDiv.textContent = recipe.title.charAt(0).toUpperCase();
+                        parent.appendChild(placeholderDiv);
+                      }
+                    }}
                   />
                 </div>
               )}

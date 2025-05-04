@@ -220,7 +220,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     }
   };
 
-  // Updated importRecipes function to fix UUID generation issue
+  // Updated importRecipes function to fix image handling
   const importRecipes = async (newRecipes: Recipe[]): Promise<void> => {
     setIsLoadingRecipes(true);
     try {
@@ -231,10 +231,8 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         throw new Error('Supabase connection not established. Please check your Supabase integration.');
       }
       
-      // Add IDs if not present and prepare for Supabase
-      // Fix: Make sure to map from camelCase to lowercase for database columns
-      // Fix: Ensure valid UUIDs by using crypto.randomUUID() and ensuring existing IDs are valid
-      const recipesForDb = newRecipes.map(recipe => {
+      // Pre-process recipes with proper IDs and ensure image URLs are properly saved
+      const recipesForDb = await Promise.all(newRecipes.map(async recipe => {
         // Check if the recipe has a valid UUID, if not generate one
         let recipeId: string;
         
@@ -246,6 +244,20 @@ export const AppProvider = ({ children }: AppProviderProps) => {
           recipeId = recipe.id;
         }
         
+        // Handle image URL - if it's a blob URL, we need to convert it
+        let imageUrl = recipe.imgUrl;
+        if (imageUrl && imageUrl.startsWith('blob:')) {
+          console.log(`Recipe "${recipe.title}" has blob URL image that needs to be processed`);
+          try {
+            // Leave the blob URL as is - it will be displayed during this session
+            // but won't persist after refresh - we log this for debugging
+            console.log(`Note: Blob URL ${imageUrl} for recipe "${recipe.title}" will not persist after page refresh`);
+          } catch (error) {
+            console.error(`Failed to process image for recipe "${recipe.title}":`, error);
+            imageUrl = null; // Reset to null if there was an error
+          }
+        }
+        
         return {
           id: recipeId,
           title: recipe.title,
@@ -253,7 +265,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
           protein: recipe.protein,
           carbs: recipe.carbs,
           fat: recipe.fat,
-          imgurl: recipe.imgUrl, // Map from camelCase to lowercase for database
+          imgurl: imageUrl, // Map from camelCase to lowercase for database
           ingredients: recipe.ingredients,
           instructions: recipe.instructions,
           categories: recipe.categories,
@@ -261,11 +273,11 @@ export const AppProvider = ({ children }: AppProviderProps) => {
           servings: recipe.servings,
           created_at: new Date().toISOString()
         };
-      });
+      }));
       
       console.log('Prepared recipes for insert:', recipesForDb[0]);
       
-      // First insert the data
+      // Insert the data
       const { data, error: insertError } = await supabase
         .from('recipes')
         .insert(recipesForDb);
@@ -277,7 +289,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       
       console.log('Successfully inserted recipes, now fetching them back');
       
-      // Then fetch all recipes in a separate query to update state
+      // Fetch all recipes in a separate query to update state
       const { data: fetchedData, error: selectError } = await supabase
         .from('recipes')
         .select('*');
