@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
@@ -17,15 +16,13 @@ const RecipeImporter: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [importMessage, setImportMessage] = useState<string>("");
-  const [progressValue, setProgressValue] = useState<number>(0);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("✅ File input changed:", event.target.files);
+    console.log("✅ Safari-safe input fired");
 
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) {
       setFile(null);
-      console.log("❌ No file selected");
       return;
     }
 
@@ -36,15 +33,12 @@ const RecipeImporter: React.FC = () => {
         variant: "destructive"
       });
       setFile(null);
-      console.log("❌ Invalid file format:", selectedFile.name);
       return;
     }
 
-    console.log("✅ File selected:", selectedFile.name);
     setFile(selectedFile);
     setImportStatus('idle');
     setImportMessage('');
-    setProgressValue(0);
 
     toast({
       title: "File selected",
@@ -59,7 +53,6 @@ const RecipeImporter: React.FC = () => {
         description: "Please select a ZIP file first.",
         variant: "destructive"
       });
-      console.log("❌ Import attempted without file");
       return;
     }
 
@@ -67,21 +60,10 @@ const RecipeImporter: React.FC = () => {
     setIsLoading(true);
     setImportStatus('idle');
     setImportMessage('');
-    
-    // Show progress animation
-    const progressInterval = setInterval(() => {
-      setProgressValue(prev => {
-        const newValue = prev + 5;
-        return newValue < 90 ? newValue : prev; // Cap at 90% until complete
-      });
-    }, 300);
 
     try {
       const recipes = await extractRecipesFromZip(file);
-      console.log("✅ Extracted recipes:", recipes.length, recipes);
-      
-      clearInterval(progressInterval);
-      setProgressValue(100);
+      console.log("✅ Extracted recipes:", recipes);
 
       if (recipes.length === 0) {
         setImportStatus('error');
@@ -95,8 +77,6 @@ const RecipeImporter: React.FC = () => {
       }
 
       importRecipes(recipes);
-      console.log("✅ Recipes imported to context state");
-      
       setImportStatus('success');
       setImportMessage(`${recipes.length} recipes have been imported successfully.`);
       toast({
@@ -105,8 +85,6 @@ const RecipeImporter: React.FC = () => {
       });
     } catch (error) {
       console.error("❌ Error during import:", error);
-      clearInterval(progressInterval);
-      setProgressValue(0);
       setImportStatus('error');
       setImportMessage(error instanceof Error ? error.message : "Failed to import recipes.");
       toast({
@@ -123,7 +101,6 @@ const RecipeImporter: React.FC = () => {
     setFile(null);
     setImportStatus('idle');
     setImportMessage('');
-    setProgressValue(0);
     const fileInput = document.getElementById('recipe-zip') as HTMLInputElement;
     if (fileInput) {
       fileInput.value = '';
@@ -159,80 +136,49 @@ const RecipeImporter: React.FC = () => {
       </div>
 
       <div className="space-y-4">
-        {/* File input and selection display */}
+        {/* File input area */}
         <div className="flex flex-col gap-2">
           <label htmlFor="recipe-zip" className="text-sm font-medium">
             Select ZIP File:
           </label>
-          <div className="flex items-center gap-2">
-            <input
-              id="recipe-zip"
-              type="file"
-              accept=".zip"
-              onChange={handleFileChange}
-              disabled={isLoading}
-              className="file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-            {file && (
-              <span className="text-sm text-gray-600 flex items-center">
-                <File className="h-4 w-4 mr-1" />
-                {file.name}
-              </span>
-            )}
-          </div>
+          <input
+            id="recipe-zip"
+            type="file"
+            accept=".zip"
+            onChange={handleFileChange}
+            disabled={isLoading}
+            className="file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          />
         </div>
-
-        {/* File selected indicator */}
-        {file && !isLoading && importStatus === 'idle' && (
-          <Alert variant="default" className="bg-blue-50 border-blue-200">
-            <File className="h-4 w-4 text-blue-500" />
-            <AlertDescription className="text-blue-800">
-              {file.name} selected. Click import to process.
-            </AlertDescription>
-          </Alert>
-        )}
 
         {/* Import button */}
         {file && (
-          <div className="flex gap-2">
-            <Button
-              onClick={handleImport}
-              disabled={isLoading}
-              className="w-full sm:w-auto"
-            >
-              {isLoading ? (
-                <>
-                  <Loader className="h-4 w-4 animate-spin mr-2" />
-                  Importing...
-                </>
-              ) : (
-                <>
-                  <Archive className="h-4 w-4 mr-2" />
-                  Import Recipes
-                </>
-              )}
-            </Button>
-            
-            {!isLoading && (
-              <Button 
-                onClick={resetImporter} 
-                variant="outline"
-                className="w-full sm:w-auto"
-              >
-                <X className="h-4 w-4 mr-2" />
-                Clear
-              </Button>
+          <Button
+            onClick={handleImport}
+            disabled={isLoading}
+            className="w-full sm:w-auto mt-4"
+          >
+            {isLoading ? (
+              <>
+                <Loader className="h-4 w-4 animate-spin mr-2" />
+                Importing...
+              </>
+            ) : (
+              <>
+                <Archive className="h-4 w-4 mr-2" />
+                Import Recipes
+              </>
             )}
-          </div>
+          </Button>
         )}
 
-        {/* Loading indicator and progress */}
+        {/* Loading bar */}
         {isLoading && (
           <div className="space-y-2 mt-2">
             <div className="text-sm text-gray-600">
               Processing your ZIP file... This may take a moment.
             </div>
-            <Progress value={progressValue} className="h-2" />
+            <Progress value={33} className="h-2" />
           </div>
         )}
 

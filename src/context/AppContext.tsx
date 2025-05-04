@@ -77,58 +77,14 @@ interface AppProviderProps {
   children: ReactNode;
 }
 
-// Helper functions for localStorage
-const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
-  try {
-    const storedValue = localStorage.getItem(key);
-    if (storedValue) {
-      // Parse dates correctly for meals and runs
-      const parsedValue = JSON.parse(storedValue, (key, value) => {
-        if (key === 'date' && typeof value === 'string') {
-          return new Date(value);
-        }
-        return value;
-      });
-      return parsedValue;
-    }
-  } catch (error) {
-    console.error(`Error loading ${key} from localStorage:`, error);
-  }
-  return defaultValue;
-};
-
-const saveToStorage = <T,>(key: string, value: T): void => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-    console.log(`Saved ${key} to localStorage`, value);
-  } catch (error) {
-    console.error(`Error saving ${key} to localStorage:`, error);
-  }
-};
-
 const ICAL_URL = "https://runningcoach.me/calendar/ical/e735d0722a98c308a459f60216f9cd5adc29d107/basic.ics?morning_at=09:00&evening_at=20:00";
 
 export const AppProvider = ({ children }: AppProviderProps) => {
-  // Load initial values from localStorage, falling back to mock data if not available
-  const [meals, setMeals] = useState<Meal[]>(() => loadFromStorage('meals', mockMeals));
-  const [runs, setRuns] = useState<Run[]>(() => loadFromStorage('runs', mockRuns));
-  const [recipes, setRecipes] = useState<Recipe[]>(() => loadFromStorage('recipes', mockRecipes));
+  const [meals, setMeals] = useState<Meal[]>(mockMeals);
+  const [runs, setRuns] = useState<Run[]>(mockRuns);
+  const [recipes, setRecipes] = useState<Recipe[]>(mockRecipes);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoadingImportedRuns, setIsLoadingImportedRuns] = useState<boolean>(false);
-
-  // Save to localStorage whenever state changes
-  useEffect(() => {
-    saveToStorage('meals', meals);
-  }, [meals]);
-
-  useEffect(() => {
-    saveToStorage('runs', runs);
-  }, [runs]);
-
-  useEffect(() => {
-    saveToStorage('recipes', recipes);
-    console.log("Recipes updated in state:", recipes.length);
-  }, [recipes]);
 
   // Automatically import runs when the component mounts
   useEffect(() => {
@@ -209,6 +165,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       })) as Run[];
       
       setRuns([...filteredRuns, ...newRuns]);
+      // Don't return anything to match the Promise<void> type
     } catch (error) {
       console.error('Error importing runs:', error);
       throw error;
@@ -218,17 +175,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   };
 
   const importRecipes = (newRecipes: Recipe[]) => {
-    // Add IDs to recipes if they don't have them
-    const recipesWithIds = newRecipes.map(recipe => ({
-      ...recipe,
-      id: recipe.id || `recipe-${Math.random().toString(36).substr(2, 9)}`,
-    }));
-    console.log("Importing recipes:", recipesWithIds.length);
-    setRecipes(prevRecipes => {
-      const updatedRecipes = [...prevRecipes, ...recipesWithIds];
-      console.log("Updated recipes count:", updatedRecipes.length);
-      return updatedRecipes;
-    });
+    setRecipes([...recipes, ...newRecipes]);
   };
 
   return (
