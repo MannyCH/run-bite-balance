@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 interface AuthContextType {
   session: Session | null;
@@ -20,12 +21,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
+    // Handle the hash fragment from email confirmation
+    const handleHashParams = async () => {
+      // Check if we have a hash fragment in the URL (typically from email confirmations)
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        try {
+          // Remove the hash to prevent issues on reload
+          window.location.hash = '';
+          
+          // Get the session - Supabase should detect and use the hash fragment
+          const { data, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error("Error processing authentication redirect:", error);
+            toast({
+              title: "Authentication Error",
+              description: error.message,
+              variant: "destructive",
+            });
+          } else if (data?.session) {
+            console.log("Successfully authenticated from redirect");
+            setSession(data.session);
+            setUser(data.session.user);
+            toast({
+              title: "Email Verified",
+              description: "Your account has been verified successfully.",
+            });
+            navigate("/");
+          }
+        } catch (error) {
+          console.error("Error handling authentication redirect:", error);
+        }
+      }
+    };
+
     // First check for an existing session
     const getInitialSession = async () => {
       try {
         setLoading(true);
+        // Check if we're handling a redirect first
+        await handleHashParams();
+        
+        // Then get the current session
         const { data } = await supabase.auth.getSession();
         setSession(data.session);
         setUser(data.session?.user ?? null);
@@ -51,11 +92,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           title: "Signed in successfully",
           description: "Welcome back!",
         });
+        navigate("/");
       } else if (event === "SIGNED_OUT") {
         toast({
           title: "Signed out successfully",
           description: "You have been signed out",
         });
+        navigate("/auth");
       }
     });
 
@@ -63,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [toast]);
+  }, [toast, navigate]);
 
   const signUp = async (email: string, password: string) => {
     try {
