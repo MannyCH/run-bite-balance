@@ -10,7 +10,8 @@ const BATCH_DELAY = 200; // ms between batches
 const UPLOAD_TIMEOUT = 10000; // ms
 
 // Sanitize filenames: replaces spaces, umlauts, special chars
-const sanitizeFilename = (name: string): string =>
+// Export this function so it can be reused in recipeParser
+export const sanitizeFilename = (name: string): string =>
   name
     .normalize("NFD")                   // convert e.g. ö → o + ¨
     .replace(/[\u0300-\u036f]/g, "")   // remove accent marks
@@ -87,14 +88,19 @@ export const processImagesFromZip = async (
         try {
           console.log(`Processing image: ${fileName}`);
           const blob = await zipContents.files[fileName].async("blob");
-          const publicUrl = await retryUpload(fileName, blob);
           
           // Extract the base name without extension for recipe matching
           const fullName = fileName.split("/").pop() || "";
           const baseName = fullName.split(".")[0];
-
+          const sanitizedBaseName = sanitizeFilename(baseName);
+          
+          const publicUrl = await retryUpload(fileName, blob);
+          
           if (publicUrl) {
-            // Store both normalized and original basenames for better matching
+            // Store using sanitized name as key
+            imageMap[sanitizedBaseName] = publicUrl;
+            
+            // Also store original basenames for backward compatibility
             imageMap[baseName] = publicUrl;
             imageMap[baseName.toLowerCase()] = publicUrl;
             
@@ -102,7 +108,7 @@ export const processImagesFromZip = async (
             const nameWithoutUnderscores = baseName.replace(/_/g, "").toLowerCase();
             imageMap[nameWithoutUnderscores] = publicUrl;
             
-            console.log(`✅ Successfully mapped image: ${baseName} → ${publicUrl}`);
+            console.log(`✅ Successfully mapped image: Original: ${baseName}, Sanitized: ${sanitizedBaseName} → ${publicUrl}`);
           } else {
             console.warn(`⚠️ Image skipped: ${fileName}`);
           }

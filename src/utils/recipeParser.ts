@@ -1,5 +1,8 @@
 import type { ProgressCallback } from './zipProcessor';
 
+// Import the sanitizeFilename function to use the same sanitization logic
+import { sanitizeFilename } from './zipProcessor';
+
 /**
  * Parse recipe text files in the format:
  * Title
@@ -68,15 +71,23 @@ export const parseRecipesFromText = async (
       // Try multiple strategies to match recipe with image
       const baseName = fileName.split("/").pop()?.split(".")[0] || "";
       const baseNameLower = baseName.toLowerCase();
+      
+      // NEW: Apply the same sanitization function to recipe filenames
+      const sanitizedBaseName = sanitizeFilename(baseName);
+      
+      // Keep original matching attempts
       const baseNameNoUnderscores = baseName.replace(/_/g, "").toLowerCase();
       const titleNoSpaces = recipeData.title.replace(/\s+/g, "").toLowerCase();
       
       // Log all potential matching keys we're trying
       console.log(`Trying to match image for recipe: "${recipeData.title}"`);
-      console.log(`Image matching attempts: [${baseName}, ${baseNameLower}, ${baseNameNoUnderscores}, ${titleNoSpaces}]`);
+      console.log(`Image matching attempts: [${baseName}, ${baseNameLower}, ${sanitizedBaseName}, ${baseNameNoUnderscores}, ${titleNoSpaces}]`);
       
-      // Check for matches in different formats
-      if (imageMap[baseName]) {
+      // Check for matches in different formats, prioritizing sanitized name first
+      if (imageMap[sanitizedBaseName]) {
+        console.log(`✅ Found sanitized name match for ${sanitizedBaseName}`);
+        processedRecipe.imgurl = imageMap[sanitizedBaseName];
+      } else if (imageMap[baseName]) {
         console.log(`✅ Found exact name match for ${baseName}`);
         processedRecipe.imgurl = imageMap[baseName];
       } else if (imageMap[baseNameLower]) {

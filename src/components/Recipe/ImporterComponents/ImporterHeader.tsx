@@ -32,8 +32,13 @@ const ImporterHeader: React.FC = () => {
       </div>
       
       <div className="text-xs text-gray-600 mb-4">
-        <strong>Tip:</strong> For best results, name your image files to match the recipe text files 
-        (e.g., broad_beans_with_coriander.txt and broad_beans_with_coriander.jpg)
+        <strong>File naming tips:</strong>
+        <ul className="list-disc ml-4 mt-1">
+          <li>Name your image files to match the recipe text files (e.g., broad_beans_with_coriander.txt and broad_beans_with_coriander.jpg)</li>
+          <li>For best results, avoid spaces and special characters in filenames</li>
+          <li>Use underscores instead of spaces (e.g., beef_stroganoff.txt instead of "beef stroganoff.txt")</li>
+          <li>The importer will try to match files even with different naming, but exact matches work best</li>
+        </ul>
       </div>
     </>
   );
