@@ -259,16 +259,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       }
 
       const profileData = {
-        // Basic info
+        // Basic info - with proper type casting
         weight: basic.weight,
         height: basic.height,
         age: basic.age,
-        gender: basic.gender as Gender,
+        gender: basic.gender as Gender, // Explicit type casting
         target_weight: basic.targetWeight,
-        fitness_goal: basic.fitnessGoal as FitnessGoal,
+        fitness_goal: basic.fitnessGoal as FitnessGoal, // Explicit type casting
         
-        // Fitness info
-        activity_level: fitness.activityLevel as ActivityLevel,
+        // Fitness info - with proper type casting
+        activity_level: fitness.activityLevel as ActivityLevel, // Explicit type casting
         ical_feed_url: fitness.icalFeedUrl,
         bmr: bmrValue,
         
@@ -277,10 +277,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         nutritional_theory: dietary.nutritionalTheory,
         food_allergies: dietary.foodAllergies,
         
-        // Preferences
+        // Preferences - with proper type casting
         preferred_cuisines: preferences.preferredCuisines,
         foods_to_avoid: preferences.foodsToAvoid,
-        meal_complexity: preferences.mealComplexity as MealComplexity,
+        meal_complexity: preferences.mealComplexity as MealComplexity, // Explicit type casting
         
         updated_at: new Date().toISOString()
       };

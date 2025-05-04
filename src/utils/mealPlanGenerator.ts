@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile, MealPlan, MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
@@ -112,8 +111,8 @@ function generateMealPlanItems(
   recipes: Recipe[],
   startDate: string,
   endDate: string
-): MealPlanItem[] {
-  const mealPlanItems: MealPlanItem[] = [];
+): Partial<MealPlanItem>[] {
+  const mealPlanItems: Partial<MealPlanItem>[] = [];
   
   // Calculate how many days we need to plan for
   const start = new Date(startDate);
@@ -381,6 +380,7 @@ function generateMealPlanItems(
     if (breakfast) {
       usedRecipeIds.push(breakfast.id);
       mealPlanItems.push({
+        id: crypto.randomUUID(), // Add required id field
         meal_plan_id: mealPlanId,
         recipe_id: breakfast.id,
         date: dateStr,
@@ -398,6 +398,7 @@ function generateMealPlanItems(
     if (lunch) {
       usedRecipeIds.push(lunch.id);
       mealPlanItems.push({
+        id: crypto.randomUUID(), // Add required id field
         meal_plan_id: mealPlanId,
         recipe_id: lunch.id,
         date: dateStr,
@@ -415,6 +416,7 @@ function generateMealPlanItems(
     if (dinner) {
       usedRecipeIds.push(dinner.id);
       mealPlanItems.push({
+        id: crypto.randomUUID(), // Add required id field
         meal_plan_id: mealPlanId,
         recipe_id: dinner.id,
         date: dateStr,
@@ -432,6 +434,7 @@ function generateMealPlanItems(
       const snack = getRandomRecipe(requirements.meals.snack.calories, requirements.meals.snack.protein, usedRecipeIds);
       if (snack) {
         mealPlanItems.push({
+          id: crypto.randomUUID(), // Add required id field
           meal_plan_id: mealPlanId,
           recipe_id: snack.id,
           date: dateStr,
