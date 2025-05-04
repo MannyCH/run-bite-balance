@@ -23,11 +23,11 @@ const ImporterHeader: React.FC = () => {
         Instructions:<br />
         Step 1<br />
         Step 2<br /><br />
-        Servings: (optional)<br />
+        Servings:<br />
         1 person<br /><br />
-        Categories: (optional)<br />
+        Categories:<br />
         healthy, vegetarian<br /><br />
-        Website: (optional)<br />
+        Website:<br />
         https://example.com/recipe
       </div>
     </>

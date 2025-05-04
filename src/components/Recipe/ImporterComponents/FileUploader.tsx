@@ -23,7 +23,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ disabled, setFile }) => {
     if (!selectedFile.name.toLowerCase().endsWith('.zip')) {
       toast({
         title: "Invalid file format",
-        description: "Please select a ZIP file containing recipe JSON files.",
+        description: "Please select a ZIP file containing recipe text files.",
         variant: "destructive"
       });
       setFile(null);
@@ -52,7 +52,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ disabled, setFile }) => {
         className="file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
       />
       <p className="text-sm text-gray-500 mt-1">
-        Upload a ZIP file containing recipe JSON files. Each JSON file should include at minimum a recipe title.
+        Upload a ZIP file containing recipe text files (.txt). Each text file should include a recipe title and sections for ingredients, instructions, etc.
         Matching image files will be automatically linked to recipes.
       </p>
     </div>

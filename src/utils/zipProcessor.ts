@@ -116,7 +116,7 @@ export const extractRecipesFromZip = async (
 ): Promise<any[]> => {
   const JSZip = (await import('jszip')).default;
   const { readFileAsArrayBuffer } = await import('./zipFileReader');
-  const { parseRecipesFromJSON } = await import('./recipeParser');
+  const { parseRecipesFromText } = await import('./recipeParser');
 
   try {
     progressCallback?.("Reading ZIP file...", 5);
@@ -126,7 +126,7 @@ export const extractRecipesFromZip = async (
     progressCallback?.("Unzipping contents...", 10);
     const zipContents = await JSZip.loadAsync(fileBuffer);
 
-    const jsonFiles: string[] = [];
+    const textFiles: string[] = [];
     const imageFiles: string[] = [];
 
     // Debug: Log all files in the ZIP
@@ -134,9 +134,9 @@ export const extractRecipesFromZip = async (
     
     Object.keys(zipContents.files).forEach((fileName) => {
       if (!zipContents.files[fileName].dir) {
-        if (fileName.toLowerCase().endsWith(".json")) {
-          jsonFiles.push(fileName);
-          console.log("Found JSON file:", fileName);
+        if (fileName.toLowerCase().endsWith(".txt")) {
+          textFiles.push(fileName);
+          console.log("Found TXT file:", fileName);
         } else if (/\.(jpe?g|png|gif|webp|avif)$/i.test(fileName)) {
           imageFiles.push(fileName);
           console.log("Found image file:", fileName);
@@ -144,18 +144,18 @@ export const extractRecipesFromZip = async (
       }
     });
 
-    progressCallback?.(`Found ${jsonFiles.length} recipes and ${imageFiles.length} images`, 15);
-    console.log(`Found ${jsonFiles.length} JSON files and ${imageFiles.length} image files in ZIP`);
+    progressCallback?.(`Found ${textFiles.length} recipes and ${imageFiles.length} images`, 15);
+    console.log(`Found ${textFiles.length} TXT files and ${imageFiles.length} image files in ZIP`);
 
-    if (jsonFiles.length === 0) {
-      throw new Error("No JSON recipe files found in the ZIP. Please ensure your ZIP contains valid .json recipe files.");
+    if (textFiles.length === 0) {
+      throw new Error("No TXT recipe files found in the ZIP. Please ensure your ZIP contains valid .txt recipe files.");
     }
 
     const imageMap = await processImagesFromZip(zipContents, imageFiles, progressCallback);
     console.log("Processed image map:", Object.keys(imageMap).length);
 
     progressCallback?.("Processing recipe data...", 60);
-    const recipes = await parseRecipesFromJSON(zipContents, jsonFiles, imageMap, progressCallback);
+    const recipes = await parseRecipesFromText(zipContents, textFiles, imageMap, progressCallback);
     console.log("Processed recipes:", recipes.length);
 
     progressCallback?.("Recipe import complete!", 100);

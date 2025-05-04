@@ -42,14 +42,14 @@ const StatusAlerts: React.FC<StatusAlertsProps> = ({ importStatus, importMessage
         <AlertDescription className="flex flex-col gap-2">
           <div>{importMessage}</div>
           
-          {importMessage.includes("No JSON recipe files found") && (
+          {importMessage.includes("No TXT recipe files found") && (
             <div className="text-sm mt-2 bg-gray-800 text-white p-3 rounded-md">
               <div className="font-bold mb-1">ZIP file format requirements:</div>
               <ul className="list-disc list-inside space-y-1">
-                <li>Must contain at least one .json file</li>
-                <li>Each JSON file must have at minimum a "title" field</li>
-                <li>Optional fields: ingredients, instructions, calories, protein, etc.</li>
-                <li>Image files should share the same name as JSON files</li>
+                <li>Must contain at least one .txt file</li>
+                <li>Each text file should have a title on the first line</li>
+                <li>Sections should be marked with headers ending with a colon (Ingredients:, Instructions:, etc.)</li>
+                <li>Image files should share the same name as text files</li>
               </ul>
             </div>
           )}
