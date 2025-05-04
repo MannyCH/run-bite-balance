@@ -47,8 +47,8 @@ const StatusAlerts: React.FC<StatusAlertsProps> = ({ importStatus, importMessage
               <div className="font-bold mb-1">ZIP file format requirements:</div>
               <ul className="list-disc list-inside space-y-1">
                 <li>Must contain at least one .txt file</li>
-                <li>Each text file should have a title on the first line</li>
-                <li>Sections should be marked with headers ending with a colon (Ingredients:, Instructions:, etc.)</li>
+                <li>First line(s) of the text file will be used as the title</li>
+                <li>After the title, sections should be marked with headers ending with a colon (Ingredients:, Instructions:, etc.)</li>
                 <li>Image files should share the same name as text files</li>
               </ul>
             </div>

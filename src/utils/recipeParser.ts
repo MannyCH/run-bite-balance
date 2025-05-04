@@ -1,3 +1,4 @@
+
 import type { ProgressCallback } from './zipProcessor';
 
 /**
@@ -94,6 +95,8 @@ export const parseRecipesFromText = async (
 
 /**
  * Parse recipe data from text format
+ * First line is the title (without a section header)
+ * Then sections like "Ingredients:", "Instructions:", etc.
  */
 function parseRecipeText(text: string): any {
   const recipeData: any = {
@@ -102,58 +105,76 @@ function parseRecipeText(text: string): any {
     categories: []
   };
 
-  // Get title (first line)
+  // Split the text into lines
   const lines = text.split('\n');
+  
+  // First line is always the title, even if it contains multiple lines
   if (lines.length > 0) {
-    recipeData.title = lines[0].trim();
-  }
-
-  // Parse sections
-  let currentSection: string | null = null;
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
+    // Get title from the first line(s) until we find a line that ends with a colon (section header)
+    let titleLines = [];
+    let i = 0;
     
-    if (line === '') continue; // Skip empty lines
-    
-    // Check for section headers
-    if (line.toLowerCase().endsWith(':')) {
-      const sectionName = line.toLowerCase().slice(0, -1);
-      currentSection = sectionName;
-      continue;
+    while (i < lines.length && !lines[i].trim().endsWith(':')) {
+      const line = lines[i].trim();
+      if (line) titleLines.push(line);
+      i++;
     }
     
-    // Process based on current section
-    if (!currentSection) continue;
+    // Join multiple title lines if needed
+    recipeData.title = titleLines.join(' ').trim();
     
-    switch (currentSection) {
-      case 'ingredients':
-        recipeData.ingredients.push(line);
-        break;
-      case 'instructions':
-        recipeData.instructions.push(line);
-        break;
-      case 'categories':
-        recipeData.categories = line.split(',').map((cat: string) => cat.trim());
-        break;
-      case 'servings':
-        recipeData.servings = line;
-        break;
-      case 'website':
-        recipeData.website = line;
-        break;
-      case 'calories':
-        recipeData.calories = parseInt(line) || 0;
-        break;
-      case 'protein':
-        recipeData.protein = parseInt(line) || 0;
-        break;
-      case 'carbs':
-        recipeData.carbs = parseInt(line) || 0;
-        break;
-      case 'fat':
-        recipeData.fat = parseInt(line) || 0;
-        break;
+    // Process the rest of the content
+    let currentSection: string | null = null;
+    
+    for (; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      if (line === '') continue; // Skip empty lines
+      
+      // Check for section headers (lines ending with colon)
+      if (line.endsWith(':')) {
+        const sectionName = line.slice(0, -1).toLowerCase().trim();
+        currentSection = sectionName;
+        continue;
+      }
+      
+      // Process based on current section
+      if (!currentSection) continue;
+      
+      switch (currentSection) {
+        case 'ingredients':
+          recipeData.ingredients.push(line);
+          break;
+        case 'instructions':
+          recipeData.instructions.push(line);
+          break;
+        case 'categories':
+          recipeData.categories = line.split(',').map((cat: string) => cat.trim());
+          break;
+        case 'servings':
+          recipeData.servings = line;
+          break;
+        case 'website':
+          recipeData.website = line;
+          break;
+        case 'notes':
+          // Store notes if needed
+          if (!recipeData.notes) recipeData.notes = [];
+          recipeData.notes.push(line);
+          break;
+        case 'calories':
+          recipeData.calories = parseInt(line) || 0;
+          break;
+        case 'protein':
+          recipeData.protein = parseInt(line) || 0;
+          break;
+        case 'carbs':
+          recipeData.carbs = parseInt(line) || 0;
+          break;
+        case 'fat':
+          recipeData.fat = parseInt(line) || 0;
+          break;
+      }
     }
   }
   

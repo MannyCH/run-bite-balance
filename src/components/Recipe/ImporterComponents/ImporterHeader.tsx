@@ -12,21 +12,20 @@ const ImporterHeader: React.FC = () => {
 
       <p className="text-sm text-gray-600 mb-3">
         Upload a ZIP file containing recipe text files and images.
-        Each text file should follow this structure:
+        The first line of each text file will be used as the title.
       </p>
 
       <div className="text-xs bg-gray-100 p-3 rounded mb-4 font-mono">
-        Auberginensalat Mit Ohne Alles<br /><br />
+        Broad Beans With Coriander (Cilantro)<br /><br />
         Ingredients:<br />
-        Etwa 1/2 Aubergine feines Meersalz<br />
-        etwa 100 g Naturjoghurt<br /><br />
+        1.2 kg/21/2 lb broad beans (unshelled)<br />
+        2 spring onions (scallions), chopped<br /><br />
         Instructions:<br />
-        Step 1<br />
-        Step 2<br /><br />
+        Shell the broad beans and cook until tender<br /><br />
         Servings:<br />
-        1 person<br /><br />
+        4 people<br /><br />
         Categories:<br />
-        healthy, vegetarian<br /><br />
+        healthy, Vegetable<br /><br />
         Website:<br />
         https://example.com/recipe
       </div>
