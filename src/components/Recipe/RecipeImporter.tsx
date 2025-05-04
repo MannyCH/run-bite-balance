@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
 import { extractRecipesFromZip } from "@/utils/zipUtils";
 import { useToast } from "@/hooks/use-toast";
-import { Archive, Check, File, Loader, RefreshCcw, X } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
+import ImporterHeader from "./ImporterComponents/ImporterHeader";
+import FileUploader from "./ImporterComponents/FileUploader";
+import ImportControls from "./ImporterComponents/ImportControls";
+import ProgressIndicator from "./ImporterComponents/ProgressIndicator";
+import StatusAlerts from "./ImporterComponents/StatusAlerts";
 
 const RecipeImporter: React.FC = () => {
   console.log("✅ RecipeImporter mounted");
@@ -35,37 +36,6 @@ const RecipeImporter: React.FC = () => {
       return () => clearInterval(stallInterval);
     }
   }, [importStatus, lastProgressUpdate]);
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("✅ File input change fired");
-
-    const selectedFile = event.target.files?.[0];
-    if (!selectedFile) {
-      setFile(null);
-      return;
-    }
-
-    if (!selectedFile.name.endsWith('.zip')) {
-      toast({
-        title: "Invalid file format",
-        description: "Please select a ZIP file.",
-        variant: "destructive"
-      });
-      setFile(null);
-      return;
-    }
-
-    setFile(selectedFile);
-    setImportStatus('idle');
-    setImportMessage('');
-    setProgressPercent(0);
-    setLastProgressUpdate(Date.now());
-
-    toast({
-      title: "File selected",
-      description: `${selectedFile.name} is ready to import.`,
-    });
-  };
 
   const handleImport = async () => {
     if (!file) {
@@ -158,123 +128,32 @@ const RecipeImporter: React.FC = () => {
 
   return (
     <div className="mb-6 border rounded-lg p-4 bg-white shadow-sm">
-      <div className="flex items-center gap-2 mb-2">
-        <Archive className="h-5 w-5" />
-        <h3 className="text-lg font-semibold">Import Recipes to Supabase</h3>
-      </div>
-
-      <p className="text-sm text-gray-600 mb-3">
-        Upload a ZIP file containing recipe text files and images.
-        Each text file should follow this structure:
-      </p>
-
-      <div className="text-xs bg-gray-100 p-3 rounded mb-4 font-mono">
-        Auberginensalat Mit Ohne Alles<br /><br />
-        Ingredients:<br />
-        Etwa 1/2 Aubergine feines Meersalz<br />
-        etwa 100 g Naturjoghurt<br /><br />
-        Instructions:<br />
-        Step 1<br />
-        Step 2<br /><br />
-        Servings: (optional)<br />
-        1 person<br /><br />
-        Categories: (optional)<br />
-        healthy, vegetarian<br /><br />
-        Website: (optional)<br />
-        https://example.com/recipe
-      </div>
+      <ImporterHeader />
 
       <div className="space-y-4">
-        {/* File input area */}
-        <div className="flex flex-col gap-2">
-          <label htmlFor="recipe-zip" className="text-sm font-medium">
-            Select ZIP File:
-          </label>
-          <input
-            id="recipe-zip"
-            type="file"
-            accept=".zip"
-            onChange={handleFileChange}
-            disabled={importStatus === 'processing' || isLoadingRecipes}
-            className="file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-          />
-        </div>
+        <FileUploader 
+          disabled={importStatus === 'processing' || isLoadingRecipes} 
+          setFile={setFile} 
+        />
 
-        {/* Import button */}
-        {file && (
-          <div className="flex space-x-2">
-            <Button
-              onClick={handleImport}
-              disabled={importStatus === 'processing' || isLoadingRecipes}
-              className="w-full sm:w-auto mt-4"
-            >
-              {(importStatus === 'processing' || isLoadingRecipes) ? (
-                <>
-                  <Loader className="h-4 w-4 animate-spin mr-2" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Archive className="h-4 w-4 mr-2" />
-                  Import Recipes
-                </>
-              )}
-            </Button>
-            
-            {(importStatus === 'success' || importStatus === 'error' || importStatus === 'stalled') && (
-              <Button
-                onClick={resetImporter}
-                variant="outline"
-                className="w-full sm:w-auto mt-4"
-              >
-                <RefreshCcw className="h-4 w-4 mr-2" />
-                Reset
-              </Button>
-            )}
-          </div>
-        )}
+        <ImportControls 
+          file={file}
+          importStatus={importStatus}
+          isLoadingRecipes={isLoadingRecipes}
+          onImport={handleImport}
+          onReset={resetImporter}
+        />
 
-        {/* Loading bar */}
-        {(importStatus === 'processing' || progressPercent > 0) && (
-          <div className="space-y-2 mt-2">
-            <div className="text-sm text-gray-600 flex justify-between">
-              <span>{importMessage}</span>
-              <span>{Math.round(progressPercent)}%</span>
-            </div>
-            <Progress value={progressPercent} className="h-2" />
-          </div>
-        )}
+        <ProgressIndicator 
+          importStatus={importStatus}
+          progressPercent={progressPercent}
+          importMessage={importMessage}
+        />
 
-        {/* Stalled alert */}
-        {importStatus === 'stalled' && (
-          <Alert variant="default" className="bg-amber-50 border-amber-200">
-            <RefreshCcw className="h-4 w-4 text-amber-500" />
-            <AlertDescription className="text-amber-800">
-              The import process appears to be stalled. This might happen with larger ZIP files on Safari. 
-              You can either wait longer or try with a smaller ZIP file (fewer images).
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Success alert */}
-        {importStatus === 'success' && (
-          <Alert variant="default" className="bg-green-50 border-green-200">
-            <Check className="h-4 w-4 text-green-500" />
-            <AlertDescription className="text-green-800">
-              {importMessage}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Error alert */}
-        {importStatus === 'error' && (
-          <Alert variant="destructive">
-            <X className="h-4 w-4" />
-            <AlertDescription>
-              {importMessage}
-            </AlertDescription>
-          </Alert>
-        )}
+        <StatusAlerts 
+          importStatus={importStatus}
+          importMessage={importMessage}
+        />
       </div>
     </div>
   );
