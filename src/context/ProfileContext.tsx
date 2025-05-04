@@ -81,6 +81,35 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Helper functions to safely cast string values to enum types
+  const safeGenderCast = (value: string | null | undefined): Gender | undefined => {
+    if (value && ['male', 'female', 'other'].includes(value)) {
+      return value as Gender;
+    }
+    return undefined;
+  };
+  
+  const safeFitnessGoalCast = (value: string | null | undefined): FitnessGoal | undefined => {
+    if (value && ['lose', 'maintain', 'gain'].includes(value)) {
+      return value as FitnessGoal;
+    }
+    return undefined;
+  };
+  
+  const safeActivityLevelCast = (value: string | null | undefined): ActivityLevel | undefined => {
+    if (value && ['sedentary', 'light', 'moderate', 'active', 'very_active'].includes(value)) {
+      return value as ActivityLevel;
+    }
+    return undefined;
+  };
+  
+  const safeMealComplexityCast = (value: string | null | undefined): MealComplexity | undefined => {
+    if (value && ['simple', 'moderate', 'complex'].includes(value)) {
+      return value as MealComplexity;
+    }
+    return undefined;
+  };
+
   // Load user profile
   useEffect(() => {
     const fetchProfile = async () => {
@@ -107,19 +136,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         } else if (profileData) {
           setProfile(profileData as UserProfile);
           
-          // Populate form data from profile if it exists
+          // Populate form data from profile if it exists - with proper type casting
           if (profileData) {
             setFormData({
               basic: {
                 weight: profileData.weight || undefined,
                 height: profileData.height || undefined,
                 age: profileData.age || undefined,
-                gender: profileData.gender || undefined,
+                gender: safeGenderCast(profileData.gender),
                 targetWeight: profileData.target_weight || undefined,
-                fitnessGoal: profileData.fitness_goal || undefined,
+                fitnessGoal: safeFitnessGoalCast(profileData.fitness_goal),
               },
               fitness: {
-                activityLevel: profileData.activity_level || undefined,
+                activityLevel: safeActivityLevelCast(profileData.activity_level),
                 icalFeedUrl: profileData.ical_feed_url || undefined,
               },
               dietary: {
@@ -130,7 +159,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               preferences: {
                 preferredCuisines: profileData.preferred_cuisines || [],
                 foodsToAvoid: profileData.foods_to_avoid || [],
-                mealComplexity: profileData.meal_complexity || undefined,
+                mealComplexity: safeMealComplexityCast(profileData.meal_complexity),
               },
             });
           }
@@ -260,25 +289,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
       // Type safety checks for enum values
       // Only accept values that are valid for each enum type
-      let genderValue: Gender | null = null;
-      if (basic.gender && ['male', 'female', 'other'].includes(basic.gender)) {
-        genderValue = basic.gender as Gender;
-      }
-
-      let fitnessGoalValue: FitnessGoal | null = null;
-      if (basic.fitnessGoal && ['lose', 'maintain', 'gain'].includes(basic.fitnessGoal)) {
-        fitnessGoalValue = basic.fitnessGoal as FitnessGoal;
-      }
-
-      let activityLevelValue: ActivityLevel | null = null;
-      if (fitness.activityLevel && ['sedentary', 'light', 'moderate', 'active', 'very_active'].includes(fitness.activityLevel)) {
-        activityLevelValue = fitness.activityLevel as ActivityLevel;
-      }
-
-      let mealComplexityValue: MealComplexity | null = null;
-      if (preferences.mealComplexity && ['simple', 'moderate', 'complex'].includes(preferences.mealComplexity)) {
-        mealComplexityValue = preferences.mealComplexity as MealComplexity;
-      }
+      const genderValue = safeGenderCast(basic.gender);
+      const fitnessGoalValue = safeFitnessGoalCast(basic.fitnessGoal);
+      const activityLevelValue = safeActivityLevelCast(fitness.activityLevel);
+      const mealComplexityValue = safeMealComplexityCast(preferences.mealComplexity);
 
       const profileData = {
         // Basic info - with proper type checking
