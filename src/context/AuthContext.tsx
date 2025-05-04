@@ -24,52 +24,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Handle the hash fragment from email confirmation
-    const handleHashParams = async () => {
-      // Check if we have a hash fragment in the URL (typically from email confirmations)
-      const hash = window.location.hash;
-      if (hash && hash.includes('access_token')) {
-        try {
-          // Remove the hash to prevent issues on reload
-          window.location.hash = '';
-          
-          // Get the session - Supabase should detect and use the hash fragment
-          const { data, error } = await supabase.auth.getSession();
-          
-          if (error) {
-            console.error("Error processing authentication redirect:", error);
-            toast({
-              title: "Authentication Error",
-              description: error.message,
-              variant: "destructive",
-            });
-          } else if (data?.session) {
-            console.log("Successfully authenticated from redirect");
-            setSession(data.session);
-            setUser(data.session.user);
-            toast({
-              title: "Email Verified",
-              description: "Your account has been verified successfully.",
-            });
-            navigate("/");
-          }
-        } catch (error) {
-          console.error("Error handling authentication redirect:", error);
-        }
-      }
-    };
-
-    // First check for an existing session
     const getInitialSession = async () => {
       try {
         setLoading(true);
-        // Check if we're handling a redirect first
-        await handleHashParams();
         
-        // Then get the current session
+        // Get the current session
         const { data } = await supabase.auth.getSession();
-        setSession(data.session);
-        setUser(data.session?.user ?? null);
+        
+        if (data.session) {
+          console.log("Found existing session");
+          setSession(data.session);
+          setUser(data.session.user);
+        }
       } catch (error) {
         console.error("Error checking auth session:", error);
       } finally {
@@ -77,12 +43,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // First get the initial session
     getInitialSession();
 
     // Then set up the auth state listener
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, currentSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       console.log("Auth state changed:", event);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
@@ -113,6 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          // Make sure to use the actual deployed URL or preview URL
+          emailRedirectTo: window.location.origin
+        }
       });
       
       if (error) {
