@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { addDays, subDays, startOfWeek, format } from "date-fns";
 import { mockMeals, mockRuns, mockRecipes } from "../data/mockData";
@@ -221,7 +220,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     }
   };
 
-  // Updated importRecipes function to match the table structure in Supabase
+  // Updated importRecipes function to fix UUID generation issue
   const importRecipes = async (newRecipes: Recipe[]): Promise<void> => {
     setIsLoadingRecipes(true);
     try {
@@ -234,21 +233,35 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       
       // Add IDs if not present and prepare for Supabase
       // Fix: Make sure to map from camelCase to lowercase for database columns
-      const recipesForDb = newRecipes.map(recipe => ({
-        id: recipe.id || crypto.randomUUID(),
-        title: recipe.title,
-        calories: recipe.calories,
-        protein: recipe.protein,
-        carbs: recipe.carbs,
-        fat: recipe.fat,
-        imgurl: recipe.imgUrl, // FIXED: Map from camelCase (imgUrl) to lowercase (imgurl) for database
-        ingredients: recipe.ingredients,
-        instructions: recipe.instructions,
-        categories: recipe.categories,
-        website: recipe.website,
-        servings: recipe.servings,
-        created_at: new Date().toISOString()
-      }));
+      // Fix: Ensure valid UUIDs by using crypto.randomUUID() and ensuring existing IDs are valid
+      const recipesForDb = newRecipes.map(recipe => {
+        // Check if the recipe has a valid UUID, if not generate one
+        let recipeId: string;
+        
+        if (!recipe.id || typeof recipe.id !== 'string' || !isValidUUID(recipe.id)) {
+          // Generate a new valid UUID if none exists or the existing one is invalid
+          recipeId = crypto.randomUUID();
+          console.log(`Generated new UUID ${recipeId} for recipe "${recipe.title}"`);
+        } else {
+          recipeId = recipe.id;
+        }
+        
+        return {
+          id: recipeId,
+          title: recipe.title,
+          calories: recipe.calories,
+          protein: recipe.protein,
+          carbs: recipe.carbs,
+          fat: recipe.fat,
+          imgurl: recipe.imgUrl, // Map from camelCase to lowercase for database
+          ingredients: recipe.ingredients,
+          instructions: recipe.instructions,
+          categories: recipe.categories,
+          website: recipe.website,
+          servings: recipe.servings,
+          created_at: new Date().toISOString()
+        };
+      });
       
       console.log('Prepared recipes for insert:', recipesForDb[0]);
       
@@ -302,6 +315,12 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     } finally {
       setIsLoadingRecipes(false);
     }
+  };
+
+  // Helper function to validate UUID format
+  const isValidUUID = (uuid: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(uuid);
   };
 
   return (
