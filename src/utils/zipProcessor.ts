@@ -1,5 +1,5 @@
 
-import type { JSZip } from 'jszip';
+import type { default as JSZip } from 'jszip';
 import { uploadImageToSupabase } from './supabaseStorage';
 
 // Define the progress callback type
