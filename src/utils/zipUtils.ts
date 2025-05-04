@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { Recipe } from "@/context/AppContext";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase";
 
 /**
  * Upload an image to Supabase Storage and return the public URL
