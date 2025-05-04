@@ -1,5 +1,6 @@
 
 import React, { useEffect } from "react";
+import { Link } from "react-router-dom";
 import MainLayout from "../components/Layout/MainLayout";
 import { useApp } from "@/context/AppContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -85,9 +86,13 @@ const SuggestedMeals: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {recipes.map((recipe) => (
             <Card key={recipe.id} className="overflow-hidden flex flex-col">
-              {renderRecipeImage(recipe)}
+              <Link to={`/recipe/${recipe.id}`} className="cursor-pointer">
+                {renderRecipeImage(recipe)}
+              </Link>
               <CardHeader>
-                <CardTitle>{recipe.title}</CardTitle>
+                <Link to={`/recipe/${recipe.id}`} className="cursor-pointer">
+                  <CardTitle>{recipe.title}</CardTitle>
+                </Link>
                 <CardDescription>
                   {recipe.calories > 0 ? `${recipe.calories} calories | ` : ''}
                   {recipe.protein > 0 ? `P: ${recipe.protein}g | ` : ''}
@@ -155,6 +160,14 @@ const SuggestedMeals: React.FC = () => {
                     In 2 days
                   </Button>
                 </div>
+                <Link to={`/recipe/${recipe.id}`} className="w-full">
+                  <Button 
+                    variant="ghost"
+                    className="w-full mt-1"
+                  >
+                    View details
+                  </Button>
+                </Link>
               </CardFooter>
             </Card>
           ))}

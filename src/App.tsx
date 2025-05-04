@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import PlannedMeals from "./pages/PlannedMeals";
 import PastMeals from "./pages/PastMeals";
 import SuggestedMeals from "./pages/SuggestedMeals";
+import RecipeDetail from "./pages/RecipeDetail"; // Add import for the new page
 import PlannedRuns from "./pages/PlannedRuns";
 import Auth from "./pages/Auth";
 import Account from "./pages/Account";
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="/planned-meals" element={<AuthGuard><PlannedMeals /></AuthGuard>} />
               <Route path="/past-meals" element={<AuthGuard><PastMeals /></AuthGuard>} />
               <Route path="/suggested-meals" element={<AuthGuard><SuggestedMeals /></AuthGuard>} />
+              <Route path="/recipe/:id" element={<AuthGuard><RecipeDetail /></AuthGuard>} /> {/* Add new recipe detail route */}
               <Route path="/planned-runs" element={<AuthGuard><PlannedRuns /></AuthGuard>} />
               <Route path="/account" element={<AuthGuard><Account /></AuthGuard>} />
               <Route path="*" element={<NotFound />} />
