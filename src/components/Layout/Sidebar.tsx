@@ -1,8 +1,10 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { CalendarDays, ChevronRight, PieChart, Menu, Home, MapPin, UtensilsCrossed } from "lucide-react";
+import { CalendarDays, ChevronRight, PieChart, Menu, Home, MapPin, UtensilsCrossed, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
+import UserButton from "@/components/Auth/UserButton";
+import { useAuth } from "@/context/AuthContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -11,6 +13,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
   const location = useLocation();
+  const { user } = useAuth();
 
   const menuItems = [
     { name: "Dashboard", path: "/", icon: Home },
@@ -64,19 +67,46 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                 <span>{item.name}</span>
               </Link>
             ))}
+            
+            {!user && (
+              <Link
+                to="/auth"
+                className={cn(
+                  "flex items-center p-3 rounded-lg text-white hover:bg-teal-600 transition-colors",
+                  location.pathname === "/auth" && "bg-teal-600"
+                )}
+              >
+                <LogIn className="mr-3 h-5 w-5" />
+                <span>Sign In</span>
+              </Link>
+            )}
           </div>
 
           <div className="p-4 mt-auto">
-            <div className="flex items-center text-white">
-              <CalendarDays className="mr-2 h-5 w-5" />
-              <span className="text-sm">
-                {new Date().toLocaleDateString(undefined, {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </span>
-            </div>
+            {user ? (
+              <div className="flex items-center justify-between">
+                <div className="text-white text-sm">
+                  <CalendarDays className="mr-2 h-5 w-5 inline" />
+                  {new Date().toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </div>
+                <UserButton />
+              </div>
+            ) : (
+              <div className="flex items-center text-white">
+                <CalendarDays className="mr-2 h-5 w-5" />
+                <span className="text-sm">
+                  {new Date().toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
