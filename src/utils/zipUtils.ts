@@ -18,11 +18,21 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
   const recipes: Recipe[] = [];
   
   try {
+    console.log("Loading ZIP file...");
     const zipContents = await zip.loadAsync(zipFile);
-    const txtFiles = Object.keys(zipContents.files).filter(name => name.endsWith(".txt"));
+    console.log("ZIP loaded, finding files...");
+    
+    const txtFiles = Object.keys(zipContents.files).filter(name => name.endsWith(".txt") && !zipContents.files[name].dir);
     const imageFiles = Object.keys(zipContents.files).filter(name => 
-      name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png")
+      (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png")) && !zipContents.files[name].dir
     );
+    
+    console.log("Found text files:", txtFiles);
+    console.log("Found image files:", imageFiles);
+    
+    if (txtFiles.length === 0) {
+      throw new Error("No recipe text files found in the ZIP file.");
+    }
     
     // Create a map of image file names (without extension) to their blob URLs
     const imageMap: Record<string, string> = {};
@@ -37,15 +47,23 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
       imageMap[baseName] = blobUrl;
     }));
     
+    console.log("Processed images:", Object.keys(imageMap).length);
+    
     // Process text files
     await Promise.all(txtFiles.map(async (fileName) => {
       const content = await zipContents.files[fileName].async("text");
       const lines = content.split("\n").map(line => line.trim());
       
-      if (lines.length < 3) return; // Skip invalid files
+      console.log(`Processing ${fileName}, found ${lines.length} lines`);
+      
+      if (lines.length < 3) {
+        console.log(`Skipping ${fileName}: too few lines`);
+        return; // Skip invalid files
+      }
       
       // First line is the title (no explicit "Title:" section)
       const title = lines[0];
+      console.log(`Title: ${title}`);
       
       // Find section markers
       const ingredientsIndex = lines.findIndex(line => line === "Ingredients:");
@@ -54,7 +72,12 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
       const categoriesIndex = lines.findIndex(line => line === "Categories:");
       const websiteIndex = lines.findIndex(line => line === "Website:");
       
-      if (ingredientsIndex === -1 || instructionsIndex === -1) return; // Skip files without mandatory sections
+      console.log("Section markers:", { ingredientsIndex, instructionsIndex, servingsIndex, categoriesIndex, websiteIndex });
+      
+      if (ingredientsIndex === -1 || instructionsIndex === -1) {
+        console.log(`Skipping ${fileName}: missing required sections`);
+        return; // Skip files without mandatory sections
+      }
       
       // Extract ingredients and instructions
       const ingredients: string[] = [];
@@ -125,14 +148,22 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
       const baseName = fileName.split("/").pop()?.split(".")[0] || "";
       const imgUrl = imageMap[baseName] || undefined;
       
+      console.log("Processed recipe elements:", {
+        ingredients: ingredients.length,
+        instructions: instructions.length,
+        categories,
+        website,
+        servings,
+        hasImage: !!imgUrl
+      });
+      
       // Default nutritional values (since they're not specified in the text file)
-      // These can be updated later if we find nutrition info in the file
       const calories = 0;
       const protein = 0;
       const carbs = 0;
       const fat = 0;
       
-      recipes.push({
+      const recipe = {
         id: Math.random().toString(36).substr(2, 9),
         title,
         calories,
@@ -145,9 +176,13 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
         categories,
         website,
         servings
-      });
+      };
+      
+      recipes.push(recipe);
+      console.log(`Added recipe: ${title}`);
     }));
     
+    console.log(`Total recipes extracted: ${recipes.length}`);
     return recipes;
     
   } catch (error) {

@@ -4,16 +4,19 @@ import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
 import { extractRecipesFromZip } from "@/utils/zipUtils";
 import { useToast } from "@/hooks/use-toast";
-import { Archive } from "lucide-react";
+import { Archive, Loader } from "lucide-react";
 
 const RecipeImporter: React.FC = () => {
   const { importRecipes } = useApp();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    
+    setFileName(file.name);
     
     if (!file.name.endsWith('.zip')) {
       toast({
@@ -26,7 +29,10 @@ const RecipeImporter: React.FC = () => {
     
     setIsLoading(true);
     try {
+      console.log("Processing ZIP file:", file.name);
       const recipes = await extractRecipesFromZip(file);
+      console.log("Extracted recipes:", recipes);
+      
       if (recipes.length === 0) {
         toast({
           title: "No recipes found",
@@ -42,6 +48,7 @@ const RecipeImporter: React.FC = () => {
         description: `${recipes.length} recipes have been imported.`,
       });
     } catch (error) {
+      console.error("Error extracting recipes:", error);
       toast({
         title: "Import failed",
         description: error instanceof Error ? error.message : "Failed to import recipes.",
@@ -87,23 +94,41 @@ const RecipeImporter: React.FC = () => {
         https://example.com/recipe
       </div>
       
-      <div className="flex items-center gap-4">
-        <Button
-          variant="outline"
-          disabled={isLoading}
-          className="relative"
-          onClick={() => document.getElementById('recipe-zip')?.click()}
-        >
-          {isLoading ? "Importing..." : "Select ZIP File"}
-          <input
-            id="recipe-zip"
-            type="file"
-            accept=".zip"
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            onChange={handleFileChange}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
             disabled={isLoading}
-          />
-        </Button>
+            className="relative"
+            onClick={() => document.getElementById('recipe-zip')?.click()}
+          >
+            {isLoading ? (
+              <>
+                <Loader className="h-4 w-4 animate-spin mr-2" />
+                Importing...
+              </>
+            ) : (
+              "Select ZIP File"
+            )}
+            <input
+              id="recipe-zip"
+              type="file"
+              accept=".zip"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onChange={handleFileChange}
+              disabled={isLoading}
+            />
+          </Button>
+          {fileName && !isLoading && (
+            <span className="text-sm text-gray-600">Selected: {fileName}</span>
+          )}
+        </div>
+        
+        {isLoading && (
+          <div className="text-sm text-gray-600 mt-2">
+            Processing... This may take a moment depending on the size of your ZIP file.
+          </div>
+        )}
       </div>
     </div>
   );
