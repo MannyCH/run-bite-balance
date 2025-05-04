@@ -7,12 +7,11 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   UserProfile, 
   ProfileFormData, 
-  OnboardingStep,
-  Gender,
-  FitnessGoal,
-  ActivityLevel,
-  MealComplexity
+  OnboardingStep
 } from "@/types/profile";
+import { useProfileData } from "@/hooks/useProfileData";
+import { calculateBMR } from "@/utils/profileUtils";
+import { saveProfileToSupabase } from "@/services/profileService";
 
 interface ProfileContextType {
   profile: UserProfile | null;
@@ -64,6 +63,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [formData, setFormData] = useState<ProfileFormData>(initialFormData);
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('basic');
 
+  const { fetchProfileData } = useProfileData(
+    user?.id,
+    setProfile,
+    setFormData,
+    setIsLoading,
+    toast
+  );
+
   const isOnboardingComplete = Boolean(
     profile?.weight && 
     profile?.height && 
@@ -72,107 +79,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     profile?.fitness_goal
   );
 
-  // Calculate BMR using Mifflin-St Jeor Equation
-  const calculateBMR = (weight: number, height: number, age: number, gender: string): number => {
-    if (gender === 'male') {
-      return 10 * weight + 6.25 * height - 5 * age + 5;
-    } else {
-      return 10 * weight + 6.25 * height - 5 * age - 161;
-    }
-  };
-
-  // Helper functions to safely cast string values to enum types
-  const safeGenderCast = (value: string | null | undefined): Gender | undefined => {
-    if (value && ['male', 'female', 'other'].includes(value)) {
-      return value as Gender;
-    }
-    return undefined;
-  };
-  
-  const safeFitnessGoalCast = (value: string | null | undefined): FitnessGoal | undefined => {
-    if (value && ['lose', 'maintain', 'gain'].includes(value)) {
-      return value as FitnessGoal;
-    }
-    return undefined;
-  };
-  
-  const safeActivityLevelCast = (value: string | null | undefined): ActivityLevel | undefined => {
-    if (value && ['sedentary', 'light', 'moderate', 'active', 'very_active'].includes(value)) {
-      return value as ActivityLevel;
-    }
-    return undefined;
-  };
-  
-  const safeMealComplexityCast = (value: string | null | undefined): MealComplexity | undefined => {
-    if (value && ['simple', 'moderate', 'complex'].includes(value)) {
-      return value as MealComplexity;
-    }
-    return undefined;
-  };
-
   // Load user profile
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (!user?.id) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        const { data: profileData, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching profile:', error);
-          toast({
-            title: "Error loading profile",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else if (profileData) {
-          setProfile(profileData as UserProfile);
-          
-          // Populate form data from profile if it exists - with proper type casting
-          if (profileData) {
-            setFormData({
-              basic: {
-                weight: profileData.weight || undefined,
-                height: profileData.height || undefined,
-                age: profileData.age || undefined,
-                gender: safeGenderCast(profileData.gender),
-                targetWeight: profileData.target_weight || undefined,
-                fitnessGoal: safeFitnessGoalCast(profileData.fitness_goal),
-              },
-              fitness: {
-                activityLevel: safeActivityLevelCast(profileData.activity_level),
-                icalFeedUrl: profileData.ical_feed_url || undefined,
-              },
-              dietary: {
-                dietaryPreferences: profileData.dietary_preferences || [],
-                nutritionalTheory: profileData.nutritional_theory || undefined,
-                foodAllergies: profileData.food_allergies || [],
-              },
-              preferences: {
-                preferredCuisines: profileData.preferred_cuisines || [],
-                foodsToAvoid: profileData.foods_to_avoid || [],
-                mealComplexity: safeMealComplexityCast(profileData.meal_complexity),
-              },
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error in fetchProfile:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [user?.id, toast]);
+    if (user?.id) {
+      fetchProfileData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user?.id, fetchProfileData]);
 
   // Check if user needs to complete onboarding
   const checkOnboardingStatus = async (): Promise<boolean> => {
@@ -274,70 +188,20 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const { basic, fitness, dietary, preferences } = data;
+      const result = await saveProfileToSupabase(user.id, data, calculateBMR);
 
-      // Calculate BMR
-      let bmrValue = undefined;
-      if (basic.weight && basic.height && basic.age && basic.gender) {
-        bmrValue = calculateBMR(
-          basic.weight,
-          basic.height,
-          basic.age,
-          basic.gender
-        );
-      }
-
-      // Type safety checks for enum values
-      // Only accept values that are valid for each enum type
-      const genderValue = safeGenderCast(basic.gender);
-      const fitnessGoalValue = safeFitnessGoalCast(basic.fitnessGoal);
-      const activityLevelValue = safeActivityLevelCast(fitness.activityLevel);
-      const mealComplexityValue = safeMealComplexityCast(preferences.mealComplexity);
-
-      const profileData = {
-        // Basic info - with proper type checking
-        weight: basic.weight,
-        height: basic.height,
-        age: basic.age,
-        gender: genderValue,
-        target_weight: basic.targetWeight,
-        fitness_goal: fitnessGoalValue,
-        
-        // Fitness info - with proper type checking
-        activity_level: activityLevelValue,
-        ical_feed_url: fitness.icalFeedUrl,
-        bmr: bmrValue,
-        
-        // Dietary info
-        dietary_preferences: dietary.dietaryPreferences,
-        nutritional_theory: dietary.nutritionalTheory,
-        food_allergies: dietary.foodAllergies,
-        
-        // Preferences - with proper type checking
-        preferred_cuisines: preferences.preferredCuisines,
-        foods_to_avoid: preferences.foodsToAvoid,
-        meal_complexity: mealComplexityValue,
-        
-        updated_at: new Date().toISOString()
-      };
-
-      const { error } = await supabase
-        .from('profiles')
-        .update(profileData)
-        .eq('id', user.id);
-
-      if (error) {
+      if (result.error) {
         toast({
           title: "Error saving profile",
-          description: error.message,
+          description: result.error.message,
           variant: "destructive",
         });
-        return { error };
+        return { error: result.error };
       }
 
       // Update local state
       setProfile(prevProfile => 
-        prevProfile ? { ...prevProfile, ...profileData } : null
+        prevProfile ? { ...prevProfile, ...result.profileData } : null
       );
       
       toast({
