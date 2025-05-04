@@ -13,6 +13,7 @@ import {
 } from './mealPlanDb';
 import { GenerateMealPlanParams, MealPlanResult } from './types';
 import { supabase } from '@/integrations/supabase/client';
+import { validateStatus } from './validators';
 
 // Function to generate a meal plan based on user profile and available recipes
 export async function generateMealPlan({
@@ -65,8 +66,19 @@ export async function generateMealPlan({
             .limit(1);
             
           if (mealPlans && mealPlans.length > 0) {
+            const planData = mealPlans[0];
+            // Make sure we validate the status to match our expected type
+            const mealPlan: MealPlan = {
+              id: planData.id,
+              user_id: planData.user_id,
+              week_start_date: planData.week_start_date,
+              week_end_date: planData.week_end_date,
+              created_at: planData.created_at,
+              status: validateStatus(planData.status)
+            };
+            
             return {
-              mealPlan: mealPlans[0],
+              mealPlan,
               mealPlanItems
             };
           }

@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
@@ -77,13 +78,15 @@ async function generateAIMealPlan(
       7. Prefer the user's preferred cuisines when possible
       8. For each meal, explain why it fits that time of day and the user's goals
       
+      IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", "dinner", or "snack". Do not use any other values.
+      
       The response should be a JSON array following this exact structure, with one entry per day:
       [
         {
           "date": "YYYY-MM-DD",
           "meals": [
             {
-              "meal_type": "breakfast", // "breakfast", "lunch", "dinner", or "snack"
+              "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", or "snack" - no other values
               "recipe_id": "the-recipe-id", 
               "explanation": "Why this recipe is appropriate for this meal"
             },

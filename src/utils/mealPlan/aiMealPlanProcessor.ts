@@ -7,6 +7,7 @@ import {
   deleteExistingMealPlanItems, 
   insertMealPlanItems
 } from './mealPlanDb';
+import { validateMealType } from './validators';
 
 interface AIMealPlanDay {
   date: string;
@@ -73,7 +74,7 @@ export async function processAIMealPlan(
           meal_plan_id: mealPlan.id,
           recipe_id: meal.recipe_id,
           date: day.date,
-          meal_type: meal.meal_type,
+          meal_type: validateMealType(meal.meal_type), // Validate meal type to ensure it's one of the allowed types
           nutritional_context: meal.explanation,
           calories: recipe.calories,
           protein: recipe.protein,
