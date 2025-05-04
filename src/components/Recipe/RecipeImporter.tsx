@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
 import { extractRecipesFromZip } from "@/utils/zipUtils";
 import { useToast } from "@/hooks/use-toast";
-import { Archive, Check, File, FileUp, Loader, X } from "lucide-react";
+import { Archive, Check, File, Loader, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 
@@ -17,13 +17,18 @@ const RecipeImporter: React.FC = () => {
   const [importMessage, setImportMessage] = useState<string>('');
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("File selection event triggered");
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) {
+      console.log("No file selected");
       setFile(null);
       return;
     }
     
+    console.log("File selected:", selectedFile.name);
+    
     if (!selectedFile.name.endsWith('.zip')) {
+      console.log("Invalid file format");
       toast({
         title: "Invalid file format",
         description: "Please select a ZIP file.",
@@ -47,6 +52,7 @@ const RecipeImporter: React.FC = () => {
 
   const handleImport = async () => {
     if (!file) {
+      console.log("No file selected for import");
       toast({
         title: "No file selected",
         description: "Please select a ZIP file first.",
@@ -55,6 +61,7 @@ const RecipeImporter: React.FC = () => {
       return;
     }
     
+    console.log("Starting import process for:", file.name);
     setIsLoading(true);
     setImportStatus('idle');
     setImportMessage('');
@@ -97,6 +104,7 @@ const RecipeImporter: React.FC = () => {
   };
 
   const resetImporter = () => {
+    console.log("Resetting importer");
     setFile(null);
     setImportStatus('idle');
     setImportMessage('');
@@ -149,7 +157,7 @@ const RecipeImporter: React.FC = () => {
               className="relative"
               onClick={() => document.getElementById('recipe-zip')?.click()}
             >
-              <FileUp className="h-4 w-4 mr-2" />
+              <File className="h-4 w-4 mr-2" />
               Select ZIP File
               <input
                 id="recipe-zip"

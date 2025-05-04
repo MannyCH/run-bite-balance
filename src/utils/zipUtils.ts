@@ -18,12 +18,15 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
   const recipes: Recipe[] = [];
   
   try {
-    console.log("Loading ZIP file...");
+    console.log("Loading ZIP file...", zipFile.name, "Size:", zipFile.size, "Type:", zipFile.type);
     const zipContents = await zip.loadAsync(zipFile);
     console.log("ZIP loaded, finding files...");
     
-    const txtFiles = Object.keys(zipContents.files).filter(name => name.endsWith(".txt") && !zipContents.files[name].dir);
-    const imageFiles = Object.keys(zipContents.files).filter(name => 
+    const files = Object.keys(zipContents.files);
+    console.log("All files in ZIP:", files);
+    
+    const txtFiles = files.filter(name => name.endsWith(".txt") && !zipContents.files[name].dir);
+    const imageFiles = files.filter(name => 
       (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png")) && !zipContents.files[name].dir
     );
     
