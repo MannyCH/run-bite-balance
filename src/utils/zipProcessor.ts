@@ -1,7 +1,6 @@
 
-const BATCH_SIZE = 1;
-const BATCH_DELAY = 200; // ms between batches
-const UPLOAD_TIMEOUT = 10000; // ms
+import type { JSZip } from 'jszip';
+import { uploadImageToSupabase } from './supabaseStorage';
 
 // Define the progress callback type
 export type ProgressCallback = (message: string, percent: number) => void;
@@ -39,6 +38,10 @@ const retryUpload = async (
   }
   return null;
 };
+
+const BATCH_SIZE = 1;
+const BATCH_DELAY = 200; // ms between batches
+const UPLOAD_TIMEOUT = 10000; // ms
 
 /**
  * Safely processes and uploads image files from ZIP to Supabase
@@ -102,7 +105,6 @@ export const extractRecipesFromZip = async (
   const JSZip = (await import('jszip')).default;
   const { readFileAsArrayBuffer } = await import('./zipFileReader');
   const { parseRecipesFromJSON } = await import('./recipeParser');
-  const { uploadImageToSupabase } = await import('./supabaseStorage');
   
   try {
     if (progressCallback) {
