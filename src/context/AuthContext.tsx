@@ -22,28 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // First set up the auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        console.log("Auth state changed:", event);
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        
-        if (event === "SIGNED_IN") {
-          toast({
-            title: "Signed in successfully",
-            description: "Welcome back!",
-          });
-        } else if (event === "SIGNED_OUT") {
-          toast({
-            title: "Signed out successfully",
-            description: "You have been signed out",
-          });
-        }
-      }
-    );
-
-    // Then check for an existing session
+    // First check for an existing session
     const getInitialSession = async () => {
       try {
         setLoading(true);
@@ -58,6 +37,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     getInitialSession();
+
+    // Then set up the auth state listener
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      console.log("Auth state changed:", event);
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      
+      if (event === "SIGNED_IN") {
+        toast({
+          title: "Signed in successfully",
+          description: "Welcome back!",
+        });
+      } else if (event === "SIGNED_OUT") {
+        toast({
+          title: "Signed out successfully",
+          description: "You have been signed out",
+        });
+      }
+    });
 
     // Clean up the subscription
     return () => {
