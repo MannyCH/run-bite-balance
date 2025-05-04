@@ -1,7 +1,7 @@
-
 // Utility functions for recipe filtering and selection
 import { Recipe } from '@/context/types';
 import { UserProfile } from '@/types/profile';
+import { getRecipesForMealType, getMealTypeSuitabilityScores } from './mealTypeClassifier';
 
 // Filter recipes based on user preferences
 export function filterRecipesByPreferences(recipes: Recipe[], profile: UserProfile): Recipe[] {
@@ -68,16 +68,45 @@ export function prioritizeRecipes(recipes: Recipe[], profile: UserProfile): Reci
 }
 
 // Get a random recipe that fits calorie and macros criteria
+// Updated to consider meal type appropriateness
 export function getRandomRecipe(
   recipes: Recipe[],
   targetCalories: number,
   targetProtein: number,
-  previousMeals: string[] = []
+  previousMeals: string[] = [],
+  mealType: string = 'any'
 ): Recipe | null {
+  // First filter by meal type appropriateness if specified
+  let eligibleRecipes = [...recipes].filter(r => !previousMeals.includes(r.id));
+  
+  if (mealType !== 'any') {
+    // Get recipes appropriate for this meal type
+    const mealTypeRecipes = getRecipesForMealType(eligibleRecipes, mealType);
+    
+    // If we have enough recipes for this meal type, use those
+    // Otherwise fall back to all recipes
+    if (mealTypeRecipes.length >= 5) {
+      eligibleRecipes = mealTypeRecipes;
+    } else {
+      console.log(`Not enough ${mealType} recipes (${mealTypeRecipes.length}), using general pool`);
+    }
+  }
+  
+  // Sort by appropriateness for the meal type
+  if (mealType !== 'any') {
+    eligibleRecipes.sort((a, b) => {
+      const aScores = getMealTypeSuitabilityScores(a);
+      const bScores = getMealTypeSuitabilityScores(b);
+      
+      return bScores[mealType] - aScores[mealType];
+    });
+  }
+  
   // Clone and shuffle the recipes array
-  const shuffled = [...recipes]
-    .filter(r => !previousMeals.includes(r.id))
-    .sort(() => 0.5 - Math.random());
+  const shuffled = eligibleRecipes.sort((a, b) => {
+    // Add some randomness but keep most suitable first
+    return Math.random() * 0.5 - 0.25;
+  });
   
   // Find a recipe that fits our criteria
   const recipe = shuffled.find(r => {

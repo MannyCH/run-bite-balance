@@ -42,8 +42,8 @@ export function generateMealPlanItems(
       
       const usedRecipeIds: string[] = [];
       
-      // Add breakfast
-      const breakfast = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.breakfast.calories, genericRequirements.meals.breakfast.protein);
+      // Add breakfast - specify meal type for better selection
+      const breakfast = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.breakfast.calories, genericRequirements.meals.breakfast.protein, usedRecipeIds, 'breakfast');
       if (breakfast) {
         usedRecipeIds.push(breakfast.id);
         mealPlanItems.push({
@@ -60,8 +60,8 @@ export function generateMealPlanItems(
         });
       }
       
-      // Add lunch
-      const lunch = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.lunch.calories, genericRequirements.meals.lunch.protein, usedRecipeIds);
+      // Add lunch - specify meal type for better selection
+      const lunch = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.lunch.calories, genericRequirements.meals.lunch.protein, usedRecipeIds, 'lunch');
       if (lunch) {
         usedRecipeIds.push(lunch.id);
         mealPlanItems.push({
@@ -78,8 +78,8 @@ export function generateMealPlanItems(
         });
       }
       
-      // Add dinner
-      const dinner = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.dinner.calories, genericRequirements.meals.dinner.protein, usedRecipeIds);
+      // Add dinner - specify meal type for better selection
+      const dinner = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.dinner.calories, genericRequirements.meals.dinner.protein, usedRecipeIds, 'dinner');
       if (dinner) {
         usedRecipeIds.push(dinner.id);
         mealPlanItems.push({
@@ -96,8 +96,8 @@ export function generateMealPlanItems(
         });
       }
       
-      // Add snack
-      const snack = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.snack.calories, genericRequirements.meals.snack.protein, usedRecipeIds);
+      // Add snack - specify meal type for better selection
+      const snack = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.snack.calories, genericRequirements.meals.snack.protein, usedRecipeIds, 'snack');
       if (snack && Math.random() > 0.3) { // 70% chance of having a snack
         mealPlanItems.push({
           id: crypto.randomUUID(), // Generate a temporary id
@@ -125,8 +125,8 @@ export function generateMealPlanItems(
     
     const usedRecipeIds: string[] = [];
     
-    // Add breakfast
-    const breakfast = getRandomRecipe(prioritizedRecipes, requirements.meals.breakfast.calories, requirements.meals.breakfast.protein);
+    // Add breakfast - pass meal type for better selection
+    const breakfast = getRandomRecipe(prioritizedRecipes, requirements.meals.breakfast.calories, requirements.meals.breakfast.protein, usedRecipeIds, 'breakfast');
     if (breakfast) {
       usedRecipeIds.push(breakfast.id);
       mealPlanItems.push({
@@ -143,8 +143,8 @@ export function generateMealPlanItems(
       });
     }
     
-    // Add lunch
-    const lunch = getRandomRecipe(prioritizedRecipes, requirements.meals.lunch.calories, requirements.meals.lunch.protein, usedRecipeIds);
+    // Add lunch - pass meal type for better selection
+    const lunch = getRandomRecipe(prioritizedRecipes, requirements.meals.lunch.calories, requirements.meals.lunch.protein, usedRecipeIds, 'lunch');
     if (lunch) {
       usedRecipeIds.push(lunch.id);
       mealPlanItems.push({
@@ -161,8 +161,8 @@ export function generateMealPlanItems(
       });
     }
     
-    // Add dinner
-    const dinner = getRandomRecipe(prioritizedRecipes, requirements.meals.dinner.calories, requirements.meals.dinner.protein, usedRecipeIds);
+    // Add dinner - pass meal type for better selection
+    const dinner = getRandomRecipe(prioritizedRecipes, requirements.meals.dinner.calories, requirements.meals.dinner.protein, usedRecipeIds, 'dinner');
     if (dinner) {
       usedRecipeIds.push(dinner.id);
       mealPlanItems.push({
@@ -179,9 +179,9 @@ export function generateMealPlanItems(
       });
     }
     
-    // Add snack (only some days)
+    // Add snack (only some days) - pass meal type for better selection
     if (Math.random() > 0.3) { // 70% chance of having a snack
-      const snack = getRandomRecipe(prioritizedRecipes, requirements.meals.snack.calories, requirements.meals.snack.protein, usedRecipeIds);
+      const snack = getRandomRecipe(prioritizedRecipes, requirements.meals.snack.calories, requirements.meals.snack.protein, usedRecipeIds, 'snack');
       if (snack) {
         mealPlanItems.push({
           id: crypto.randomUUID(), // Add required id field
