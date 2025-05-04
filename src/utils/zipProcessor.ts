@@ -44,8 +44,12 @@ const retryUpload = async (
       const base = fileName.split("/").pop()?.split(".")[0] || `recipe-${Date.now()}`;
       const safeName = sanitizeFilename(base);
       const safePath = `${safeName}.${ext}`;
+      
+      console.log(`Attempting to upload image: ${fileName} as ${safePath}`);
 
       const url = await withTimeout(uploadImageToSupabase(safePath, blob), UPLOAD_TIMEOUT);
+      console.log(`Upload result for ${safePath}:`, url ? "Success" : "Failed");
+      
       if (url) return url;
     } catch (err) {
       console.warn(`❌ Upload failed (attempt ${attempt + 1}) for ${fileName}:`, err);
@@ -67,6 +71,10 @@ export const processImagesFromZip = async (
   const imageMap: Record<string, string> = {};
   const batches: string[][] = [];
 
+  // Log basic debug info
+  console.log(`Processing ${imageFiles.length} images from ZIP`);
+  console.log("Image files to process:", imageFiles);
+
   for (let i = 0; i < imageFiles.length; i += BATCH_SIZE) {
     batches.push(imageFiles.slice(i, i + BATCH_SIZE));
   }
@@ -77,12 +85,24 @@ export const processImagesFromZip = async (
     await Promise.all(
       batch.map(async (fileName) => {
         try {
+          console.log(`Processing image: ${fileName}`);
           const blob = await zipContents.files[fileName].async("blob");
           const publicUrl = await retryUpload(fileName, blob);
-          const baseName = fileName.split("/").pop()?.split(".")[0] || "";
+          
+          // Extract the base name without extension for recipe matching
+          const fullName = fileName.split("/").pop() || "";
+          const baseName = fullName.split(".")[0];
 
           if (publicUrl) {
+            // Store both normalized and original basenames for better matching
             imageMap[baseName] = publicUrl;
+            imageMap[baseName.toLowerCase()] = publicUrl;
+            
+            // Also store name without underscores for better matching
+            const nameWithoutUnderscores = baseName.replace(/_/g, "").toLowerCase();
+            imageMap[nameWithoutUnderscores] = publicUrl;
+            
+            console.log(`✅ Successfully mapped image: ${baseName} → ${publicUrl}`);
           } else {
             console.warn(`⚠️ Image skipped: ${fileName}`);
           }
@@ -104,6 +124,7 @@ export const processImagesFromZip = async (
     await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY));
   }
 
+  console.log("Final image map:", imageMap);
   return imageMap;
 };
 
@@ -151,12 +172,18 @@ export const extractRecipesFromZip = async (
       throw new Error("No TXT recipe files found in the ZIP. Please ensure your ZIP contains valid .txt recipe files.");
     }
 
+    // Process images first to create the mapping
     const imageMap = await processImagesFromZip(zipContents, imageFiles, progressCallback);
     console.log("Processed image map:", Object.keys(imageMap).length);
 
     progressCallback?.("Processing recipe data...", 60);
     const recipes = await parseRecipesFromText(zipContents, textFiles, imageMap, progressCallback);
     console.log("Processed recipes:", recipes.length);
+
+    // Debug the recipes with and without images
+    const withImages = recipes.filter(r => r.imgurl).length;
+    const withoutImages = recipes.filter(r => !r.imgurl).length;
+    console.log(`Recipes with images: ${withImages}, without images: ${withoutImages}`);
 
     progressCallback?.("Recipe import complete!", 100);
     return recipes;

@@ -1,4 +1,3 @@
-
 import type { ProgressCallback } from './zipProcessor';
 
 /**
@@ -20,6 +19,9 @@ export const parseRecipesFromText = async (
 ): Promise<any[]> => {
   const recipes: any[] = [];
   let processedRecipes = 0;
+
+  // Log the full image map for debugging
+  console.log("Available images for matching:", Object.keys(imageMap));
 
   for (const fileName of textFiles) {
     try {
@@ -63,15 +65,51 @@ export const parseRecipesFromText = async (
         created_at: new Date().toISOString()
       };
 
-      // Match recipe with image using naming conventions
+      // Try multiple strategies to match recipe with image
       const baseName = fileName.split("/").pop()?.split(".")[0] || "";
+      const baseNameLower = baseName.toLowerCase();
+      const baseNameNoUnderscores = baseName.replace(/_/g, "").toLowerCase();
+      const titleNoSpaces = recipeData.title.replace(/\s+/g, "").toLowerCase();
+      
+      // Log all potential matching keys we're trying
+      console.log(`Trying to match image for recipe: "${recipeData.title}"`);
+      console.log(`Image matching attempts: [${baseName}, ${baseNameLower}, ${baseNameNoUnderscores}, ${titleNoSpaces}]`);
+      
+      // Check for matches in different formats
       if (imageMap[baseName]) {
-        console.log(`Found matching image for recipe ${baseName}`);
+        console.log(`✅ Found exact name match for ${baseName}`);
         processedRecipe.imgurl = imageMap[baseName];
+      } else if (imageMap[baseNameLower]) {
+        console.log(`✅ Found lowercase name match for ${baseNameLower}`);
+        processedRecipe.imgurl = imageMap[baseNameLower];
+      } else if (imageMap[baseNameNoUnderscores]) {
+        console.log(`✅ Found no-underscores name match for ${baseNameNoUnderscores}`);
+        processedRecipe.imgurl = imageMap[baseNameNoUnderscores];
+      } else if (imageMap[titleNoSpaces]) {
+        console.log(`✅ Found title-based match for ${titleNoSpaces}`);
+        processedRecipe.imgurl = imageMap[titleNoSpaces];
+      } else {
+        // Try a fuzzy match for images with similar names
+        const possibleMatches = Object.keys(imageMap).filter(imgName => 
+          imgName.includes(baseNameNoUnderscores) || baseNameNoUnderscores.includes(imgName)
+        );
+        
+        if (possibleMatches.length > 0) {
+          console.log(`✅ Found fuzzy match: ${possibleMatches[0]}`);
+          processedRecipe.imgurl = imageMap[possibleMatches[0]];
+        } else {
+          console.log(`❌ No image match found for ${baseName}`);
+        }
+      }
+      
+      if (processedRecipe.imgurl) {
+        console.log(`✅ Recipe "${processedRecipe.title}" matched with image: ${processedRecipe.imgurl}`);
+      } else {
+        console.log(`⚠️ No image found for recipe "${processedRecipe.title}"`);
       }
 
       recipes.push(processedRecipe);
-      console.log(`Added recipe: ${processedRecipe.title}`);
+      console.log(`Added recipe: ${processedRecipe.title} with image: ${processedRecipe.imgurl || 'none'}`);
     } catch (err) {
       console.error(`❌ Error processing recipe ${fileName}:`, err);
     } finally {
