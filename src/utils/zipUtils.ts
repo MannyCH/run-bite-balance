@@ -1,3 +1,4 @@
+
 import JSZip from "jszip";
 import { Recipe } from "@/context/AppContext";
 import { supabase } from "@/lib/supabase";
@@ -80,4 +81,71 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
       let website: string | undefined = undefined;
       let servings: string | undefined = undefined;
 
-      let
+      let currentIndex = ingredientsIndex + 1;
+      // Parse ingredients
+      while (currentIndex < instructionsIndex && currentIndex < lines.length) {
+        const line = lines[currentIndex].trim();
+        if (line) ingredients.push(line);
+        currentIndex++;
+      }
+
+      // Parse instructions
+      currentIndex = instructionsIndex + 1;
+      const nextSection = Math.min(
+        ...[servingsIndex, categoriesIndex, websiteIndex].filter(i => i > 0)
+      );
+      
+      while (currentIndex < (nextSection > 0 ? nextSection : lines.length) && currentIndex < lines.length) {
+        const line = lines[currentIndex].trim();
+        if (line) instructions.push(line);
+        currentIndex++;
+      }
+
+      // Parse servings
+      if (servingsIndex > 0) {
+        servings = lines[servingsIndex + 1]?.trim();
+      }
+
+      // Parse categories
+      if (categoriesIndex > 0) {
+        const categoriesLine = lines[categoriesIndex + 1]?.trim();
+        if (categoriesLine) {
+          categories = categoriesLine.split(',').map(cat => cat.trim());
+        }
+      }
+
+      // Parse website
+      if (websiteIndex > 0) {
+        website = lines[websiteIndex + 1]?.trim();
+      }
+
+      // Look for a matching image
+      const baseName = fileName.split("/").pop()?.split(".")[0] || "";
+      const imgUrl = imageMap[baseName];
+
+      // Create recipe object
+      const recipe: Recipe = {
+        id: crypto.randomUUID(),
+        title,
+        calories: 0, // Default values
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        imgUrl,
+        ingredients,
+        instructions,
+        categories,
+        website,
+        servings
+      };
+
+      recipes.push(recipe);
+    }));
+    
+    console.log(`Successfully extracted ${recipes.length} recipes from ZIP file`);
+    return recipes;
+  } catch (error) {
+    console.error("Error extracting recipes from ZIP:", error);
+    throw error;
+  }
+};
