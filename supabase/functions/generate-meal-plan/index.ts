@@ -23,11 +23,13 @@ async function generateAIMealPlan(
   try {
     console.log(`Generating AI meal plan for user ${userId} from ${startDate} to ${endDate}`);
     
-    const openaiApiKey = Deno.env.get("OPENAI_API_KEY_PERSONAL");
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiApiKey) {
       console.error("OpenAI API key not found");
       throw new Error("OpenAI API key not configured");
     }
+    
+    console.log("OpenAI API key found, attempting to use OpenAI API");
 
     const openai = new OpenAI({
       apiKey: openaiApiKey,
@@ -59,10 +61,13 @@ async function generateAIMealPlan(
     const endDateObj = new Date(endDate);
     const dayCount = Math.ceil((endDateObj.getTime() - today.getTime()) / (1000 * 3600 * 24)) + 1;
     
+    console.log(`Creating meal plan for ${dayCount} days`);
+    console.log(`User preferences: ${JSON.stringify(dietaryPreferences)}`);
+    
     // Prepare the prompt for OpenAI
     const prompt = {
       role: "system",
-      content: `You are a professional nutritionist creating a 7-day meal plan. 
+      content: `You are a professional nutritionist creating a meal plan for ${dayCount} days. 
       The user has the following dietary preferences: ${JSON.stringify(dietaryPreferences)}.
       
       Your task is to create a meal plan with breakfast, lunch, dinner, and potentially snacks for each day.
@@ -99,37 +104,48 @@ async function generateAIMealPlan(
       Only include recipes from the provided list. Ensure every meal has a valid recipe_id from the list.`
     };
 
+    console.log("Making request to OpenAI API...");
+    
     // Make the request to OpenAI
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        prompt,
-        {
-          role: "user", 
-          content: `Create a meal plan from ${startDate} to ${endDate}. Here are the available recipes: ${JSON.stringify(recipeSummaries)}`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
-      response_format: { type: "json_object" }
-    });
-    
-    // Parse the AI-generated meal plan
-    const aiResponse = response.choices[0].message.content;
-    if (!aiResponse) {
-      throw new Error("Failed to generate meal plan from OpenAI");
-    }
-    
     try {
-      const mealPlanData = JSON.parse(aiResponse);
-      return {
-        message: "AI-generated meal plan created successfully",
-        mealPlan: mealPlanData
-      };
-    } catch (parseError) {
-      console.error("Error parsing OpenAI response:", parseError);
-      console.log("Raw response:", aiResponse);
-      throw new Error("Failed to parse meal plan data");
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          prompt,
+          {
+            role: "user", 
+            content: `Create a meal plan from ${startDate} to ${endDate}. Here are the available recipes: ${JSON.stringify(recipeSummaries)}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+        response_format: { type: "json_object" }
+      });
+      
+      console.log("OpenAI API response received successfully!");
+      
+      // Parse the AI-generated meal plan
+      const aiResponse = response.choices[0].message.content;
+      if (!aiResponse) {
+        console.error("OpenAI returned empty response");
+        throw new Error("Failed to generate meal plan from OpenAI");
+      }
+      
+      try {
+        const mealPlanData = JSON.parse(aiResponse);
+        console.log("AI meal plan successfully generated and parsed");
+        return {
+          message: "AI-generated meal plan created successfully",
+          mealPlan: mealPlanData
+        };
+      } catch (parseError) {
+        console.error("Error parsing OpenAI response:", parseError);
+        console.log("Raw response:", aiResponse);
+        throw new Error("Failed to parse meal plan data");
+      }
+    } catch (apiError) {
+      console.error("OpenAI API error:", apiError);
+      throw new Error(`OpenAI API error: ${apiError.message || "Unknown error"}`);
     }
   } catch (error) {
     console.error("Error generating AI meal plan:", error);
@@ -174,6 +190,8 @@ serve(async (req) => {
       });
     }
     
+    console.log(`Processing meal plan request for user ${userId} from ${startDate} to ${endDate}`);
+    
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -206,18 +224,36 @@ serve(async (req) => {
       });
     }
     
-    // Generate AI meal plan
-    const result = await generateAIMealPlan(
-      userId, 
-      profile as unknown as UserProfile, 
-      recipes || [],
-      startDate,
-      endDate
-    );
+    console.log(`Fetched ${recipes ? recipes.length : 0} recipes for meal planning`);
     
-    return new Response(JSON.stringify(result), { 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    });
+    // Generate AI meal plan
+    try {
+      const result = await generateAIMealPlan(
+        userId, 
+        profile as unknown as UserProfile, 
+        recipes || [],
+        startDate,
+        endDate
+      );
+      
+      console.log("Meal plan generated successfully");
+      
+      return new Response(JSON.stringify(result), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    } catch (aiError) {
+      console.error("AI meal plan generation failed:", aiError);
+      console.log("Falling back to algorithmic meal planning...");
+      
+      // Return a specific error that the frontend can handle
+      return new Response(JSON.stringify({ 
+        error: aiError.message || 'Error generating AI meal plan',
+        fallback: true 
+      }), { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
   } catch (error) {
     console.error('Error in generate-meal-plan function:', error);
     return new Response(JSON.stringify({ 
@@ -228,3 +264,4 @@ serve(async (req) => {
     });
   }
 });
+
