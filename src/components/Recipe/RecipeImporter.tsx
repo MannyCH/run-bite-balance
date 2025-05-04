@@ -160,14 +160,17 @@ const RecipeImporter: React.FC = () => {
             >
               <File className="h-4 w-4 mr-2" />
               Select ZIP File
-              <input
-                id="recipe-zip"
-                type="file"
-                accept=".zip"
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                onChange={handleFileChange}
-                disabled={isLoading}
-              />
+                <input
+                  id="recipe-zip"
+                  type="file"
+                  accept=".zip"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={(e) => {
+                    console.log("✅ ZIP INPUT FIRED");
+                    handleFileChange(e);
+                  }}
+                  disabled={isLoading}
+                />
             </Button>
             
             {file && (
