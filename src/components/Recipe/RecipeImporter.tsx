@@ -63,10 +63,24 @@ const RecipeImporter: React.FC = () => {
       
       <p className="text-sm text-gray-600 mb-3">
         Upload a ZIP file containing recipe text files and images.
-        Each text file should contain the recipe title on the first line,
-        nutrition info on the second line (calories,protein,carbs,fat),
-        ingredients, and instructions.
+        Each text file should follow this structure:
       </p>
+      
+      <div className="text-xs bg-gray-100 p-3 rounded mb-4 font-mono">
+        Recipe Title<br />
+        <br />
+        Ingredients:<br />
+        Ingredient 1<br />
+        Ingredient 2<br />
+        <br />
+        Instructions:<br />
+        Step 1<br />
+        Step 2<br />
+        <br />
+        Servings: (optional)<br />
+        Categories: (optional)<br />
+        Website: (optional)
+      </div>
       
       <div className="flex items-center gap-4">
         <Button

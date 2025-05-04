@@ -6,9 +6,12 @@ import { Recipe } from "@/context/AppContext";
  * Extract recipes from a zip file containing txt files and images
  * The text file format expects:
  * - First line: Recipe title
- * - Second line: Calories, Protein, Carbs, Fat (comma-separated)
- * - Following lines: Ingredients (one per line until "Instructions:" is found)
- * - Remaining lines: Instructions
+ * - Following sections marked by keywords: 
+ *   - Ingredients:
+ *   - Instructions:
+ *   - Servings: (optional)
+ *   - Categories: (optional)
+ *   - Website: (optional)
  */
 export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> => {
   const zip = new JSZip();
@@ -39,33 +42,59 @@ export const extractRecipesFromZip = async (zipFile: File): Promise<Recipe[]> =>
       const content = await zipContents.files[fileName].async("text");
       const lines = content.split("\n").map(line => line.trim());
       
-      if (lines.length < 2) return; // Skip invalid files
+      if (lines.length < 3) return; // Skip invalid files
       
       const title = lines[0];
-      const nutritionLine = lines[1].split(",");
       
-      if (nutritionLine.length < 4) return; // Skip files with invalid nutrition format
+      // Find section markers
+      const ingredientsIndex = lines.findIndex(line => line === "Ingredients:");
+      const instructionsIndex = lines.findIndex(line => line === "Instructions:");
+      const servingsIndex = lines.findIndex(line => line === "Servings:");
+      const categoriesIndex = lines.findIndex(line => line === "Categories:");
+      const websiteIndex = lines.findIndex(line => line === "Website:");
       
-      const calories = parseInt(nutritionLine[0], 10) || 0;
-      const protein = parseInt(nutritionLine[1], 10) || 0;
-      const carbs = parseInt(nutritionLine[2], 10) || 0;
-      const fat = parseInt(nutritionLine[3], 10) || 0;
+      if (ingredientsIndex === -1 || instructionsIndex === -1) return; // Skip files without mandatory sections
       
-      const instructionIndex = lines.findIndex(line => line === "Instructions:");
-      let ingredients: string[] = [];
-      let instructions: string[] = [];
+      // Extract ingredients and instructions
+      const ingredients: string[] = [];
+      const instructions: string[] = [];
       
-      if (instructionIndex > 2) {
-        ingredients = lines.slice(2, instructionIndex).filter(line => line.trim() !== "");
-        instructions = lines.slice(instructionIndex + 1).filter(line => line.trim() !== "");
-      } else {
-        // If no "Instructions:" marker, assume all remaining lines are ingredients
-        ingredients = lines.slice(2).filter(line => line.trim() !== "");
+      // Get ingredients - read until next section
+      let nextSectionAfterIngredients = [instructionsIndex, servingsIndex, categoriesIndex, websiteIndex]
+        .filter(index => index > ingredientsIndex)
+        .sort((a, b) => a - b)[0];
+        
+      for (let i = ingredientsIndex + 1; i < nextSectionAfterIngredients; i++) {
+        if (lines[i].trim() !== '') {
+          ingredients.push(lines[i]);
+        }
+      }
+      
+      // Get instructions - read until next section
+      let nextSectionAfterInstructions = [servingsIndex, categoriesIndex, websiteIndex]
+        .filter(index => index > instructionsIndex)
+        .sort((a, b) => a - b)[0];
+        
+      if (!nextSectionAfterInstructions) {
+        nextSectionAfterInstructions = lines.length;
+      }
+      
+      for (let i = instructionsIndex + 1; i < nextSectionAfterInstructions; i++) {
+        if (lines[i].trim() !== '') {
+          instructions.push(lines[i]);
+        }
       }
       
       // Try to find a matching image
       const baseName = fileName.split("/").pop()?.split(".")[0] || "";
       const imgUrl = imageMap[baseName] || undefined;
+      
+      // Default nutritional values (since they're not specified in the text file)
+      // These can be updated later if we find nutrition info in the file
+      const calories = 0;
+      const protein = 0;
+      const carbs = 0;
+      const fat = 0;
       
       recipes.push({
         id: Math.random().toString(36).substr(2, 9),
