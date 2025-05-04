@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { addDays, subDays, startOfWeek, format } from "date-fns";
 import { mockMeals, mockRuns, mockRecipes } from "../data/mockData";
@@ -105,7 +106,22 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
         if (data) {
           console.log('Loaded recipes from Supabase:', data.length);
-          setRecipes(data as Recipe[]);
+          // Transform the data from database format (imgurl) to our application format (imgUrl)
+          const mappedRecipes = data.map(recipe => ({
+            id: recipe.id,
+            title: recipe.title,
+            calories: recipe.calories,
+            protein: recipe.protein,
+            carbs: recipe.carbs,
+            fat: recipe.fat,
+            imgUrl: recipe.imgurl, // Map from lowercase database field to camelCase
+            ingredients: recipe.ingredients,
+            instructions: recipe.instructions,
+            categories: recipe.categories,
+            website: recipe.website,
+            servings: recipe.servings
+          }));
+          setRecipes(mappedRecipes);
         }
       } catch (error) {
         console.error('Failed to fetch recipes:', error);
@@ -222,7 +238,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         id: recipe.id || crypto.randomUUID(),
         // Ensure the property names match exactly with the database columns
         // Supabase column names are lowercase, so we need to adjust
-        imgurl: recipe.imgUrl, // Match the lowercase column name in database
+        imgurl: recipe.imgUrl, // Map from camelCase to lowercase column name in database
         created_at: new Date().toISOString()
       }));
       
