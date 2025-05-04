@@ -4,22 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { MealPlan, MealPlanItem } from "@/types/profile";
 import { format, addDays, parseISO } from "date-fns";
-
-// Helper function to validate meal type
-const validateMealType = (mealType: string): "breakfast" | "lunch" | "dinner" | "snack" => {
-  if (["breakfast", "lunch", "dinner", "snack"].includes(mealType)) {
-    return mealType as "breakfast" | "lunch" | "dinner" | "snack";
-  }
-  return "snack"; // Default fallback
-};
-
-// Helper function to validate status
-const validateStatus = (status: string): "active" | "draft" => {
-  if (["active", "draft"].includes(status)) {
-    return status as "active" | "draft";
-  }
-  return "draft"; // Default fallback
-};
+import { validateMealType, validateStatus } from "@/utils/mealPlan";
 
 export const useMealPlan = () => {
   const { user } = useAuth();

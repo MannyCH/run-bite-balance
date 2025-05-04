@@ -11,7 +11,7 @@ import { FitnessInfoForm } from "./FitnessInfoForm";
 import { DietaryInfoForm } from "./DietaryInfoForm";
 import { PreferencesForm } from "./PreferencesForm";
 import { useNavigate } from "react-router-dom";
-import { generateMealPlanForUser } from "@/utils/mealPlanGenerator";
+import { generateMealPlanForUser } from "@/utils/mealPlan";
 import { Loader, CalendarDays } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
