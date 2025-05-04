@@ -25,7 +25,7 @@ async function generateAIMealPlan(
     
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiApiKey) {
-      console.error("OpenAI API key not found");
+      console.error("OpenAI API key not found in environment variables");
       throw new Error("OpenAI API key not configured");
     }
     
@@ -104,12 +104,13 @@ async function generateAIMealPlan(
       Only include recipes from the provided list. Ensure every meal has a valid recipe_id from the list.`
     };
 
-    console.log("Making request to OpenAI API...");
+    console.log(`Making request to OpenAI API with model: gpt-4o`);
+    console.log(`Recipes count: ${recipeSummaries.length}`);
     
     // Make the request to OpenAI
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-4o", // Updated to use gpt-4o
         messages: [
           prompt,
           {
@@ -144,8 +145,14 @@ async function generateAIMealPlan(
         throw new Error("Failed to parse meal plan data");
       }
     } catch (apiError) {
-      console.error("OpenAI API error:", apiError);
-      throw new Error(`OpenAI API error: ${apiError.message || "Unknown error"}`);
+      console.error("OpenAI API error details:", JSON.stringify(apiError, null, 2));
+      if (apiError.status === 401) {
+        throw new Error("OpenAI API authentication failed. Please check your API key.");
+      } else if (apiError.status === 429) {
+        throw new Error("OpenAI API rate limit exceeded or insufficient quota.");
+      } else {
+        throw new Error(`OpenAI API error: ${apiError.message || "Unknown error"}`);
+      }
     }
   } catch (error) {
     console.error("Error generating AI meal plan:", error);
@@ -264,4 +271,3 @@ serve(async (req) => {
     });
   }
 });
-
