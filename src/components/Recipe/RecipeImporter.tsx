@@ -14,12 +14,12 @@ const RecipeImporter: React.FC = () => {
   const { importRecipes, isLoadingRecipes } = useApp();
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
-  const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [importStatus, setImportStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [importMessage, setImportMessage] = useState<string>("");
   const [progressPercent, setProgressPercent] = useState<number>(0);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("✅ Safari-safe input fired");
+    console.log("✅ File input change fired");
 
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) {
@@ -59,19 +59,29 @@ const RecipeImporter: React.FC = () => {
     }
 
     console.log("🔄 Starting import:", file.name);
-    setImportStatus('idle');
-    setImportMessage('');
+    setImportStatus('processing');
+    setImportMessage('Processing your ZIP file...');
     setProgressPercent(10);
 
     try {
-      // Extract recipes from ZIP
-      setProgressPercent(30);
-      const recipes = await extractRecipesFromZip(file);
-      console.log("✅ Extracted recipes:", recipes);
+      // Safari-compatible timeout to ensure UI updates before heavy processing
+      await new Promise(resolve => setTimeout(resolve, 100));
+      setProgressPercent(20);
+
+      // Extract recipes from ZIP with progress updates
+      const updateProgress = (phase: string, percent: number) => {
+        console.log(`Progress update: ${phase} - ${percent}%`);
+        setImportMessage(phase);
+        setProgressPercent(20 + percent * 0.6); // Scale to 20-80% range
+      };
+
+      const recipes = await extractRecipesFromZip(file, updateProgress);
+      console.log("✅ Extracted recipes:", recipes.length);
 
       if (recipes.length === 0) {
         setImportStatus('error');
         setImportMessage('No recipes found in the ZIP file.');
+        setProgressPercent(0);
         toast({
           title: "No recipes found",
           description: "The ZIP file did not contain any valid recipe files.",
@@ -81,10 +91,16 @@ const RecipeImporter: React.FC = () => {
       }
 
       // Save recipes to Supabase
-      setProgressPercent(60);
+      setProgressPercent(80);
+      setImportMessage('Uploading recipes to Supabase...');
+      
+      // Safari-compatible timeout to ensure UI updates
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       await importRecipes(recipes);
       setProgressPercent(100);
       
+      // Final success state
       setImportStatus('success');
       setImportMessage(`${recipes.length} recipes have been imported successfully to Supabase.`);
       toast({
@@ -95,15 +111,12 @@ const RecipeImporter: React.FC = () => {
       console.error("❌ Error during import:", error);
       setImportStatus('error');
       setImportMessage(error instanceof Error ? error.message : "Failed to import recipes.");
+      setProgressPercent(0);
       toast({
         title: "Import failed",
         description: error instanceof Error ? error.message : "Failed to import recipes.",
         variant: "destructive"
       });
-    } finally {
-      setTimeout(() => {
-        setProgressPercent(0);
-      }, 2000);
     }
   };
 
@@ -157,39 +170,50 @@ const RecipeImporter: React.FC = () => {
             type="file"
             accept=".zip"
             onChange={handleFileChange}
-            disabled={isLoadingRecipes}
+            disabled={importStatus === 'processing' || isLoadingRecipes}
             className="file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
         </div>
 
         {/* Import button */}
         {file && (
-          <Button
-            onClick={handleImport}
-            disabled={isLoadingRecipes}
-            className="w-full sm:w-auto mt-4"
-          >
-            {isLoadingRecipes ? (
-              <>
-                <Loader className="h-4 w-4 animate-spin mr-2" />
-                Importing to Supabase...
-              </>
-            ) : (
-              <>
-                <Archive className="h-4 w-4 mr-2" />
-                Import Recipes
-              </>
+          <div className="flex space-x-2">
+            <Button
+              onClick={handleImport}
+              disabled={importStatus === 'processing' || isLoadingRecipes}
+              className="w-full sm:w-auto mt-4"
+            >
+              {(importStatus === 'processing' || isLoadingRecipes) ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin mr-2" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Archive className="h-4 w-4 mr-2" />
+                  Import Recipes
+                </>
+              )}
+            </Button>
+            
+            {(importStatus === 'success' || importStatus === 'error') && (
+              <Button
+                onClick={resetImporter}
+                variant="outline"
+                className="w-full sm:w-auto mt-4"
+              >
+                Reset
+              </Button>
             )}
-          </Button>
+          </div>
         )}
 
         {/* Loading bar */}
-        {(isLoadingRecipes || progressPercent > 0) && (
+        {(importStatus === 'processing' || progressPercent > 0) && (
           <div className="space-y-2 mt-2">
-            <div className="text-sm text-gray-600">
-              {progressPercent < 30 ? "Processing your ZIP file..." : 
-               progressPercent < 60 ? "Extracting recipes..." : 
-               "Uploading recipes to Supabase..."}
+            <div className="text-sm text-gray-600 flex justify-between">
+              <span>{importMessage}</span>
+              <span>{Math.round(progressPercent)}%</span>
             </div>
             <Progress value={progressPercent} className="h-2" />
           </div>
