@@ -1,8 +1,8 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import type { UserProfile } from "../../../src/types/profile.ts";
+import OpenAI from "https://esm.sh/openai@4.20.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,8 +10,7 @@ const corsHeaders = {
 };
 
 /**
- * Generate meal plan using OpenAI (placeholder for now)
- * This would be implemented with OpenAI integration
+ * Generate meal plan using OpenAI
  */
 async function generateAIMealPlan(
   userId: string,
@@ -21,23 +20,114 @@ async function generateAIMealPlan(
   endDate: string
 ) {
   try {
-    // This would be implemented with OpenAI integration
-    // For now we just return a generic structure
+    console.log(`Generating AI meal plan for user ${userId} from ${startDate} to ${endDate}`);
     
-    console.log(`Generating meal plan for user ${userId} from ${startDate} to ${endDate}`);
-    console.log(`User profile: ${JSON.stringify(profile)}`);
-    console.log(`Available recipes: ${recipes.length}`);
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiApiKey) {
+      console.error("OpenAI API key not found");
+      throw new Error("OpenAI API key not configured");
+    }
+
+    const openai = new OpenAI({
+      apiKey: openaiApiKey,
+    });
     
-    // In a real implementation, we would:
-    // 1. Create a prompt for OpenAI with user profile, preferences, available recipes
-    // 2. Call OpenAI API to generate a structured meal plan
-    // 3. Parse the response into a format we can store in our database
+    // Create a summarized version of the recipes to send to OpenAI
+    // This keeps the token count down while providing enough information
+    const recipeSummaries = recipes.map(recipe => ({
+      id: recipe.id,
+      title: recipe.title,
+      calories: recipe.calories,
+      protein: recipe.protein,
+      carbs: recipe.carbs,
+      fat: recipe.fat,
+      ingredients: recipe.ingredients || [],
+      categories: recipe.categories || [],
+    }));
     
-    // For now, return empty data
-    return {
-      message: "Placeholder for AI-generated meal plan. Implement OpenAI integration.",
-      mealPlan: null
+    // Format the user's dietary preferences and restrictions
+    const dietaryPreferences = {
+      fitness_goal: profile.fitness_goal || "maintain",
+      allergies: profile.food_allergies || [],
+      preferred_cuisines: profile.preferred_cuisines || [],
+      foods_to_avoid: profile.foods_to_avoid || [],
     };
+    
+    // Calculate dates for the meal plan
+    const today = new Date(startDate);
+    const endDateObj = new Date(endDate);
+    const dayCount = Math.ceil((endDateObj.getTime() - today.getTime()) / (1000 * 3600 * 24)) + 1;
+    
+    // Prepare the prompt for OpenAI
+    const prompt = {
+      role: "system",
+      content: `You are a professional nutritionist creating a 7-day meal plan. 
+      The user has the following dietary preferences: ${JSON.stringify(dietaryPreferences)}.
+      
+      Your task is to create a meal plan with breakfast, lunch, dinner, and potentially snacks for each day.
+      For each meal, select the most appropriate recipe from the provided list.
+      
+      Guidelines:
+      1. Breakfast should be light, morning-appropriate foods (cereal, eggs, toast, fruit, yogurt, etc.)
+      2. Lunch should be moderate meals (sandwiches, salads, soups, etc.)
+      3. Dinner should be more substantial meals (proteins with sides, pasta dishes, etc.)
+      4. Add a snack if the total daily calories are below the user's requirements
+      5. Ensure variety across the week
+      6. Avoid any foods the user is allergic to or wants to avoid
+      7. Prefer the user's preferred cuisines when possible
+      8. For each meal, explain why it fits that time of day and the user's goals
+      
+      The response should be a JSON array following this exact structure, with one entry per day:
+      [
+        {
+          "date": "YYYY-MM-DD",
+          "meals": [
+            {
+              "meal_type": "breakfast", // "breakfast", "lunch", "dinner", or "snack"
+              "recipe_id": "the-recipe-id", 
+              "explanation": "Why this recipe is appropriate for this meal"
+            },
+            // more meals for this day
+          ]
+        },
+        // more days
+      ]
+      
+      Only include recipes from the provided list. Ensure every meal has a valid recipe_id from the list.`
+    };
+
+    // Make the request to OpenAI
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        prompt,
+        {
+          role: "user", 
+          content: `Create a meal plan from ${startDate} to ${endDate}. Here are the available recipes: ${JSON.stringify(recipeSummaries)}`
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000,
+      response_format: { type: "json_object" }
+    });
+    
+    // Parse the AI-generated meal plan
+    const aiResponse = response.choices[0].message.content;
+    if (!aiResponse) {
+      throw new Error("Failed to generate meal plan from OpenAI");
+    }
+    
+    try {
+      const mealPlanData = JSON.parse(aiResponse);
+      return {
+        message: "AI-generated meal plan created successfully",
+        mealPlan: mealPlanData
+      };
+    } catch (parseError) {
+      console.error("Error parsing OpenAI response:", parseError);
+      console.log("Raw response:", aiResponse);
+      throw new Error("Failed to parse meal plan data");
+    }
   } catch (error) {
     console.error("Error generating AI meal plan:", error);
     throw error;
@@ -114,7 +204,6 @@ serve(async (req) => {
     }
     
     // Generate AI meal plan
-    // In the future, this would call OpenAI with the profile and recipes
     const result = await generateAIMealPlan(
       userId, 
       profile as unknown as UserProfile, 

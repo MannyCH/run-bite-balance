@@ -5,3 +5,4 @@ export { validateMealType, validateStatus } from './validators';
 export { generateMealPlanItems } from './mealPlanItems';
 export type { MealPlanResult, GenerateMealPlanParams } from './types';
 export { getMealTypeSuitabilityScores, getRecipesForMealType } from './mealTypeClassifier';
+export { processAIMealPlan } from './aiMealPlanProcessor';

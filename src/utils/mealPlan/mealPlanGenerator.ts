@@ -3,6 +3,7 @@
 import { UserProfile, MealPlan, MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
 import { generateMealPlanItems } from './mealPlanItems';
+import { processAIMealPlan } from './aiMealPlanProcessor';
 import { 
   createOrUpdateMealPlan, 
   deleteExistingMealPlanItems, 
@@ -11,6 +12,7 @@ import {
   fetchRecipes
 } from './mealPlanDb';
 import { GenerateMealPlanParams, MealPlanResult } from './types';
+import { supabase } from '@/integrations/supabase/client';
 
 // Function to generate a meal plan based on user profile and available recipes
 export async function generateMealPlan({
@@ -27,6 +29,57 @@ export async function generateMealPlan({
       return null;
     }
 
+    // Try to use the AI meal planner first (if available)
+    try {
+      const recipesMap: Record<string, Recipe> = {};
+      recipes.forEach(recipe => {
+        recipesMap[recipe.id] = recipe;
+      });
+      
+      // Call the Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
+        body: { userId, startDate, endDate }
+      });
+      
+      if (error) {
+        console.error('Error calling AI meal planner:', error);
+        // Fall back to algorithm-based meal planning
+      } else if (data && data.mealPlan) {
+        console.log('Using AI-generated meal plan');
+        // Process the AI-generated meal plan
+        const mealPlanItems = await processAIMealPlan(
+          userId, 
+          data, 
+          startDate, 
+          endDate,
+          recipesMap
+        );
+        
+        if (mealPlanItems) {
+          // Get the meal plan record
+          const { data: mealPlans } = await supabase
+            .from('meal_plans')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1);
+            
+          if (mealPlans && mealPlans.length > 0) {
+            return {
+              mealPlan: mealPlans[0],
+              mealPlanItems
+            };
+          }
+        }
+      }
+    } catch (aiError) {
+      console.error('Error with AI meal planning, falling back to algorithmic approach:', aiError);
+      // Continue with algorithm-based approach
+    }
+
+    // Fall back to algorithmic meal planning if AI approach fails
+    console.log('Using algorithm-based meal planning');
+    
     // First, create or update a meal plan record
     const mealPlan = await createOrUpdateMealPlan(userId, startDate, endDate);
     if (!mealPlan) {
