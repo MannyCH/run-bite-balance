@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import MainLayout from "../components/Layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -42,6 +41,22 @@ const WeeklyMealPlanner: React.FC = () => {
     }
   }, [mealPlan]);
 
+  // Helper function to validate meal type
+  const validateMealType = (mealType: string): "breakfast" | "lunch" | "dinner" | "snack" => {
+    if (["breakfast", "lunch", "dinner", "snack"].includes(mealType)) {
+      return mealType as "breakfast" | "lunch" | "dinner" | "snack";
+    }
+    return "snack"; // Default fallback
+  };
+
+  // Helper function to validate status
+  const validateStatus = (status: string): "active" | "draft" => {
+    if (["active", "draft"].includes(status)) {
+      return status as "active" | "draft";
+    }
+    return "draft"; // Default fallback
+  };
+
   // Fetch the latest meal plan
   const fetchLatestMealPlan = async () => {
     if (!user?.id) return;
@@ -67,7 +82,18 @@ const WeeklyMealPlanner: React.FC = () => {
       }
 
       const plan = planData[0];
-      setMealPlan(plan);
+      
+      // Ensure the plan status is properly typed
+      const typedPlan: MealPlan = {
+        id: plan.id,
+        user_id: plan.user_id,
+        week_start_date: plan.week_start_date,
+        week_end_date: plan.week_end_date,
+        created_at: plan.created_at,
+        status: validateStatus(plan.status)
+      };
+      
+      setMealPlan(typedPlan);
 
       // Get the meal plan items
       const { data: itemsData, error: itemsError } = await supabase
@@ -80,11 +106,26 @@ const WeeklyMealPlanner: React.FC = () => {
         return;
       }
 
-      setMealPlanItems(itemsData || []);
+      // Ensure meal plan items are properly typed
+      const typedItems: MealPlanItem[] = (itemsData || []).map(item => ({
+        id: item.id,
+        meal_plan_id: item.meal_plan_id,
+        recipe_id: item.recipe_id,
+        date: item.date,
+        meal_type: validateMealType(item.meal_type),
+        nutritional_context: item.nutritional_context,
+        custom_title: item.custom_title,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat
+      }));
+      
+      setMealPlanItems(typedItems);
 
       // Get all recipe IDs from the meal plan items
-      const recipeIds = itemsData
-        ?.filter(item => item.recipe_id)
+      const recipeIds = typedItems
+        .filter(item => item.recipe_id)
         .map(item => item.recipe_id) || [];
 
       if (recipeIds.length > 0) {
@@ -168,7 +209,7 @@ const WeeklyMealPlanner: React.FC = () => {
     }).sort((a, b) => {
       // Sort by meal type: breakfast, lunch, dinner, snack
       const order = { breakfast: 1, lunch: 2, dinner: 3, snack: 4 };
-      return order[a.meal_type as keyof typeof order] - order[b.meal_type as keyof typeof order];
+      return order[a.meal_type] - order[b.meal_type];
     });
   };
 

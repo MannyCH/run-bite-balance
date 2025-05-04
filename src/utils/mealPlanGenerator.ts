@@ -37,7 +37,7 @@ export async function generateMealPlan({
         user_id: userId,
         week_start_date: startDate,
         week_end_date: endDate,
-        status: 'active' as const, // Explicitly type as 'active'
+        status: 'active', // Explicitly set as active
         created_at: new Date().toISOString()
       }, {
         onConflict: 'user_id, week_start_date',
@@ -91,17 +91,47 @@ export async function generateMealPlan({
       week_start_date: mealPlan.week_start_date,
       week_end_date: mealPlan.week_end_date,
       created_at: mealPlan.created_at,
-      status: mealPlan.status as 'draft' | 'active',
+      status: validateStatus(mealPlan.status),
     };
+
+    const typedMealPlanItems = (savedItems || []).map(item => ({
+      id: item.id,
+      meal_plan_id: item.meal_plan_id,
+      recipe_id: item.recipe_id,
+      date: item.date,
+      meal_type: validateMealType(item.meal_type),
+      nutritional_context: item.nutritional_context,
+      custom_title: item.custom_title,
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat
+    }));
 
     return {
       mealPlan: typedMealPlan,
-      mealPlanItems: savedItems as MealPlanItem[]
+      mealPlanItems: typedMealPlanItems
     };
   } catch (error) {
     console.error('Error in generateMealPlan:', error);
     return null;
   }
+}
+
+// Helper function to validate meal type
+function validateMealType(mealType: string): "breakfast" | "lunch" | "dinner" | "snack" {
+  if (["breakfast", "lunch", "dinner", "snack"].includes(mealType.toLowerCase())) {
+    return mealType.toLowerCase() as "breakfast" | "lunch" | "dinner" | "snack";
+  }
+  return "snack"; // Default fallback
+}
+
+// Helper function to validate status
+function validateStatus(status: string): "active" | "draft" {
+  if (["active", "draft"].includes(status.toLowerCase())) {
+    return status.toLowerCase() as "active" | "draft";
+  }
+  return "draft"; // Default fallback
 }
 
 // Add a new simplified function that returns a meal plan based on user's profile data
@@ -349,7 +379,7 @@ function generateMealPlanItems(
           meal_plan_id: mealPlanId,
           recipe_id: breakfast.id,
           date: dateStr,
-          meal_type: 'breakfast',
+          meal_type: "breakfast",
           nutritional_context: "A balanced breakfast to start your day",
           calories: breakfast.calories,
           protein: breakfast.protein,
@@ -367,7 +397,7 @@ function generateMealPlanItems(
           meal_plan_id: mealPlanId,
           recipe_id: lunch.id,
           date: dateStr,
-          meal_type: 'lunch',
+          meal_type: "lunch",
           nutritional_context: "A satisfying lunch with good protein content",
           calories: lunch.calories,
           protein: lunch.protein,
@@ -385,7 +415,7 @@ function generateMealPlanItems(
           meal_plan_id: mealPlanId,
           recipe_id: dinner.id,
           date: dateStr,
-          meal_type: 'dinner',
+          meal_type: "dinner",
           nutritional_context: "A nutritious dinner to end your day",
           calories: dinner.calories,
           protein: dinner.protein,
@@ -402,7 +432,7 @@ function generateMealPlanItems(
           meal_plan_id: mealPlanId,
           recipe_id: snack.id,
           date: dateStr,
-          meal_type: 'snack',
+          meal_type: "snack",
           nutritional_context: "A light snack to keep you going",
           calories: snack.calories,
           protein: snack.protein,
@@ -432,7 +462,7 @@ function generateMealPlanItems(
         meal_plan_id: mealPlanId,
         recipe_id: breakfast.id,
         date: dateStr,
-        meal_type: 'breakfast',
+        meal_type: "breakfast",
         nutritional_context: getContextForMeal('breakfast', breakfast, profile),
         calories: breakfast.calories,
         protein: breakfast.protein,
@@ -450,7 +480,7 @@ function generateMealPlanItems(
         meal_plan_id: mealPlanId,
         recipe_id: lunch.id,
         date: dateStr,
-        meal_type: 'lunch',
+        meal_type: "lunch",
         nutritional_context: getContextForMeal('lunch', lunch, profile),
         calories: lunch.calories,
         protein: lunch.protein,
@@ -468,7 +498,7 @@ function generateMealPlanItems(
         meal_plan_id: mealPlanId,
         recipe_id: dinner.id,
         date: dateStr,
-        meal_type: 'dinner',
+        meal_type: "dinner",
         nutritional_context: getContextForMeal('dinner', dinner, profile),
         calories: dinner.calories,
         protein: dinner.protein,
@@ -486,7 +516,7 @@ function generateMealPlanItems(
           meal_plan_id: mealPlanId,
           recipe_id: snack.id,
           date: dateStr,
-          meal_type: 'snack',
+          meal_type: "snack",
           nutritional_context: getContextForMeal('snack', snack, profile),
           calories: snack.calories,
           protein: snack.protein,
