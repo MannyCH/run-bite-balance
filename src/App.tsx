@@ -15,6 +15,7 @@ import SuggestedMeals from "./pages/SuggestedMeals";
 import RecipeDetail from "./pages/RecipeDetail"; 
 import PlannedRuns from "./pages/PlannedRuns";
 import Auth from "./pages/Auth";
+import ResetPasswordPage from "./pages/ResetPassword";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 import ProfileSetup from "./pages/ProfileSetup"; // Add import for the new page
@@ -40,6 +41,7 @@ const App = () => (
             <Sonner />
             <Routes>
               <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
               <Route path="/planned-meals" element={<AuthGuard><PlannedMeals /></AuthGuard>} />
               <Route path="/past-meals" element={<AuthGuard><PastMeals /></AuthGuard>} />
