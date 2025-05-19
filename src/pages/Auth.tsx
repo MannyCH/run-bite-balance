@@ -2,23 +2,20 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader } from "lucide-react";
 import MainLayout from "@/components/Layout/MainLayout";
-import { useToast } from "@/hooks/use-toast";
+import AuthLoadingState from "@/components/Auth/AuthLoadingState";
+import SignInForm from "@/components/Auth/SignInForm";
+import SignUpForm from "@/components/Auth/SignUpForm";
+import ForgotPasswordForm from "@/components/Auth/ForgotPasswordForm";
+import AuthHeader from "@/components/Auth/AuthHeader";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const { signIn, signUp, user, loading, resetPassword } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   console.log("Auth page - Auth state:", { user, loading, isOnAuthPage: true });
 
@@ -30,114 +27,12 @@ const Auth = () => {
     }
   }, [user, navigate, loading]);
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      console.log("Attempting sign in with:", email);
-      const { error } = await signIn(email, password);
-      if (error) {
-        console.error("Sign in error:", error);
-        toast({
-          title: "Sign in failed",
-          description: error.message || "Please check your credentials and try again",
-          variant: "destructive",
-        });
-      } else {
-        console.log("Sign in successful");
-        toast({
-          title: "Sign in successful",
-          description: "Welcome back!",
-        });
-      }
-    } catch (err) {
-      console.error("Unexpected sign in error:", err);
-      toast({
-        title: "Sign in failed",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      console.log("Attempting sign up with:", email);
-      const { error } = await signUp(email, password);
-      if (error) {
-        console.error("Sign up error:", error);
-        toast({
-          title: "Sign up failed",
-          description: error.message || "Please try again with different credentials",
-          variant: "destructive",
-        });
-      } else {
-        console.log("Sign up successful");
-        toast({
-          title: "Sign up successful",
-          description: "Please check your email to verify your account",
-        });
-      }
-    } catch (err) {
-      console.error("Unexpected sign up error:", err);
-      toast({
-        title: "Sign up failed",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      console.log("Attempting password reset for:", email);
-      const { error } = await resetPassword(email);
-      if (error) {
-        console.error("Password reset error:", error);
-        toast({
-          title: "Password reset failed",
-          description: error.message || "Please check your email and try again",
-          variant: "destructive",
-        });
-      } else {
-        console.log("Password reset email sent");
-        toast({
-          title: "Password reset link sent",
-          description: "Please check your email for a password reset link",
-        });
-        setIsForgotPassword(false); // Return to sign in view
-      }
-    } catch (err) {
-      console.error("Unexpected password reset error:", err);
-      toast({
-        title: "Password reset failed",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Show a loading indicator if we're checking auth status
   if (loading) {
     console.log("Auth page is showing loading state");
     return (
       <MainLayout>
-        <div className="flex items-center justify-center min-h-[80vh]">
-          <div className="flex flex-col items-center">
-            <Loader className="h-8 w-8 animate-spin text-teal-500 mb-2" />
-            <p className="text-gray-600">Checking authentication status...</p>
-          </div>
-        </div>
+        <AuthLoadingState />
       </MainLayout>
     );
   }
@@ -145,60 +40,11 @@ const Auth = () => {
   if (isForgotPassword) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center min-h-[80vh]">
-          <div className="max-w-md w-full p-4">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold">Reset Password</h1>
-              <p className="text-gray-500 mt-2">
-                Enter your email to receive a password reset link
-              </p>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Forgot Password</CardTitle>
-                <CardDescription>
-                  Enter your email address to receive a password reset link
-                </CardDescription>
-              </CardHeader>
-              <form onSubmit={handleForgotPassword}>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="reset-email">Email</Label>
-                    <Input
-                      id="reset-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                </CardContent>
-                <CardFooter className="flex flex-col space-y-2">
-                  <Button className="w-full" type="submit" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader className="mr-2 h-4 w-4 animate-spin" />
-                        Sending reset link...
-                      </>
-                    ) : (
-                      "Send Reset Link"
-                    )}
-                  </Button>
-                  <Button 
-                    variant="link" 
-                    type="button"
-                    className="w-full"
-                    onClick={() => setIsForgotPassword(false)}
-                  >
-                    Back to Sign In
-                  </Button>
-                </CardFooter>
-              </form>
-            </Card>
-          </div>
-        </div>
+        <ForgotPasswordForm 
+          email={email} 
+          setEmail={setEmail} 
+          onBackToSignIn={() => setIsForgotPassword(false)}
+        />
       </MainLayout>
     );
   }
@@ -207,12 +53,10 @@ const Auth = () => {
     <MainLayout>
       <div className="flex items-center justify-center min-h-[80vh]">
         <div className="max-w-md w-full p-4">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold">Welcome to RunBiteFit</h1>
-            <p className="text-gray-500 mt-2">
-              Track your nutrition and running activities
-            </p>
-          </div>
+          <AuthHeader 
+            title="Welcome to RunBiteFit" 
+            subtitle="Track your nutrition and running activities"
+          />
 
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -221,109 +65,22 @@ const Auth = () => {
             </TabsList>
             
             <TabsContent value="signin">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Sign In</CardTitle>
-                  <CardDescription>
-                    Enter your email and password to sign in to your account
-                  </CardDescription>
-                </CardHeader>
-                <form onSubmit={handleSignIn}>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="signin-email">Email</Label>
-                      <Input
-                        id="signin-email"
-                        type="email"
-                        placeholder="your@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signin-password">Password</Label>
-                      <Input
-                        id="signin-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex flex-col space-y-2">
-                    <Button className="w-full" type="submit" disabled={isLoading}>
-                      {isLoading ? (
-                        <>
-                          <Loader className="mr-2 h-4 w-4 animate-spin" />
-                          Signing in...
-                        </>
-                      ) : (
-                        "Sign In"
-                      )}
-                    </Button>
-                    <Button 
-                      variant="link" 
-                      type="button"
-                      className="w-full text-sm text-gray-500"
-                      onClick={() => setIsForgotPassword(true)}
-                    >
-                      Forgot your password?
-                    </Button>
-                  </CardFooter>
-                </form>
-              </Card>
+              <SignInForm
+                email={email}
+                setEmail={setEmail}
+                password={password}
+                setPassword={setPassword}
+                onForgotPassword={() => setIsForgotPassword(true)}
+              />
             </TabsContent>
             
             <TabsContent value="signup">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Create an account</CardTitle>
-                  <CardDescription>
-                    Enter your email and create a password to sign up
-                  </CardDescription>
-                </CardHeader>
-                <form onSubmit={handleSignUp}>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email</Label>
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        placeholder="your@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-password">Password</Label>
-                      <Input
-                        id="signup-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button className="w-full" type="submit" disabled={isLoading}>
-                      {isLoading ? (
-                        <>
-                          <Loader className="mr-2 h-4 w-4 animate-spin" />
-                          Creating account...
-                        </>
-                      ) : (
-                        "Create Account"
-                      )}
-                    </Button>
-                  </CardFooter>
-                </form>
-              </Card>
+              <SignUpForm
+                email={email}
+                setEmail={setEmail}
+                password={password}
+                setPassword={setPassword}
+              />
             </TabsContent>
           </Tabs>
         </div>
