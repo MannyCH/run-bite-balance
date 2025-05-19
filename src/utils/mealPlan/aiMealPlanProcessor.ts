@@ -50,7 +50,7 @@ export async function processAIMealPlan(
     }
 
     // Extract and validate the meal plan items from the AI response
-    const mealPlanItems: Partial<MealPlanItem>[] = [];
+    const mealPlanItems: Array<Partial<MealPlanItem>> = [];
     
     // Check if we have a valid mealPlan object with days
     if (aiResponse && aiResponse.mealPlan && aiResponse.mealPlan.days) {

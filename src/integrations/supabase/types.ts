@@ -17,6 +17,7 @@ export type Database = {
           date: string
           fat: number | null
           id: string
+          is_ai_generated: boolean | null
           meal_plan_id: string
           meal_type: string
           nutritional_context: string | null
@@ -30,6 +31,7 @@ export type Database = {
           date: string
           fat?: number | null
           id?: string
+          is_ai_generated?: boolean | null
           meal_plan_id: string
           meal_type: string
           nutritional_context?: string | null
@@ -43,6 +45,7 @@ export type Database = {
           date?: string
           fat?: number | null
           id?: string
+          is_ai_generated?: boolean | null
           meal_plan_id?: string
           meal_type?: string
           nutritional_context?: string | null

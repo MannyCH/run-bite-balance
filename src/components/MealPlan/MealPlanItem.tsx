@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CardFooter } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
+import { Sparkles } from "lucide-react";
 
 interface MealPlanItemProps {
   item: MealPlanItemType;
@@ -22,10 +23,16 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
   return (
     <div key={item.id} className="border rounded-lg overflow-hidden">
       <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           <Badge variant="outline" className="font-medium">
             {formatMealType(item.meal_type)}
           </Badge>
+          {item.is_ai_generated && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <Sparkles size={14} className="text-amber-500" />
+              <span>AI Generated</span>
+            </Badge>
+          )}
         </div>
         {item.nutritional_context && (
           <span className="text-sm text-muted-foreground">
