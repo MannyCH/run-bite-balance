@@ -18,10 +18,12 @@ async function generateAIMealPlan(
   profile: UserProfile,
   recipes: any[],
   startDate: string,
-  endDate: string
+  endDate: string,
+  aiRecipeRatio: number = 30 // Default to 30% if not specified
 ) {
   try {
     console.log(`Generating AI meal plan for user ${userId} from ${startDate} to ${endDate}`);
+    console.log(`User AI recipe ratio preference: ${aiRecipeRatio}%`);
     
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY_PERSONAL");
     if (!openaiApiKey) {
@@ -73,6 +75,9 @@ async function generateAIMealPlan(
       Your task is to create a meal plan with breakfast, lunch, dinner, and potentially snacks for each day.
       For each meal, select the most appropriate recipe from the provided list.
       
+      The user has specified that they want ${aiRecipeRatio}% of their meals to be AI-generated.
+      For AI-generated meals, mark them with is_ai_generated: true in your JSON response.
+      
       Guidelines:
       1. Breakfast should be light, morning-appropriate foods (cereal, eggs, toast, fruit, yogurt, etc.)
       2. Lunch should be moderate meals (sandwiches, salads, soups, etc.)
@@ -82,6 +87,7 @@ async function generateAIMealPlan(
       6. Avoid any foods the user is allergic to or wants to avoid
       7. Prefer the user's preferred cuisines when possible
       8. For each meal, explain why it fits that time of day and the user's goals
+      9. Mark approximately ${aiRecipeRatio}% of meals as AI-generated using is_ai_generated: true
       
       IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", "dinner", or "snack". Do not use any other values.
       
@@ -94,7 +100,8 @@ async function generateAIMealPlan(
               {
                 "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", or "snack" - no other values
                 "recipe_id": "the-recipe-id", 
-                "explanation": "Why this recipe is appropriate for this meal"
+                "explanation": "Why this recipe is appropriate for this meal",
+                "is_ai_generated": true // Include this field for AI-generated meals
               },
               // more meals for this day
             ]
@@ -201,7 +208,7 @@ serve(async (req) => {
       });
     }
     
-    const { userId, startDate, endDate } = requestBody;
+    const { userId, startDate, endDate, aiRecipeRatio = 30 } = requestBody;
     
     if (!userId || !startDate || !endDate) {
       return new Response(JSON.stringify({ 
@@ -213,6 +220,7 @@ serve(async (req) => {
     }
     
     console.log(`Processing meal plan request for user ${userId} from ${startDate} to ${endDate}`);
+    console.log(`AI recipe ratio: ${aiRecipeRatio}%`);
     
     // Get user profile
     const { data: profile, error: profileError } = await supabase
@@ -275,7 +283,8 @@ serve(async (req) => {
         profile as unknown as UserProfile, 
         recipes || [],
         startDate,
-        endDate
+        endDate,
+        aiRecipeRatio
       );
       
       console.log("Meal plan generated successfully");

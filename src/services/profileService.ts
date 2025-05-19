@@ -52,6 +52,7 @@ export const saveProfileToSupabase = async (
       preferred_cuisines: preferences.preferredCuisines,
       foods_to_avoid: preferences.foodsToAvoid,
       meal_complexity: mealComplexityValue,
+      ai_recipe_ratio: preferences.aiRecipeRatio,
       
       updated_at: new Date().toISOString()
     };
