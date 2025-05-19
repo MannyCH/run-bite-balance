@@ -10,6 +10,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<{ error: any }>;
+  resetPassword: (email: string) => Promise<{ error: any }>;
   loading: boolean;
 }
 
@@ -213,6 +214,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      console.log("Attempting to send password reset email to:", email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/auth',
+      });
+      
+      if (error) {
+        console.error("Password reset error:", error);
+        toast({
+          title: "Password reset failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return { error };
+      }
+      
+      console.log("Password reset email sent");
+      toast({
+        title: "Password reset email sent",
+        description: "Check your email for a password reset link",
+      });
+      
+      return { error: null };
+    } catch (error: any) {
+      console.error("Error sending password reset email:", error);
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+      return { error };
+    }
+  };
+
   const deleteAccount = async () => {
     try {
       if (!user || !session) {
@@ -273,6 +309,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signIn,
         signOut,
         deleteAccount,
+        resetPassword,
         loading,
       }}
     >
