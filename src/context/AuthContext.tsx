@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +12,9 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<{ error: any }>;
   resetPassword: (email: string) => Promise<{ error: any }>;
+  updatePassword: (newPassword: string) => Promise<{ error: any }>;
   loading: boolean;
+  checkResetToken: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -84,6 +87,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             toast({
               title: "Signed out successfully",
               description: "You have been signed out",
+            });
+          } else if (event === "PASSWORD_RECOVERY") {
+            console.log("Password recovery event received");
+            toast({
+              title: "Password Recovery",
+              description: "Enter a new password to complete the recovery process.",
             });
           }
         });
@@ -218,7 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("Attempting to send password reset email to:", email);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/auth',
+        redirectTo: window.location.origin + '/auth?reset=true',
       });
       
       if (error) {
@@ -246,6 +255,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         variant: "destructive",
       });
       return { error };
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      console.log("Attempting to update password");
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        console.error("Password update error:", error);
+        toast({
+          title: "Password update failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return { error };
+      }
+
+      console.log("Password updated successfully");
+      toast({
+        title: "Password updated",
+        description: "Your password has been updated successfully",
+      });
+
+      return { error: null };
+    } catch (error: any) {
+      console.error("Error updating password:", error);
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+      return { error };
+    }
+  };
+
+  // Check if current URL has a valid reset token
+  const checkResetToken = async () => {
+    try {
+      const hash = window.location.hash;
+      if (!hash || !hash.includes('type=recovery')) {
+        return false;
+      }
+
+      // The token is present, let's check if it's valid by trying to get the user
+      const { data, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error("Invalid recovery token:", error);
+        toast({
+          title: "Invalid recovery link",
+          description: "The password reset link is invalid or has expired. Please request a new one.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      return !!data.user;
+    } catch (error) {
+      console.error("Error checking reset token:", error);
+      return false;
     }
   };
 
@@ -310,7 +382,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         deleteAccount,
         resetPassword,
+        updatePassword,
         loading,
+        checkResetToken,
       }}
     >
       {children}
