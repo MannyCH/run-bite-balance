@@ -1,9 +1,11 @@
 
-// Functions for calculating nutritional requirements
+// Calculate requirements based on user profile
 import { UserProfile } from '@/types/profile';
-import { MealRequirements } from './types';
+import { MealRequirements } from '../types';
 
-// Calculate daily requirements based on user profile
+/**
+ * Calculate daily requirements based on user profile
+ */
 export function calculateDailyRequirements(profile: UserProfile): MealRequirements | null {
   if (!profile.bmr) return null;
 
@@ -74,19 +76,6 @@ export function calculateDailyRequirements(profile: UserProfile): MealRequiremen
       lunch: { calories: lunchCal, protein: lunchProtein },
       dinner: { calories: dinnerCal, protein: dinnerProtein },
       snack: { calories: snackCal, protein: snackProtein }
-    }
-  };
-}
-
-// Generate generic requirements when profile data is incomplete
-export function getGenericRequirements(): MealRequirements {
-  return {
-    dailyCalories: 2000,
-    meals: {
-      breakfast: { calories: 500, protein: 25 },
-      lunch: { calories: 700, protein: 35 },
-      dinner: { calories: 600, protein: 30 },
-      snack: { calories: 200, protein: 10 }
     }
   };
 }
