@@ -28,3 +28,6 @@ export interface MealRequirements {
     snack: { calories: number; protein: number };
   };
 }
+
+// Re-export AI-specific types
+export * from './ai/types';
