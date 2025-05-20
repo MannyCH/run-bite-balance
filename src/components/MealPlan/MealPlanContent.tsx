@@ -6,8 +6,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { MealPlanItem } from "./MealPlanItem";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 import { Toaster } from "@/components/ui/sonner";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 
 interface MealPlanContentProps {
   selectedDate: Date;
@@ -36,6 +34,11 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
 
   // Check if there are any AI-generated meals for the selected date
   const hasAiGeneratedMeals = getSelectedDateMeals().some(item => item.is_ai_generated);
+  
+  // Check if the selected date's meals have unique recipes
+  const selectedDateMeals = getSelectedDateMeals();
+  const uniqueRecipeCount = new Set(selectedDateMeals.map(item => item.recipe_id)).size;
+  const allRecipesUnique = uniqueRecipeCount === selectedDateMeals.length;
 
   return (
     <>
@@ -60,13 +63,13 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
           </div>
         </CardHeader>
         <CardContent>
-          {getSelectedDateMeals().length === 0 ? (
+          {selectedDateMeals.length === 0 ? (
             <div className="text-center py-10">
               <p className="text-muted-foreground">No meals planned for this day</p>
             </div>
           ) : (
             <div className="space-y-6">
-              {getSelectedDateMeals().map((item) => {
+              {selectedDateMeals.map((item) => {
                 const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
                 return <MealPlanItem key={item.id} item={item} recipe={recipe} />;
               })}

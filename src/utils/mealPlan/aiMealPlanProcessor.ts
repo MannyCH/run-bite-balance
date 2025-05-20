@@ -1,4 +1,3 @@
-
 // Let's update this file to handle the is_ai_generated flag
 import { supabase } from '@/integrations/supabase/client';
 import { MealPlanItem } from '@/types/profile';
@@ -57,12 +56,13 @@ export async function processAIMealPlan(
       console.log(`Processing ${aiResponse.aiGeneratedRecipes.length} new AI-generated recipes`);
       
       // Extract AI-generated recipes for saving to database
-      // Add a unique seed to each recipe based on the current timestamp to ensure variety
+      // Add a timestamp and random number to each recipe to ensure uniqueness
       aiResponse.aiGeneratedRecipes.forEach((recipe: any, index: number) => {
         if (recipe && recipe.title) {
-          // Add a timestamp suffix to ensure uniqueness across generations
+          // Create a really unique ID for each recipe using timestamp + random number
           const timestamp = new Date().getTime();
-          const uniqueTitle = `${recipe.title} (AI ${timestamp + index})`;
+          const randomSuffix = Math.floor(Math.random() * 10000);
+          const uniqueTitle = `${recipe.title} (AI ${timestamp}-${randomSuffix})`;
           
           newAIRecipesToSave.push({
             title: uniqueTitle, // Make the title unique
@@ -74,7 +74,7 @@ export async function processAIMealPlan(
             instructions: recipe.instructions || [],
             categories: recipe.meal_type ? [recipe.meal_type] : [],
             is_ai_generated: true, // Mark as AI-generated
-            created_at: new Date(timestamp + index).toISOString() // Give each recipe a slightly different timestamp
+            created_at: new Date(timestamp + (index * 1000) + randomSuffix).toISOString() // Give each recipe a different timestamp
           });
         }
       });
@@ -108,7 +108,8 @@ export async function processAIMealPlan(
             fat: recipe.fat,
             ingredients: recipe.ingredients,
             instructions: recipe.instructions,
-            categories: recipe.categories
+            categories: recipe.categories,
+            is_ai_generated: true
           };
           
           recipesMap[recipe.id] = recipeObj;
@@ -133,31 +134,52 @@ export async function processAIMealPlan(
       is_ai_generated?: boolean | null;
     }[] = [];
     
+    // Keep track of which AI-generated recipes have been used
+    // This ensures we don't use the same AI recipe more than once
+    const usedAIRecipeIds = new Set<string>();
+    
     // Helper function to find real recipe ID for AI-generated recipes
-    const findRealRecipeId = (tempId: string): string | null => {
+    // with enhanced uniqueness checks
+    const findRealRecipeId = (tempId: string, mealType: string): string | null => {
       // If it's a regular recipe ID, return it
       if (!tempId.startsWith('ai-')) {
         return tempId;
       }
       
       // It's a temporary AI recipe ID from the meal plan
-      // Find the corresponding real recipe ID from the saved recipes
+      // Find a corresponding real recipe ID from the saved recipes that hasn't been used yet
       const aiIndex = parseInt(tempId.replace('ai-', ''), 10);
       
       if (aiResponse && aiResponse.aiGeneratedRecipes && 
           aiResponse.aiGeneratedRecipes[aiIndex]) {
         
-        // Get the title of the AI recipe (without the unique suffix we added)
-        const aiRecipeBaseTitle = aiResponse.aiGeneratedRecipes[aiIndex].title;
+        // Get all saved AI recipes
+        const savedAIRecipeIds = Object.keys(savedAIRecipes);
         
-        // Find the saved recipe with a title that starts with the base title
-        // We use Object.keys to iterate through all saved AI recipes to find a matching one
-        const savedRecipeId = Object.keys(savedAIRecipes).find(id => 
-          savedAIRecipes[id].title.startsWith(aiRecipeBaseTitle)
-        );
+        // Filter for unused AI recipes that match the meal type
+        const availableAIRecipes = savedAIRecipeIds.filter(id => {
+          // Skip already used recipes
+          if (usedAIRecipeIds.has(id)) return false;
+          
+          const recipe = savedAIRecipes[id];
+          // Check if this recipe matches the meal type
+          if (recipe.categories && recipe.categories.includes(mealType)) {
+            return true;
+          }
+          
+          // If no meal type specific match, return any unused AI recipe
+          return true;
+        });
         
-        if (savedRecipeId) {
-          return savedRecipeId;
+        if (availableAIRecipes.length > 0) {
+          // Get a random recipe from the available ones
+          const randomIndex = Math.floor(Math.random() * availableAIRecipes.length);
+          const chosenRecipeId = availableAIRecipes[randomIndex];
+          
+          // Mark this recipe as used so we don't use it again
+          usedAIRecipeIds.add(chosenRecipeId);
+          
+          return chosenRecipeId;
         }
       }
       
@@ -177,7 +199,8 @@ export async function processAIMealPlan(
             if (!validMealType) continue;
             
             // Get the real recipe ID (handle AI-generated recipe IDs)
-            const realRecipeId = findRealRecipeId(meal.recipe_id);
+            // Pass the meal type to help find appropriate recipes
+            const realRecipeId = findRealRecipeId(meal.recipe_id, validMealType);
             if (!realRecipeId) continue;
             
             // Get recipe details from the map
@@ -196,7 +219,7 @@ export async function processAIMealPlan(
               carbs: recipe.carbs,
               fat: recipe.fat,
               nutritional_context: meal.explanation || null,
-              is_ai_generated: meal.is_ai_generated || false
+              is_ai_generated: recipe.is_ai_generated || false
             });
           }
         }
