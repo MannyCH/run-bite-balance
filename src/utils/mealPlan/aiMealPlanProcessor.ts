@@ -50,7 +50,20 @@ export async function processAIMealPlan(
     }
 
     // Extract and validate the meal plan items from the AI response
-    const mealPlanItems: Array<Partial<MealPlanItem>> = [];
+    // Use a properly typed array with required fields
+    const mealPlanItems: {
+      meal_plan_id: string;
+      date: string;
+      meal_type: string;
+      recipe_id?: string | null;
+      custom_title?: string | null;
+      calories?: number | null;
+      protein?: number | null;
+      carbs?: number | null;
+      fat?: number | null;
+      nutritional_context?: string | null;
+      is_ai_generated?: boolean | null;
+    }[] = [];
     
     // Check if we have a valid mealPlan object with days
     if (aiResponse && aiResponse.mealPlan && aiResponse.mealPlan.days) {
@@ -68,7 +81,7 @@ export async function processAIMealPlan(
             const recipe = recipesMap[meal.recipe_id];
             if (!recipe) continue;
 
-            // Create a meal plan item
+            // Create a meal plan item with all required fields explicitly defined
             mealPlanItems.push({
               meal_plan_id: mealPlanId,
               date: day.date,
@@ -80,7 +93,7 @@ export async function processAIMealPlan(
               carbs: recipe.carbs,
               fat: recipe.fat,
               nutritional_context: meal.explanation || null,
-              is_ai_generated: meal.is_ai_generated || false // Track if recipe was AI-generated
+              is_ai_generated: meal.is_ai_generated || false
             });
           }
         }
