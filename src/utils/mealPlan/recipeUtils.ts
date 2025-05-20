@@ -2,6 +2,7 @@
 import { Recipe } from '@/context/types';
 import { UserProfile } from '@/types/profile';
 import { getRecipesForMealType, getMealTypeSuitabilityScores } from './mealTypeClassifier';
+import { supabase } from '@/integrations/supabase/client';
 
 // Filter recipes based on user preferences
 export function filterRecipesByPreferences(recipes: Recipe[], profile: UserProfile): Recipe[] {
@@ -180,3 +181,58 @@ export function getContextForMeal(
   
   return randomExplanation + recipeContext;
 }
+
+/**
+ * Save an AI-generated recipe to the user's personal collection
+ * 
+ * @param recipeData Partial recipe data to save
+ * @returns boolean indicating success or failure
+ */
+export const saveRecipeToCollection = async (recipeData: Partial<Recipe>): Promise<boolean> => {
+  try {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.error('No authenticated user found');
+      return false;
+    }
+    
+    // Make sure we have at least a title
+    if (!recipeData.title) {
+      console.error('Recipe must have a title');
+      return false;
+    }
+    
+    // Convert any missing fields to defaults
+    const completeRecipeData = {
+      title: recipeData.title,
+      calories: recipeData.calories || 0,
+      protein: recipeData.protein || 0,
+      carbs: recipeData.carbs || 0, 
+      fat: recipeData.fat || 0,
+      ingredients: recipeData.ingredients || [],
+      instructions: recipeData.instructions || [],
+      categories: recipeData.categories || [],
+      is_ai_generated: true
+    };
+    
+    // Insert the recipe into the recipes table
+    const { data, error } = await supabase
+      .from('recipes')
+      .insert(completeRecipeData)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error saving recipe:', error);
+      return false;
+    }
+    
+    console.log('Recipe saved successfully:', data);
+    return true;
+  } catch (error) {
+    console.error('Error in saveRecipeToCollection:', error);
+    return false;
+  }
+};
