@@ -109,7 +109,7 @@ export async function processAIRecipes(
           instructions: recipe.instructions,
           categories: recipe.categories,
           is_ai_generated: true,
-          main_ingredient: recipe.main_ingredient
+          main_ingredient: recipe.main_ingredient // Use the main_ingredient from the DB
         };
         
         savedAIRecipes[recipe.id] = recipeObj;

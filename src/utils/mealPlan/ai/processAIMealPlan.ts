@@ -98,7 +98,7 @@ export async function processAIMealPlan(
       carbs: item.carbs,
       fat: item.fat,
       is_ai_generated: item.is_ai_generated || false,
-      main_ingredient: item.main_ingredient
+      main_ingredient: item.main_ingredient // Add the main_ingredient field from the database
     }));
   } catch (error) {
     console.error('Error processing AI meal plan:', error);
