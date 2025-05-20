@@ -40,6 +40,7 @@ export interface Recipe {
   categories?: string[];
   website?: string;
   servings?: string;
+  is_ai_generated?: boolean; // Added property for AI-generated recipes
 }
 
 // Context type definition
