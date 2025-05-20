@@ -2,7 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Recipe } from '@/context/types';
 import crypto from 'crypto';
-import { ContentHashMap } from './types';
+import { ContentHashMap, ExtendedRecipe } from './types';
 import { extractMainIngredient } from './ingredientUtils';
 import { generateContentHash } from './contentHash';
 
@@ -11,11 +11,11 @@ import { generateContentHash } from './contentHash';
  */
 export async function processAIRecipes(
   aiGeneratedRecipes: any[] | undefined
-): Promise<Record<string, Recipe>> {
+): Promise<Record<string, ExtendedRecipe>> {
   // Track content hashes of AI recipes to ensure uniqueness
-  const contentHashMap = new Map<string, Recipe>();
+  const contentHashMap = new Map<string, ExtendedRecipe>();
   const newAIRecipesToSave: any[] = [];
-  const savedAIRecipes: Record<string, Recipe> = {};
+  const savedAIRecipes: Record<string, ExtendedRecipe> = {};
   
   if (!aiGeneratedRecipes || !Array.isArray(aiGeneratedRecipes)) {
     console.log('No AI-generated recipes to process');
@@ -67,7 +67,7 @@ export async function processAIRecipes(
         };
         
         // Add to our tracking maps
-        contentHashMap.set(contentHash, newRecipe as unknown as Recipe);
+        contentHashMap.set(contentHash, newRecipe as unknown as ExtendedRecipe);
         newAIRecipesToSave.push(newRecipe);
         
         console.log(`Added AI recipe "${uniqueTitle}" with main ingredient "${mainIngredient}" and hash ${contentHash.substring(0, 8)}`);
@@ -98,7 +98,7 @@ export async function processAIRecipes(
       
       // Add newly saved recipes to the recipesMap
       insertedRecipes.forEach(recipe => {
-        const recipeObj: Recipe = {
+        const recipeObj: ExtendedRecipe = {
           id: recipe.id,
           title: recipe.title,
           calories: recipe.calories,

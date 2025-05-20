@@ -49,5 +49,10 @@ export interface MealPlanItemForDb {
   fat?: number | null;
   nutritional_context?: string | null;
   is_ai_generated?: boolean | null;
+  main_ingredient?: string | null; // Added to match database schema
+}
+
+// Extended Recipe type that includes main_ingredient field
+export interface ExtendedRecipe extends Recipe {
   main_ingredient?: string | null;
 }

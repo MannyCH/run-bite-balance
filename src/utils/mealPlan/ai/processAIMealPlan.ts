@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
 import { validateMealType } from '../validators';
-import { AIResponse } from './types';
+import { AIResponse, ExtendedRecipe } from './types';
 import { processAIRecipes } from './aiRecipeProcessor';
 import { processMealPlanItems } from './mealPlanItemProcessor';
 
@@ -16,7 +16,7 @@ export async function processAIMealPlan(
   aiResponse: AIResponse,
   startDate: string,
   endDate: string,
-  recipesMap: Record<string, Recipe>
+  recipesMap: Record<string, Recipe | ExtendedRecipe>
 ): Promise<MealPlanItem[] | null> {
   try {
     // First, get or create the meal plan record
@@ -98,7 +98,7 @@ export async function processAIMealPlan(
       carbs: item.carbs,
       fat: item.fat,
       is_ai_generated: item.is_ai_generated || false,
-      main_ingredient: item.main_ingredient // Add the main_ingredient field from the database
+      main_ingredient: item.main_ingredient // Handle the main_ingredient field from the database
     }));
   } catch (error) {
     console.error('Error processing AI meal plan:', error);
