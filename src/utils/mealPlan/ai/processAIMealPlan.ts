@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
 import { validateMealType } from '../validators';
-import { AIResponse, ExtendedRecipe } from './types';
+import { AIResponse, ExtendedRecipe, MealPlanItemForDb } from './types';
 import { processAIRecipes } from './aiRecipeProcessor';
 import { processMealPlanItems } from './mealPlanItemProcessor';
 
