@@ -1,3 +1,4 @@
+
 // Let's update this file to handle the is_ai_generated flag
 import { supabase } from '@/integrations/supabase/client';
 import { MealPlanItem } from '@/types/profile';
@@ -59,10 +60,10 @@ export async function processAIMealPlan(
       // Add a timestamp and random number to each recipe to ensure uniqueness
       aiResponse.aiGeneratedRecipes.forEach((recipe: any, index: number) => {
         if (recipe && recipe.title) {
-          // Create a really unique ID for each recipe using timestamp + random number
+          // Create a really unique ID for each recipe using timestamp + random number + index
           const timestamp = new Date().getTime();
           const randomSuffix = Math.floor(Math.random() * 10000);
-          const uniqueTitle = `${recipe.title} (AI ${timestamp}-${randomSuffix})`;
+          const uniqueTitle = `${recipe.title} (AI ${timestamp}-${randomSuffix}-${index})`;
           
           newAIRecipesToSave.push({
             title: uniqueTitle, // Make the title unique
@@ -134,55 +135,56 @@ export async function processAIMealPlan(
       is_ai_generated?: boolean | null;
     }[] = [];
     
-    // Keep track of which AI-generated recipes have been used
-    // This ensures we don't use the same AI recipe more than once
-    const usedAIRecipeIds = new Set<string>();
+    // Create a global Set to track all used recipe IDs throughout the entire meal plan
+    // This ensures we don't reuse any recipe across the whole week
+    const globalUsedRecipeIds = new Set<string>();
+    
+    // Helper function to get all available AI recipes for a meal type
+    const getAvailableAIRecipes = (mealType: string) => {
+      return Object.entries(savedAIRecipes)
+        .filter(([id, recipe]) => {
+          // Skip already used recipes
+          if (globalUsedRecipeIds.has(id)) return false;
+          
+          // Check if recipe has categories that match the meal type
+          if (recipe.categories && recipe.categories.length > 0) {
+            return recipe.categories.some(category => 
+              category.toLowerCase().includes(mealType.toLowerCase())
+            );
+          }
+          
+          // If no categories or no match, it's still available for use
+          return true;
+        })
+        .map(([id]) => id);
+    };
     
     // Helper function to find real recipe ID for AI-generated recipes
     // with enhanced uniqueness checks
     const findRealRecipeId = (tempId: string, mealType: string): string | null => {
-      // If it's a regular recipe ID, return it
+      // If it's a regular recipe ID, return it (if not already used)
       if (!tempId.startsWith('ai-')) {
+        // For non-AI recipes, don't enforce uniqueness to maintain backward compatibility
         return tempId;
       }
       
       // It's a temporary AI recipe ID from the meal plan
       // Find a corresponding real recipe ID from the saved recipes that hasn't been used yet
-      const aiIndex = parseInt(tempId.replace('ai-', ''), 10);
+      const availableAIRecipeIds = getAvailableAIRecipes(mealType);
       
-      if (aiResponse && aiResponse.aiGeneratedRecipes && 
-          aiResponse.aiGeneratedRecipes[aiIndex]) {
+      if (availableAIRecipeIds.length > 0) {
+        // Get a random recipe from the available ones
+        const randomIndex = Math.floor(Math.random() * availableAIRecipeIds.length);
+        const chosenRecipeId = availableAIRecipeIds[randomIndex];
         
-        // Get all saved AI recipes
-        const savedAIRecipeIds = Object.keys(savedAIRecipes);
+        // Mark this recipe as used so we don't use it again anywhere in the meal plan
+        globalUsedRecipeIds.add(chosenRecipeId);
         
-        // Filter for unused AI recipes that match the meal type
-        const availableAIRecipes = savedAIRecipeIds.filter(id => {
-          // Skip already used recipes
-          if (usedAIRecipeIds.has(id)) return false;
-          
-          const recipe = savedAIRecipes[id];
-          // Check if this recipe matches the meal type
-          if (recipe.categories && recipe.categories.includes(mealType)) {
-            return true;
-          }
-          
-          // If no meal type specific match, return any unused AI recipe
-          return true;
-        });
-        
-        if (availableAIRecipes.length > 0) {
-          // Get a random recipe from the available ones
-          const randomIndex = Math.floor(Math.random() * availableAIRecipes.length);
-          const chosenRecipeId = availableAIRecipes[randomIndex];
-          
-          // Mark this recipe as used so we don't use it again
-          usedAIRecipeIds.add(chosenRecipeId);
-          
-          return chosenRecipeId;
-        }
+        console.log(`Assigned AI recipe ${chosenRecipeId} for meal type ${mealType}`);
+        return chosenRecipeId;
       }
       
+      console.log(`No available AI recipes for meal type ${mealType}, using non-AI recipe instead`);
       return null;
     };
     
@@ -226,6 +228,9 @@ export async function processAIMealPlan(
       }
     }
 
+    // Log information about recipe uniqueness for debugging
+    console.log(`Generated ${mealPlanItems.length} meal plan items with ${globalUsedRecipeIds.size} unique AI recipes`);
+    
     if (mealPlanItems.length === 0) {
       console.error('No valid meal plan items found in AI response');
       return null;

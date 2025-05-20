@@ -1,11 +1,13 @@
 
 import React from "react";
-import { Calendar } from "lucide-react";
+import { Calendar, Info } from "lucide-react";
 import { format, isSameDay, parseISO } from "date-fns";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { MealPlanItem } from "./MealPlanItem";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 import { Toaster } from "@/components/ui/sonner";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MealPlanContentProps {
   selectedDate: Date;
@@ -33,12 +35,21 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
   };
 
   // Check if there are any AI-generated meals for the selected date
-  const hasAiGeneratedMeals = getSelectedDateMeals().some(item => item.is_ai_generated);
+  const selectedDateMeals = getSelectedDateMeals();
+  const hasAiGeneratedMeals = selectedDateMeals.some(item => item.is_ai_generated);
   
   // Check if the selected date's meals have unique recipes
-  const selectedDateMeals = getSelectedDateMeals();
   const uniqueRecipeCount = new Set(selectedDateMeals.map(item => item.recipe_id)).size;
   const allRecipesUnique = uniqueRecipeCount === selectedDateMeals.length;
+  
+  // Get all unique recipe IDs for AI-generated recipes for the entire week
+  const allAiRecipeIds = mealPlanItems
+    .filter(item => item.is_ai_generated)
+    .map(item => item.recipe_id);
+  const uniqueAiRecipeIds = new Set(allAiRecipeIds);
+  
+  // Check if all AI recipes across the entire week are unique
+  const allAiRecipesUnique = allAiRecipeIds.length === uniqueAiRecipeIds.size;
 
   return (
     <>
@@ -51,12 +62,12 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
                 <Calendar className="h-5 w-5 mr-2" />
                 Meals for {format(selectedDate, "EEEE, MMMM d")}
               </CardTitle>
-              <CardDescription>
-                Your personalized meal plan for this day
+              <CardDescription className="flex items-center space-x-2">
+                <span>Your personalized meal plan for this day</span>
                 {hasAiGeneratedMeals && (
-                  <span className="ml-2 text-purple-500 font-medium">
-                    (includes AI-generated recipes)
-                  </span>
+                  <Badge className="ml-2 bg-purple-500 hover:bg-purple-600">
+                    AI-generated
+                  </Badge>
                 )}
               </CardDescription>
             </div>
@@ -76,6 +87,43 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
             </div>
           )}
         </CardContent>
+        {hasAiGeneratedMeals && (
+          <CardFooter className="flex justify-between items-center border-t pt-4">
+            <div className="flex items-center space-x-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center text-sm text-muted-foreground cursor-help">
+                      <Info className="h-4 w-4 mr-1" />
+                      <span>AI Recipe Stats</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-sm">
+                      {allAiRecipesUnique 
+                        ? "All AI-generated recipes in this week are unique." 
+                        : "Some AI-generated recipes appear multiple times this week."}
+                    </p>
+                    <p className="text-sm mt-1">
+                      {uniqueAiRecipeIds.size} unique AI recipes used across {allAiRecipeIds.length} meals.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div>
+              {allAiRecipesUnique ? (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  All unique AI recipes
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                  Some duplicate AI recipes
+                </Badge>
+              )}
+            </div>
+          </CardFooter>
+        )}
       </Card>
     </>
   );
