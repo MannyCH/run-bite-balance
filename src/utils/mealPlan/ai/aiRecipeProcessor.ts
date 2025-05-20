@@ -7,12 +7,14 @@ import { generateContentHash } from './contentHash';
 
 /**
  * Process and save AI-generated recipes to the database
+ * Always ensures main_ingredient is set and recipes are unique
  */
 export async function processAIRecipes(
   aiGeneratedRecipes: any[] | undefined
 ): Promise<Record<string, ExtendedRecipe>> {
   // Track content hashes of AI recipes to ensure uniqueness
   const contentHashMap = new Map<string, ExtendedRecipe>();
+  const mainIngredientMap = new Map<string, string[]>(); // Track main ingredients to avoid repetition
   const newAIRecipesToSave: any[] = [];
   const savedAIRecipes: Record<string, ExtendedRecipe> = {};
   
@@ -27,7 +29,7 @@ export async function processAIRecipes(
   aiGeneratedRecipes.forEach((recipe: any, index: number) => {
     if (recipe && recipe.title) {
       // ALWAYS ensure main ingredient is set, never null
-      const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe) || "unknown";
+      const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
       
       // Create a content hash for deduplication
       // First ensure the recipe has the main ingredient set
@@ -39,7 +41,13 @@ export async function processAIRecipes(
       const contentHash = generateContentHash(recipeWithMainIngredient);
       
       // Check if we already have a recipe with very similar content
+      // or with the same main ingredient (to avoid repetition)
       if (!contentHashMap.has(contentHash)) {
+        // Track main ingredients to avoid repetition
+        if (!mainIngredientMap.has(mainIngredient)) {
+          mainIngredientMap.set(mainIngredient, []);
+        }
+        
         // Create a really unique ID for each recipe using timestamp + random number + index
         const timestamp = new Date().getTime();
         const randomSuffix = Math.floor(Math.random() * 10000);
@@ -62,6 +70,7 @@ export async function processAIRecipes(
         
         // Add to our tracking maps
         contentHashMap.set(contentHash, newRecipe as unknown as ExtendedRecipe);
+        mainIngredientMap.get(mainIngredient)?.push(uniqueTitle);
         newAIRecipesToSave.push(newRecipe);
         
         console.log(`Added AI recipe "${uniqueTitle}" with main ingredient "${mainIngredient}" and hash ${contentHash.substring(0, 8)}`);

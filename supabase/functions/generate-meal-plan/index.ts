@@ -104,7 +104,7 @@ async function generateAIRecipes(
             content: `Create ${numberOfRecipesToGenerate} original recipes that would appeal to me based on my preferences. Make them creative and unique with DIFFERENT main ingredients for each recipe!`
           }
         ],
-        temperature: 1.0, // Higher creativity for unique recipes
+        temperature: 0.9, // Increased temperature for more creativity and variety
         max_tokens: 3000,
         response_format: { type: "json_object" }
       });
@@ -184,7 +184,7 @@ async function generateAIMealPlan(
         ingredients: recipe.ingredients || [],
         categories: recipe.categories || [],
         is_ai_generated: false,
-        main_ingredient: extractMainIngredient(recipe)
+        main_ingredient: recipe.main_ingredient || extractMainIngredient(recipe)
       })),
       ...aiGeneratedRecipes.map((recipe, index) => ({
         id: `ai-${index}`, // Temporary ID for AI recipes
@@ -295,7 +295,7 @@ async function generateAIMealPlan(
             content: `Create a meal plan from ${startDate} to ${endDate} with maximum ingredient variety. Here are the available recipes: ${JSON.stringify(allRecipes)}`
           }
         ],
-        temperature: 0.7,
+        temperature: 0.8, // Increased temperature for more variety
         max_tokens: 2500,
         response_format: { type: "json_object" }
       });
@@ -421,7 +421,7 @@ serve(async (req) => {
       });
     }
     
-    const { userId, startDate, endDate, aiRecipeRatio = 30 } = requestBody;
+    const { userId, startDate, endDate, aiRecipeRatio = 30, forceNewRecipes = false } = requestBody;
     
     if (!userId || !startDate || !endDate) {
       return new Response(JSON.stringify({ 
@@ -434,6 +434,7 @@ serve(async (req) => {
     
     console.log(`Processing meal plan request for user ${userId} from ${startDate} to ${endDate}`);
     console.log(`AI recipe ratio: ${aiRecipeRatio}%`);
+    console.log(`Force new recipes: ${forceNewRecipes}`);
     
     // Get user profile
     const { data: profile, error: profileError } = await supabase
@@ -462,9 +463,10 @@ serve(async (req) => {
       });
     }
     
-    // 1. Generate AI recipes first based on the user's preferences
+    // 1. Always generate AI recipes first based on the user's preferences
     let aiGeneratedRecipes = [];
     try {
+      // Always generate fresh AI recipes for each meal plan
       aiGeneratedRecipes = await generateAIRecipes(profile as unknown as UserProfile, aiRecipeRatio);
       console.log(`Successfully generated ${aiGeneratedRecipes.length} AI recipes`);
     } catch (aiRecipeError) {

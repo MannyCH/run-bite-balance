@@ -35,7 +35,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
       if (result) {
         toast({
           title: "Success",
-          description: "Your meal plan has been generated successfully!",
+          description: "Your meal plan with fresh AI recipes has been generated successfully!",
         });
         // Refresh data
         await onMealPlanGenerated();
@@ -64,7 +64,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
         <div>
           <h3 className="text-lg font-medium">Need a new meal plan?</h3>
           <p className="text-muted-foreground">
-            Generate a personalized plan based on your profile and dietary preferences
+            Generate a personalized plan with fresh AI recipes based on your profile and dietary preferences
           </p>
         </div>
         <Button 

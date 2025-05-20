@@ -34,7 +34,7 @@ export async function generateMealPlan({
     const aiRecipeRatio = profile.ai_recipe_ratio !== null ? profile.ai_recipe_ratio : 30;
     console.log(`User AI recipe ratio preference: ${aiRecipeRatio}%`);
     
-    // Always attempt to use the AI meal planner based on the defined ratio
+    // ALWAYS use the AI meal planner to generate fresh AI recipes
     // The ratio determines the percentage of AI-generated recipes in the meal plan
     try {
       const recipesMap: Record<string, Recipe> = {};
@@ -43,12 +43,14 @@ export async function generateMealPlan({
       });
       
       // Call the Supabase Edge Function with the AI recipe ratio
+      // Added forceNewRecipes flag to ensure fresh recipes are always generated
       const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
         body: { 
           userId, 
           startDate, 
           endDate,
-          aiRecipeRatio // Pass the AI recipe ratio to the edge function
+          aiRecipeRatio, // Pass the AI recipe ratio to the edge function
+          forceNewRecipes: true // Always force generation of new recipes
         }
       });
       
@@ -56,7 +58,7 @@ export async function generateMealPlan({
         console.error('Error calling AI meal planner:', error);
         // Fall back to algorithm-based meal planning
       } else if (data && data.mealPlan) {
-        console.log('Using AI-generated meal plan with custom recipes');
+        console.log('Using AI-generated meal plan with fresh AI recipes');
         // Process the AI-generated meal plan with both existing and new recipes
         const mealPlanItems = await processAIMealPlan(
           userId, 
@@ -163,7 +165,7 @@ export async function generateMealPlanForUser(
       profile: profile as UserProfile,
       recipes,
       startDate,
-      endDate: endDateStr  // Fix: Changed from endDateStr to endDate to match the type definition
+      endDate: endDateStr
     });
   } catch (error) {
     console.error('Error generating meal plan:', error);

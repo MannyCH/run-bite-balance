@@ -7,6 +7,7 @@ import { DaySelector } from "@/components/MealPlan/DaySelector";
 import { MealPlanContent } from "@/components/MealPlan/MealPlanContent";
 import { NoMealPlan } from "@/components/MealPlan/NoMealPlan";
 import { useMealPlan } from "@/hooks/useMealPlan";
+import { Badge } from "@/components/ui/badge";
 
 const WeeklyMealPlanner: React.FC = () => {
   const {
@@ -26,6 +27,9 @@ const WeeklyMealPlanner: React.FC = () => {
         <h1 className="text-3xl font-bold mb-2">Weekly Meal Planner</h1>
         <p className="text-gray-600">
           View your personalized meal plan based on your profile
+          <Badge variant="outline" className="ml-2 bg-emerald-50 text-emerald-700">
+            Fresh AI recipes on every generate
+          </Badge>
         </p>
       </div>
 
