@@ -79,7 +79,7 @@ export interface MealPlan {
   status: MealPlanStatus;
 }
 
-// Meal plan item interface with is_ai_generated field
+// Meal plan item interface with is_ai_generated field and main_ingredient field
 export interface MealPlanItem {
   id: string;
   meal_plan_id: string;
@@ -92,5 +92,6 @@ export interface MealPlanItem {
   protein?: number;
   carbs?: number;
   fat?: number;
-  is_ai_generated?: boolean; // New field to track AI-generated recipes
+  is_ai_generated?: boolean; // Field to track AI-generated recipes
+  main_ingredient?: string | null; // New field to track main ingredient for variety
 }
