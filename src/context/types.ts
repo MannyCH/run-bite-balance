@@ -41,6 +41,7 @@ export interface Recipe {
   website?: string;
   servings?: string;
   is_ai_generated?: boolean; // Added property for AI-generated recipes
+  main_ingredient?: string; // Added property to track main ingredient for variety
 }
 
 // Context type definition

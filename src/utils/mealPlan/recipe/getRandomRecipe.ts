@@ -15,11 +15,49 @@ export function generateRecipeContentHash(recipe: Recipe): string {
     String(recipe.calories),
     String(recipe.protein),
     String(recipe.carbs),
-    String(recipe.fat)
+    String(recipe.fat),
+    recipe.main_ingredient?.toLowerCase() // Include main ingredient in the hash
   ].filter(Boolean).join('|');
   
   // Create a hash of this content
   return crypto.createHash('md5').update(contentFields).digest('hex');
+}
+
+/**
+ * Extract the main ingredient from a recipe based on ingredients list
+ */
+export function extractMainIngredient(recipe: Recipe): string {
+  if (recipe.main_ingredient) {
+    return recipe.main_ingredient;
+  }
+  
+  if (!recipe.ingredients || recipe.ingredients.length === 0) {
+    return "unknown";
+  }
+  
+  // Common food categories that might be main ingredients
+  const ingredientKeywords = [
+    "chicken", "beef", "pork", "turkey", "fish", "salmon", "tuna", 
+    "tofu", "tempeh", "eggs", "rice", "pasta", "quinoa", "bread",
+    "tortilla", "noodle", "couscous", "farro", "cauliflower", 
+    "broccoli", "potato", "sweet potato", "squash", "eggplant",
+    "zucchini", "beans", "lentils", "chickpeas"
+  ];
+  
+  // Look for potential main ingredients in the first few ingredients (which are usually the main ones)
+  const firstFewIngredients = recipe.ingredients.slice(0, 3).join(" ").toLowerCase();
+  
+  for (const keyword of ingredientKeywords) {
+    if (firstFewIngredients.includes(keyword)) {
+      return keyword;
+    }
+  }
+  
+  // If we couldn't find a match in common ingredients, just return the first ingredient
+  const firstIngredient = recipe.ingredients[0].toLowerCase();
+  // Extract the main part by removing quantities and prep instructions
+  const mainPart = firstIngredient.split(" ").slice(1).join(" ").split(",")[0];
+  return mainPart || "unknown";
 }
 
 /**
@@ -31,11 +69,12 @@ export function getRandomRecipe(
   targetProtein: number, 
   usedRecipeIds: string[] = [],
   mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'breakfast',
-  usedContentHashes: string[] = []
+  usedContentHashes: string[] = [],
+  usedMainIngredients: string[] = []
 ): Recipe | null {
   if (!recipes.length) return null;
   
-  // Filter out already used recipes (by ID) and content hashes
+  // Filter out already used recipes (by ID), content hashes, and main ingredients
   let available = recipes.filter(recipe => {
     // Skip if ID is already used
     if (usedRecipeIds.includes(recipe.id)) return false;
@@ -43,6 +82,10 @@ export function getRandomRecipe(
     // Skip if content hash is already used (for content-level deduplication)
     const contentHash = generateRecipeContentHash(recipe);
     if (usedContentHashes.includes(contentHash)) return false;
+    
+    // Skip if main ingredient is already used
+    const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+    if (usedMainIngredients.includes(mainIngredient)) return false;
     
     return true;
   });

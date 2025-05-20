@@ -1,11 +1,17 @@
 
-// Let's update this file to handle the is_ai_generated flag
+// Let's update this file to handle the is_ai_generated flag and main ingredients
 import { supabase } from '@/integrations/supabase/client';
 import { MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
 import { validateMealType } from './validators';
 import { generateRecipeContentHash } from './recipe/getRandomRecipe';
 import crypto from 'crypto';
+
+// Track used main ingredients to ensure variety
+interface IngredientTracking {
+  byDay: Record<string, Set<string>>;
+  allWeek: Set<string>;
+}
 
 /**
  * Process an AI-generated meal plan into MealPlanItem objects
@@ -55,6 +61,12 @@ export async function processAIMealPlan(
     // Track content hashes of AI recipes to ensure true uniqueness
     const contentHashMap = new Map<string, Recipe>();
     
+    // Track used main ingredients for variety
+    const ingredientTracking: IngredientTracking = {
+      byDay: {},
+      allWeek: new Set<string>()
+    };
+    
     // Check if we have new AI-generated recipes to save
     const newAIRecipesToSave: any[] = [];
     
@@ -64,6 +76,9 @@ export async function processAIMealPlan(
       // Extract AI-generated recipes for saving to database
       aiResponse.aiGeneratedRecipes.forEach((recipe: any, index: number) => {
         if (recipe && recipe.title) {
+          // Get main ingredient from recipe if available
+          const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+          
           // Create a content hash for deduplication
           const contentFields = [
             (recipe.ingredients || []).join('').toLowerCase(),
@@ -72,7 +87,8 @@ export async function processAIMealPlan(
             String(recipe.calories || 0),
             String(recipe.protein || 0),
             String(recipe.carbs || 0),
-            String(recipe.fat || 0)
+            String(recipe.fat || 0),
+            mainIngredient
           ].filter(Boolean).join('|');
           
           const contentHash = crypto.createHash('md5').update(contentFields).digest('hex');
@@ -94,6 +110,7 @@ export async function processAIMealPlan(
               instructions: recipe.instructions || [],
               categories: recipe.meal_type ? [recipe.meal_type] : [],
               is_ai_generated: true, // Mark as AI-generated
+              main_ingredient: mainIngredient, // Add main ingredient field
               created_at: new Date(timestamp + (index * 1000) + randomSuffix).toISOString(), // Give each recipe a different timestamp
               content_hash: contentHash // Store the content hash for future reference
             };
@@ -102,7 +119,7 @@ export async function processAIMealPlan(
             contentHashMap.set(contentHash, newRecipe as unknown as Recipe);
             newAIRecipesToSave.push(newRecipe);
             
-            console.log(`Added AI recipe "${uniqueTitle}" with hash ${contentHash.substring(0, 8)}`);
+            console.log(`Added AI recipe "${uniqueTitle}" with main ingredient "${mainIngredient}" and hash ${contentHash.substring(0, 8)}`);
           } else {
             console.log(`Skipped duplicate recipe "${recipe.title}" (similar to existing recipe)`);
           }
@@ -143,7 +160,9 @@ export async function processAIMealPlan(
             ingredients: recipe.ingredients,
             instructions: recipe.instructions,
             categories: recipe.categories,
-            is_ai_generated: true
+            is_ai_generated: true,
+            // Add the main_ingredient field from the recipe
+            main_ingredient: recipe.main_ingredient
           };
           
           recipesMap[recipe.id] = recipeObj;
@@ -166,6 +185,7 @@ export async function processAIMealPlan(
       fat?: number | null;
       nutritional_context?: string | null;
       is_ai_generated?: boolean | null;
+      main_ingredient?: string | null;
     }[] = [];
     
     // Create a global Set to track all used recipe IDs throughout the entire meal plan
@@ -174,8 +194,41 @@ export async function processAIMealPlan(
     // Also track content hashes to ensure true content uniqueness
     const globalUsedContentHashes = new Set<string>();
     
+    // Helper function to extract main ingredient from a recipe
+    function extractMainIngredient(recipe: any): string {
+      if (recipe.main_ingredient) {
+        return recipe.main_ingredient;
+      }
+      
+      if (!recipe.ingredients || recipe.ingredients.length === 0) {
+        return "unknown";
+      }
+      
+      // Common food categories that might be main ingredients
+      const ingredientKeywords = [
+        "chicken", "beef", "pork", "turkey", "fish", "salmon", "tuna", 
+        "tofu", "tempeh", "eggs", "rice", "pasta", "quinoa", "bread",
+        "tortilla", "noodle", "couscous", "farro", "cauliflower", 
+        "broccoli", "potato", "sweet potato", "squash", "eggplant",
+        "zucchini", "beans", "lentils", "chickpeas"
+      ];
+      
+      // Check the first few ingredients (which are usually the main ones)
+      const firstFewIngredients = recipe.ingredients.slice(0, 3).join(" ").toLowerCase();
+      
+      for (const keyword of ingredientKeywords) {
+        if (firstFewIngredients.includes(keyword)) {
+          return keyword;
+        }
+      }
+      
+      // If we can't find a match, just use the first ingredient
+      return recipe.ingredients[0].split(" ").slice(1).join(" ").split(",")[0] || "unknown";
+    }
+    
     // Helper function to get all available AI recipes for a meal type
-    const getAvailableAIRecipes = (mealType: string) => {
+    // Now considers main ingredient to ensure variety
+    const getAvailableAIRecipes = (mealType: string, date: string, mainIngredientsToAvoid: Set<string>) => {
       return Object.entries(savedAIRecipes)
         .filter(([id, recipe]) => {
           // Skip already used recipes
@@ -184,6 +237,12 @@ export async function processAIMealPlan(
           // Skip recipes with similar content (true deduplication)
           const contentHash = generateRecipeContentHash(recipe);
           if (globalUsedContentHashes.has(contentHash)) return false;
+          
+          // Get main ingredient
+          const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+          
+          // Skip recipes with main ingredients we've already used for this day
+          if (mainIngredientsToAvoid.has(mainIngredient)) return false;
           
           // Check if recipe has categories that match the meal type
           if (recipe.categories && recipe.categories.length > 0) {
@@ -199,8 +258,16 @@ export async function processAIMealPlan(
     };
     
     // Helper function to find real recipe ID for AI-generated recipes
-    // with enhanced uniqueness checks based on content
-    const findRealRecipeId = (tempId: string, mealType: string): string | null => {
+    // with enhanced uniqueness checks based on content and main ingredients
+    const findRealRecipeId = (tempId: string, mealType: string, date: string): string | null => {
+      // Initialize ingredient tracking for this day if not exists
+      if (!ingredientTracking.byDay[date]) {
+        ingredientTracking.byDay[date] = new Set<string>();
+      }
+      
+      // Get ingredients already used for this day
+      const usedIngredientsToday = ingredientTracking.byDay[date];
+      
       // If it's a regular recipe ID, return it (if not already used)
       if (!tempId.startsWith('ai-')) {
         // For non-AI recipes, check if already used to prevent duplication
@@ -208,10 +275,20 @@ export async function processAIMealPlan(
           // If already used, find another similar recipe
           const recipe = recipesMap[tempId];
           if (recipe) {
+            // Extract its main ingredient
+            const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+            
             // Find similar recipes by meal type that aren't already used
+            // and have different main ingredients than what we've used today
             const similarRecipes = Object.entries(recipesMap)
               .filter(([id, r]) => {
                 if (globalUsedRecipeIds.has(id)) return false;
+                
+                // Extract this recipe's main ingredient
+                const rMainIngredient = r.main_ingredient || extractMainIngredient(r);
+                
+                // Skip if we've already used this ingredient today
+                if (usedIngredientsToday.has(rMainIngredient)) return false;
                 
                 // Check for category match
                 if (!r.categories) return false;
@@ -226,18 +303,38 @@ export async function processAIMealPlan(
             if (similarRecipes.length > 0) {
               const alternativeId = similarRecipes[Math.floor(Math.random() * similarRecipes.length)];
               console.log(`Recipe ${tempId} already used, substituting with similar recipe ${alternativeId}`);
+              
+              // Mark as used
               globalUsedRecipeIds.add(alternativeId);
+              
+              // Track main ingredient
+              const altRecipe = recipesMap[alternativeId];
+              if (altRecipe) {
+                const altMainIngredient = altRecipe.main_ingredient || extractMainIngredient(altRecipe);
+                usedIngredientsToday.add(altMainIngredient);
+                ingredientTracking.allWeek.add(altMainIngredient);
+              }
+              
+              // Also track content hash
+              const contentHash = generateRecipeContentHash(recipesMap[alternativeId]);
+              globalUsedContentHashes.add(contentHash);
+              
               return alternativeId;
             }
           }
         }
         
-        // Mark as used and return
+        // Mark as used
         globalUsedRecipeIds.add(tempId);
         
-        // Also track content hash
+        // Track main ingredient usage
         const recipe = recipesMap[tempId];
         if (recipe) {
+          const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+          usedIngredientsToday.add(mainIngredient);
+          ingredientTracking.allWeek.add(mainIngredient);
+          
+          // Track content hash
           const contentHash = generateRecipeContentHash(recipe);
           globalUsedContentHashes.add(contentHash);
         }
@@ -246,8 +343,9 @@ export async function processAIMealPlan(
       }
       
       // It's a temporary AI recipe ID from the meal plan
-      // Find a corresponding real recipe ID from the saved recipes that hasn't been used yet
-      const availableAIRecipeIds = getAvailableAIRecipes(mealType);
+      // Find a corresponding real recipe ID that hasn't been used yet
+      // and has a different main ingredient than what we've used for this day
+      const availableAIRecipeIds = getAvailableAIRecipes(mealType, date, usedIngredientsToday);
       
       if (availableAIRecipeIds.length > 0) {
         // Get a random recipe from the available ones
@@ -257,19 +355,25 @@ export async function processAIMealPlan(
         // Mark this recipe as used so we don't use it again anywhere in the meal plan
         globalUsedRecipeIds.add(chosenRecipeId);
         
-        // Also track its content hash
+        // Track its content hash and main ingredient
         const recipe = recipesMap[chosenRecipeId];
         if (recipe) {
+          // Track content hash for true deduplication
           const contentHash = generateRecipeContentHash(recipe);
           globalUsedContentHashes.add(contentHash);
-          console.log(`Marked content hash ${contentHash.substring(0, 8)} as used for recipe ${chosenRecipeId}`);
+          
+          // Track main ingredient for variety
+          const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+          usedIngredientsToday.add(mainIngredient);
+          ingredientTracking.allWeek.add(mainIngredient);
+          
+          console.log(`Assigned AI recipe ${chosenRecipeId} with main ingredient "${mainIngredient}" for meal type ${mealType} on ${date}`);
         }
         
-        console.log(`Assigned AI recipe ${chosenRecipeId} for meal type ${mealType}`);
         return chosenRecipeId;
       }
       
-      console.log(`No available AI recipes for meal type ${mealType}, using non-AI recipe instead`);
+      console.log(`No available AI recipes for meal type ${mealType} with unique main ingredients, using non-AI recipe instead`);
       return null;
     };
     
@@ -277,6 +381,11 @@ export async function processAIMealPlan(
     if (aiResponse && aiResponse.mealPlan && aiResponse.mealPlan.days) {
       for (const day of aiResponse.mealPlan.days) {
         if (day.date && Array.isArray(day.meals)) {
+          // Initialize ingredient tracking for this day
+          if (!ingredientTracking.byDay[day.date]) {
+            ingredientTracking.byDay[day.date] = new Set<string>();
+          }
+          
           for (const meal of day.meals) {
             // Skip invalid meal items
             if (!meal.meal_type || !meal.recipe_id) continue;
@@ -286,13 +395,16 @@ export async function processAIMealPlan(
             if (!validMealType) continue;
             
             // Get the real recipe ID (handle AI-generated recipe IDs)
-            // Pass the meal type to help find appropriate recipes
-            const realRecipeId = findRealRecipeId(meal.recipe_id, validMealType);
+            // Pass the meal type and date to help find appropriate recipes with ingredient variety
+            const realRecipeId = findRealRecipeId(meal.recipe_id, validMealType, day.date);
             if (!realRecipeId) continue;
             
             // Get recipe details from the map
             const recipe = recipesMap[realRecipeId];
             if (!recipe) continue;
+            
+            // Get main ingredient
+            const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
             
             // Create a meal plan item with all required fields explicitly defined
             mealPlanItems.push({
@@ -306,16 +418,23 @@ export async function processAIMealPlan(
               carbs: recipe.carbs,
               fat: recipe.fat,
               nutritional_context: meal.explanation || null,
-              is_ai_generated: recipe.is_ai_generated || false
+              is_ai_generated: recipe.is_ai_generated || false,
+              main_ingredient: mainIngredient
             });
           }
         }
       }
     }
 
-    // Log information about recipe uniqueness for debugging
+    // Log information about recipe uniqueness and ingredient variety for debugging
     console.log(`Generated ${mealPlanItems.length} meal plan items with ${globalUsedRecipeIds.size} unique recipe IDs`);
     console.log(`Content-level uniqueness: ${globalUsedContentHashes.size} unique content signatures`);
+    console.log(`Ingredient variety: ${ingredientTracking.allWeek.size} different main ingredients used across the week`);
+    
+    // Log a summary of main ingredients used per day
+    Object.entries(ingredientTracking.byDay).forEach(([date, ingredients]) => {
+      console.log(`Day ${date}: ${Array.from(ingredients).join(', ')}`);
+    });
     
     if (mealPlanItems.length === 0) {
       console.error('No valid meal plan items found in AI response');
@@ -346,10 +465,52 @@ export async function processAIMealPlan(
       protein: item.protein,
       carbs: item.carbs,
       fat: item.fat,
-      is_ai_generated: item.is_ai_generated || false
+      is_ai_generated: item.is_ai_generated || false,
+      main_ingredient: item.main_ingredient
     }));
   } catch (error) {
     console.error('Error processing AI meal plan:', error);
     return null;
   }
+}
+
+// Helper function to extract main ingredient from a recipe
+function extractMainIngredient(recipe: any): string {
+  if (recipe.main_ingredient) {
+    return recipe.main_ingredient;
+  }
+  
+  if (!recipe.ingredients || recipe.ingredients.length === 0) {
+    return "unknown";
+  }
+  
+  // Common protein sources that are often main ingredients
+  const proteinKeywords = ["chicken", "beef", "pork", "turkey", "fish", "salmon", "tuna", "tofu", "tempeh", "eggs"];
+  
+  // Common grains that are often main ingredients
+  const grainKeywords = ["rice", "pasta", "quinoa", "bread", "tortilla", "noodle", "couscous", "farro"];
+  
+  // Common vegetables that might be main ingredients
+  const vegKeywords = ["cauliflower", "broccoli", "potato", "sweet potato", "squash", "eggplant", "zucchini"];
+  
+  // Common legumes
+  const legumeKeywords = ["beans", "lentils", "chickpeas"];
+  
+  // All potential main ingredient keywords
+  const allKeywords = [...proteinKeywords, ...grainKeywords, ...vegKeywords, ...legumeKeywords];
+  
+  // Look for potential main ingredients in the first few ingredients (which are usually the main ones)
+  const firstFewIngredients = recipe.ingredients.slice(0, 3).join(" ").toLowerCase();
+  
+  for (const keyword of allKeywords) {
+    if (firstFewIngredients.includes(keyword)) {
+      return keyword;
+    }
+  }
+  
+  // If we couldn't find a match in common ingredients, just return the first ingredient
+  const firstIngredient = recipe.ingredients[0].toLowerCase();
+  // Extract the main part by removing quantities and prep instructions
+  const mainPart = firstIngredient.split(" ").slice(1).join(" ").split(",")[0];
+  return mainPart || "unknown";
 }

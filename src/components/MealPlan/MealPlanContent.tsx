@@ -39,7 +39,7 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
   const selectedDateMeals = getSelectedDateMeals();
   const hasAiGeneratedMeals = selectedDateMeals.some(item => item.is_ai_generated);
   
-  // Calculate uniqueness stats - both by ID and by content
+  // Calculate uniqueness stats - both by ID, content, and main ingredients
   const uniqueRecipeStats = useMemo(() => {
     // Get all AI-generated recipes for the entire week
     const aiMeals = mealPlanItems.filter(item => item.is_ai_generated);
@@ -51,9 +51,15 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
     const uniqueContentHashes = new Set();
     const contentToRecipeMap = new Map();
     
+    // Track unique main ingredients
+    const uniqueMainIngredients = new Set();
+    const mainIngredientToRecipeMap = new Map();
+    
     aiMeals.forEach(item => {
       if (item.recipe_id && recipes[item.recipe_id]) {
         const recipe = recipes[item.recipe_id];
+        
+        // Track content uniqueness
         const contentHash = generateRecipeContentHash(recipe);
         uniqueContentHashes.add(contentHash);
         
@@ -62,6 +68,16 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
           contentToRecipeMap.set(contentHash, []);
         }
         contentToRecipeMap.get(contentHash).push(item.recipe_id);
+        
+        // Track main ingredient uniqueness
+        const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+        uniqueMainIngredients.add(mainIngredient);
+        
+        // Store main ingredient mapping
+        if (!mainIngredientToRecipeMap.has(mainIngredient)) {
+          mainIngredientToRecipeMap.set(mainIngredient, []);
+        }
+        mainIngredientToRecipeMap.get(mainIngredient).push(item.recipe_id);
       }
     });
     
@@ -74,17 +90,34 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
         titles: recipeIds.map(id => recipes[id]?.title || 'Unknown').join(', ')
       }));
     
+    // Identify any duplicate main ingredient recipes
+    const duplicateIngredientGroups = Array.from(mainIngredientToRecipeMap.entries())
+      .filter(([_, recipeIds]) => recipeIds.length > 1)
+      .map(([ingredient, recipeIds]) => ({
+        ingredient,
+        recipeIds,
+        titles: recipeIds.map(id => recipes[id]?.title || 'Unknown').join(', ')
+      }));
+    
     // Check if all AI recipes across the entire week are truly unique by content
     const allAiRecipesContentUnique = duplicateContentGroups.length === 0;
+    const allAiRecipesIngredientUnique = duplicateIngredientGroups.length === 0;
     
     // For the selected day specifically
     const selectedDayAiMeals = selectedDateMeals.filter(item => item.is_ai_generated);
     const selectedDayContentHashes = new Set();
+    const selectedDayIngredients = new Set();
+    
     selectedDayAiMeals.forEach(item => {
       if (item.recipe_id && recipes[item.recipe_id]) {
         const recipe = recipes[item.recipe_id];
+        // Content hash
         const contentHash = generateRecipeContentHash(recipe);
         selectedDayContentHashes.add(contentHash);
+        
+        // Main ingredient
+        const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+        selectedDayIngredients.add(mainIngredient);
       }
     });
     
@@ -92,16 +125,49 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
       totalAiMeals: aiMeals.length,
       uniqueIds: uniqueIds.size,
       uniqueContent: uniqueContentHashes.size,
-      allUnique: allAiRecipesContentUnique,
+      uniqueIngredients: uniqueMainIngredients.size,
+      allContentUnique: allAiRecipesContentUnique,
+      allIngredientsUnique: allAiRecipesIngredientUnique,
       duplicateContentGroups,
+      duplicateIngredientGroups,
       selectedDayAiMeals: selectedDayAiMeals.length,
-      selectedDayUniqueContent: selectedDayContentHashes.size
+      selectedDayUniqueContent: selectedDayContentHashes.size,
+      selectedDayUniqueIngredients: selectedDayIngredients.size,
     };
   }, [mealPlanItems, recipes, selectedDateMeals]);
   
   // Check if the selected date's meals have unique recipes
   const uniqueRecipeCount = new Set(selectedDateMeals.map(item => item.recipe_id)).size;
   const allRecipesUnique = uniqueRecipeCount === selectedDateMeals.length;
+
+  // Helper function to extract main ingredient
+  function extractMainIngredient(recipe: any): string {
+    if (recipe.main_ingredient) {
+      return recipe.main_ingredient;
+    }
+    
+    if (!recipe.ingredients || recipe.ingredients.length === 0) {
+      return "unknown";
+    }
+    
+    // Common keywords for main ingredients
+    const ingredientKeywords = [
+      "chicken", "beef", "pork", "fish", "tofu", "quinoa", "rice", "pasta", 
+      "potato", "cauliflower", "broccoli", "beans", "lentils", "chickpeas"
+    ];
+    
+    // Check the first few ingredients
+    const firstFewIngredients = recipe.ingredients.slice(0, 3).join(" ").toLowerCase();
+    
+    for (const keyword of ingredientKeywords) {
+      if (firstFewIngredients.includes(keyword)) {
+        return keyword;
+      }
+    }
+    
+    // Default to first ingredient
+    return recipe.ingredients[0].split(" ").slice(1).join(" ").split(",")[0] || "unknown";
+  }
 
   return (
     <>
@@ -155,26 +221,30 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
                     <p className="text-sm">
                       {uniqueRecipeStats.uniqueContent} unique recipe contents out of {uniqueRecipeStats.totalAiMeals} AI meals
                     </p>
-                    {uniqueRecipeStats.duplicateContentGroups.length > 0 && (
+                    <p className="text-sm font-medium mt-1">Ingredient Diversity:</p>
+                    <p className="text-sm">
+                      {uniqueRecipeStats.uniqueIngredients} unique main ingredients out of {uniqueRecipeStats.totalAiMeals} AI meals
+                    </p>
+                    {uniqueRecipeStats.duplicateIngredientGroups.length > 0 && (
                       <p className="text-sm text-amber-500 mt-1">
-                        Found {uniqueRecipeStats.duplicateContentGroups.length} recipes with duplicate content
+                        {uniqueRecipeStats.duplicateIngredientGroups.length} recipes share main ingredients
                       </p>
                     )}
                     <p className="text-sm mt-1">
-                      Today: {uniqueRecipeStats.selectedDayUniqueContent} unique recipes out of {uniqueRecipeStats.selectedDayAiMeals} AI meals
+                      Today: {uniqueRecipeStats.selectedDayUniqueIngredients} unique main ingredients in today's {uniqueRecipeStats.selectedDayAiMeals} AI meals
                     </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             <div>
-              {uniqueRecipeStats.allUnique ? (
+              {uniqueRecipeStats.allIngredientsUnique ? (
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  All unique AI recipes
+                  All unique ingredients
                 </Badge>
               ) : (
                 <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                  Some similar AI recipes
+                  Some shared ingredients
                 </Badge>
               )}
             </div>

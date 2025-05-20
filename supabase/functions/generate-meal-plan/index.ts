@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
@@ -49,14 +48,23 @@ async function generateAIRecipes(
     
     console.log(`User preferences: ${JSON.stringify(dietaryPreferences)}`);
     
-    // Create the system prompt for recipe generation
+    // Create the system prompt for recipe generation - UPDATED FOR INGREDIENT VARIETY
     const systemPrompt = `You are a professional nutritionist and chef creating original recipes tailored to a user's preferences. 
     The user has the following dietary preferences: ${JSON.stringify(dietaryPreferences)}.
     
     Create ${numberOfRecipesToGenerate} original recipes that are NOT known popular recipes but your own creations.
     Each recipe must be complete with a title, list of ingredients with quantities, step-by-step instructions, and nutritional information.
     
-    Guidelines:
+    IMPORTANT REQUIREMENTS FOR INGREDIENT DIVERSITY:
+    1. Each recipe MUST have a completely different main ingredient from the others
+    2. Avoid using the same primary proteins, grains, or vegetables across recipes
+    3. Examples of main ingredient diversity:
+       - If one recipe uses chicken, others should use different proteins like fish, beef, tofu
+       - If one recipe features quinoa, others should use different grains like rice, pasta, couscous
+       - If one recipe focuses on cauliflower, others should feature different vegetables
+    4. Provide a "main_ingredient" field that clearly identifies the primary ingredient of each recipe
+    
+    Additional Guidelines:
     1. Ensure recipes align with the user's fitness goal: ${profile.fitness_goal || "maintain"}
     2. Avoid any foods the user is allergic to or wants to avoid
     3. Prefer the user's preferred cuisines when possible
@@ -70,6 +78,7 @@ async function generateAIRecipes(
         {
           "title": "Recipe Title",
           "meal_type": "breakfast", // MUST be one of: "breakfast", "lunch", "dinner", "snack"
+          "main_ingredient": "chicken", // REQUIRED: The primary ingredient that defines this recipe
           "ingredients": ["Ingredient 1 with quantity", "Ingredient 2 with quantity", ...],
           "instructions": ["Step 1", "Step 2", ...],
           "calories": 300, // estimated total calories
@@ -92,7 +101,7 @@ async function generateAIRecipes(
           { role: "system", content: systemPrompt },
           { 
             role: "user", 
-            content: `Create ${numberOfRecipesToGenerate} original recipes that would appeal to me based on my preferences. Make them creative and unique!`
+            content: `Create ${numberOfRecipesToGenerate} original recipes that would appeal to me based on my preferences. Make them creative and unique with DIFFERENT main ingredients for each recipe!`
           }
         ],
         temperature: 1.0, // Higher creativity for unique recipes
@@ -174,7 +183,8 @@ async function generateAIMealPlan(
         fat: recipe.fat,
         ingredients: recipe.ingredients || [],
         categories: recipe.categories || [],
-        is_ai_generated: false
+        is_ai_generated: false,
+        main_ingredient: extractMainIngredient(recipe)
       })),
       ...aiGeneratedRecipes.map((recipe, index) => ({
         id: `ai-${index}`, // Temporary ID for AI recipes
@@ -185,7 +195,8 @@ async function generateAIMealPlan(
         fat: recipe.fat,
         ingredients: recipe.ingredients || [],
         meal_type: recipe.meal_type || "dinner",
-        is_ai_generated: true
+        is_ai_generated: true,
+        main_ingredient: recipe.main_ingredient || extractMainIngredient(recipe)
       }))
     ];
     
@@ -212,7 +223,7 @@ async function generateAIMealPlan(
     
     console.log(`Based on ${aiRecipeRatio}% preference, ${aiMealCount} out of ${totalMeals} meals should be AI-generated`);
     
-    // Prepare the prompt for OpenAI
+    // Prepare the prompt for OpenAI - UPDATED FOR INGREDIENT VARIETY
     const prompt = {
       role: "system",
       content: `You are a professional nutritionist creating a meal plan for ${dayCount} days. 
@@ -227,7 +238,15 @@ async function generateAIMealPlan(
       You have ${aiGeneratedRecipes.length} AI-generated recipes available (marked with is_ai_generated: true).
       Use these recipes to fulfill the ${aiRecipeRatio}% preference for AI-generated meals.
       
-      Guidelines:
+      CRITICAL INGREDIENT VARIETY REQUIREMENTS:
+      1. NEVER repeat the same main ingredient more than once per day
+      2. AVOID repeating main ingredients across the entire week when possible
+      3. Track and record what main ingredients have been used on previous days
+      4. Create maximum variety by distributing similar ingredients across different days
+      5. Each recipe's main_ingredient field indicates its primary ingredient - use this to avoid repetition
+      6. If you must reuse an ingredient, ensure it's separated by at least 3 days
+      
+      Additional Guidelines:
       1. Breakfast should be light, morning-appropriate foods
       2. Lunch should be moderate meals
       3. Dinner should be more substantial meals
@@ -273,7 +292,7 @@ async function generateAIMealPlan(
           prompt,
           {
             role: "user", 
-            content: `Create a meal plan from ${startDate} to ${endDate}. Here are the available recipes: ${JSON.stringify(allRecipes)}`
+            content: `Create a meal plan from ${startDate} to ${endDate} with maximum ingredient variety. Here are the available recipes: ${JSON.stringify(allRecipes)}`
           }
         ],
         temperature: 0.7,
@@ -317,6 +336,50 @@ async function generateAIMealPlan(
     console.error("Error generating AI meal plan:", error);
     throw error;
   }
+}
+
+/**
+ * Extract the main ingredient from a recipe based on ingredients list
+ * This is a fallback for recipes that don't have a main_ingredient field
+ */
+function extractMainIngredient(recipe: any): string {
+  if (recipe.main_ingredient) {
+    return recipe.main_ingredient;
+  }
+  
+  if (!recipe.ingredients || recipe.ingredients.length === 0) {
+    return "unknown";
+  }
+  
+  // Common protein sources that are often main ingredients
+  const proteinKeywords = ["chicken", "beef", "pork", "turkey", "fish", "salmon", "tuna", "tofu", "tempeh", "eggs"];
+  
+  // Common grains that are often main ingredients
+  const grainKeywords = ["rice", "pasta", "quinoa", "bread", "tortilla", "noodle", "couscous", "farro"];
+  
+  // Common vegetables that might be main ingredients
+  const vegKeywords = ["cauliflower", "broccoli", "potato", "sweet potato", "squash", "eggplant", "zucchini"];
+  
+  // Common legumes
+  const legumeKeywords = ["beans", "lentils", "chickpeas"];
+  
+  // All potential main ingredient keywords
+  const allKeywords = [...proteinKeywords, ...grainKeywords, ...vegKeywords, ...legumeKeywords];
+  
+  // Look for potential main ingredients in the first few ingredients (which are usually the main ones)
+  const firstFewIngredients = recipe.ingredients.slice(0, 3).join(" ").toLowerCase();
+  
+  for (const keyword of allKeywords) {
+    if (firstFewIngredients.includes(keyword)) {
+      return keyword;
+    }
+  }
+  
+  // If we couldn't find a match in common ingredients, just return the first ingredient
+  const firstIngredient = recipe.ingredients[0].toLowerCase();
+  // Extract the main part by removing quantities and prep instructions
+  const mainPart = firstIngredient.split(" ").slice(1).join(" ").split(",")[0];
+  return mainPart || "unknown";
 }
 
 serve(async (req) => {
