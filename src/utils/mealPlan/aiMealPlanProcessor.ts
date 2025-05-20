@@ -7,6 +7,7 @@ import { validateMealType } from './validators';
 
 /**
  * Process an AI-generated meal plan into MealPlanItem objects
+ * and optionally save new AI-generated recipes to the database
  */
 export async function processAIMealPlan(
   userId: string,
@@ -49,6 +50,67 @@ export async function processAIMealPlan(
       return null;
     }
 
+    // Check if we have new AI-generated recipes to save
+    const newAIRecipesToSave: any[] = [];
+    
+    if (aiResponse && aiResponse.aiGeneratedRecipes && Array.isArray(aiResponse.aiGeneratedRecipes)) {
+      console.log(`Processing ${aiResponse.aiGeneratedRecipes.length} new AI-generated recipes`);
+      
+      // Extract AI-generated recipes for saving to database
+      aiResponse.aiGeneratedRecipes.forEach((recipe: any) => {
+        if (recipe && recipe.title) {
+          newAIRecipesToSave.push({
+            title: recipe.title,
+            calories: recipe.calories || 0,
+            protein: recipe.protein || 0,
+            carbs: recipe.carbs || 0,
+            fat: recipe.fat || 0,
+            ingredients: recipe.ingredients || [],
+            instructions: recipe.instructions || [],
+            categories: recipe.meal_type ? [recipe.meal_type] : [],
+            is_ai_generated: true // Mark as AI-generated
+          });
+        }
+      });
+    }
+    
+    // Save new AI-generated recipes to the database if any
+    let savedAIRecipes: Record<string, Recipe> = {};
+    
+    if (newAIRecipesToSave.length > 0) {
+      console.log(`Saving ${newAIRecipesToSave.length} new AI-generated recipes to the database`);
+      
+      const { data: insertedRecipes, error: recipeError } = await supabase
+        .from('recipes')
+        .insert(newAIRecipesToSave)
+        .select();
+      
+      if (recipeError) {
+        console.error('Error saving AI-generated recipes:', recipeError);
+        // Continue with the meal plan without saving the new recipes
+      } else if (insertedRecipes) {
+        console.log(`Successfully saved ${insertedRecipes.length} AI-generated recipes`);
+        
+        // Add newly saved recipes to the recipesMap
+        insertedRecipes.forEach(recipe => {
+          const recipeObj: Recipe = {
+            id: recipe.id,
+            title: recipe.title,
+            calories: recipe.calories,
+            protein: recipe.protein,
+            carbs: recipe.carbs,
+            fat: recipe.fat,
+            ingredients: recipe.ingredients,
+            instructions: recipe.instructions,
+            categories: recipe.categories
+          };
+          
+          recipesMap[recipe.id] = recipeObj;
+          savedAIRecipes[recipe.id] = recipeObj;
+        });
+      }
+    }
+
     // Extract and validate the meal plan items from the AI response
     // Use a properly typed array with required fields
     const mealPlanItems: {
@@ -65,6 +127,36 @@ export async function processAIMealPlan(
       is_ai_generated?: boolean | null;
     }[] = [];
     
+    // Helper function to find real recipe ID for AI-generated recipes
+    const findRealRecipeId = (tempId: string): string | null => {
+      // If it's a regular recipe ID, return it
+      if (!tempId.startsWith('ai-')) {
+        return tempId;
+      }
+      
+      // It's a temporary AI recipe ID from the meal plan
+      // Find the corresponding real recipe ID from the saved recipes
+      const aiIndex = parseInt(tempId.replace('ai-', ''), 10);
+      
+      if (aiResponse && aiResponse.aiGeneratedRecipes && 
+          aiResponse.aiGeneratedRecipes[aiIndex]) {
+        
+        // Get the title of the AI recipe
+        const aiRecipeTitle = aiResponse.aiGeneratedRecipes[aiIndex].title;
+        
+        // Find the saved recipe with the same title
+        const savedRecipeId = Object.keys(savedAIRecipes).find(id => 
+          savedAIRecipes[id].title === aiRecipeTitle
+        );
+        
+        if (savedRecipeId) {
+          return savedRecipeId;
+        }
+      }
+      
+      return null;
+    };
+    
     // Check if we have a valid mealPlan object with days
     if (aiResponse && aiResponse.mealPlan && aiResponse.mealPlan.days) {
       for (const day of aiResponse.mealPlan.days) {
@@ -77,8 +169,12 @@ export async function processAIMealPlan(
             const validMealType = validateMealType(meal.meal_type);
             if (!validMealType) continue;
             
+            // Get the real recipe ID (handle AI-generated recipe IDs)
+            const realRecipeId = findRealRecipeId(meal.recipe_id);
+            if (!realRecipeId) continue;
+            
             // Get recipe details from the map
-            const recipe = recipesMap[meal.recipe_id];
+            const recipe = recipesMap[realRecipeId];
             if (!recipe) continue;
 
             // Create a meal plan item with all required fields explicitly defined
@@ -86,7 +182,7 @@ export async function processAIMealPlan(
               meal_plan_id: mealPlanId,
               date: day.date,
               meal_type: validMealType,
-              recipe_id: meal.recipe_id,
+              recipe_id: realRecipeId,
               custom_title: recipe.title,
               calories: recipe.calories,
               protein: recipe.protein,

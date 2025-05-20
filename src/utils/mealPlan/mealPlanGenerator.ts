@@ -34,80 +34,73 @@ export async function generateMealPlan({
     const aiRecipeRatio = profile.ai_recipe_ratio !== null ? profile.ai_recipe_ratio : 30;
     console.log(`User AI recipe ratio preference: ${aiRecipeRatio}%`);
     
-    // Determine if we should use AI-generated meal plan based on the ratio
-    // Generate a random number between 0-100 and check if it's less than the AI ratio
-    const useAI = Math.random() * 100 < aiRecipeRatio;
-    
-    // Try to use the AI meal planner if the ratio check passes
-    if (useAI) {
-      try {
-        const recipesMap: Record<string, Recipe> = {};
-        recipes.forEach(recipe => {
-          recipesMap[recipe.id] = recipe;
-        });
+    // Always attempt to use the AI meal planner based on the defined ratio
+    // The ratio determines the percentage of AI-generated recipes in the meal plan
+    try {
+      const recipesMap: Record<string, Recipe> = {};
+      recipes.forEach(recipe => {
+        recipesMap[recipe.id] = recipe;
+      });
+      
+      // Call the Supabase Edge Function with the AI recipe ratio
+      const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
+        body: { 
+          userId, 
+          startDate, 
+          endDate,
+          aiRecipeRatio // Pass the AI recipe ratio to the edge function
+        }
+      });
+      
+      if (error) {
+        console.error('Error calling AI meal planner:', error);
+        // Fall back to algorithm-based meal planning
+      } else if (data && data.mealPlan) {
+        console.log('Using AI-generated meal plan with custom recipes');
+        // Process the AI-generated meal plan with both existing and new recipes
+        const mealPlanItems = await processAIMealPlan(
+          userId, 
+          data, 
+          startDate, 
+          endDate,
+          recipesMap
+        );
         
-        // Call the Supabase Edge Function
-        const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
-          body: { 
-            userId, 
-            startDate, 
-            endDate,
-            aiRecipeRatio // Pass the AI recipe ratio to the edge function
-          }
-        });
-        
-        if (error) {
-          console.error('Error calling AI meal planner:', error);
-          // Fall back to algorithm-based meal planning
-        } else if (data && data.mealPlan) {
-          console.log('Using AI-generated meal plan');
-          // Process the AI-generated meal plan
-          const mealPlanItems = await processAIMealPlan(
-            userId, 
-            data, 
-            startDate, 
-            endDate,
-            recipesMap
-          );
-          
-          if (mealPlanItems) {
-            // Get the meal plan record
-            const { data: mealPlans } = await supabase
-              .from('meal_plans')
-              .select('*')
-              .eq('user_id', userId)
-              .order('created_at', { ascending: false })
-              .limit(1);
-              
-            if (mealPlans && mealPlans.length > 0) {
-              const planData = mealPlans[0];
-              // Make sure we validate the status to match our expected type
-              const mealPlan: MealPlan = {
-                id: planData.id,
-                user_id: planData.user_id,
-                week_start_date: planData.week_start_date,
-                week_end_date: planData.week_end_date,
-                created_at: planData.created_at,
-                status: validateStatus(planData.status)
-              };
-              
-              return {
-                mealPlan,
-                mealPlanItems
-              };
-            }
+        if (mealPlanItems) {
+          // Get the meal plan record
+          const { data: mealPlans } = await supabase
+            .from('meal_plans')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1);
+            
+          if (mealPlans && mealPlans.length > 0) {
+            const planData = mealPlans[0];
+            // Make sure we validate the status to match our expected type
+            const mealPlan: MealPlan = {
+              id: planData.id,
+              user_id: planData.user_id,
+              week_start_date: planData.week_start_date,
+              week_end_date: planData.week_end_date,
+              created_at: planData.created_at,
+              status: validateStatus(planData.status)
+            };
+            
+            return {
+              mealPlan,
+              mealPlanItems
+            };
           }
         }
-      } catch (aiError) {
-        console.error('Error with AI meal planning, falling back to algorithmic approach:', aiError);
-        // Continue with algorithm-based approach
       }
-    } else {
-      console.log('Skipping AI meal planning based on user preference');
+    } catch (aiError) {
+      console.error('Error with AI meal planning, falling back to algorithmic approach:', aiError);
+      // Continue with algorithm-based approach
     }
 
-    // Fall back to algorithmic meal planning if AI approach fails or wasn't chosen
-    console.log('Using algorithm-based meal planning');
+    // Fall back to algorithmic meal planning if AI approach fails
+    console.log('Using algorithm-based meal planning as fallback');
     
     // First, create or update a meal plan record
     const mealPlan = await createOrUpdateMealPlan(userId, startDate, endDate);
@@ -170,7 +163,7 @@ export async function generateMealPlanForUser(
       profile: profile as UserProfile,
       recipes,
       startDate,
-      endDate: endDateStr
+      endDateStr
     });
   } catch (error) {
     console.error('Error generating meal plan:', error);

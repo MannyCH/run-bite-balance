@@ -196,7 +196,7 @@ export function PreferencesForm() {
           name="aiRecipeRatio"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>AI Recipe Suggestions</FormLabel>
+              <FormLabel>AI-Generated Recipes</FormLabel>
               <FormControl>
                 <div className="space-y-4">
                   <Slider
@@ -208,14 +208,14 @@ export function PreferencesForm() {
                     className="py-4"
                   />
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>0% (All regular recipes)</span>
+                    <span>0% (Only database recipes)</span>
                     <span className="font-medium text-primary">{field.value || 30}%</span>
-                    <span>100% (All AI suggestions)</span>
+                    <span>100% (All AI-generated)</span>
                   </div>
                 </div>
               </FormControl>
               <FormDescription>
-                Control the percentage of AI-suggested recipes in your meal plans. AI suggestions are tailored to your preferences and fitness goals.
+                Control how many AI-generated recipes will be created for your meal plans. Higher percentages mean more completely new recipes will be generated based on your preferences and fitness goals.
               </FormDescription>
               <FormMessage />
             </FormItem>

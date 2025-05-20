@@ -11,15 +11,140 @@ const corsHeaders = {
 };
 
 /**
+ * Generate completely new AI recipes based on user preferences
+ */
+async function generateAIRecipes(
+  profile: UserProfile,
+  aiRecipeRatio: number = 30
+) {
+  try {
+    console.log(`Generating AI recipes based on user preferences. AI recipe ratio: ${aiRecipeRatio}%`);
+    
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY_PERSONAL");
+    if (!openaiApiKey) {
+      console.error("OpenAI API key not found in environment variables");
+      throw new Error("OpenAI API key not configured");
+    }
+    
+    console.log("OpenAI API key found, attempting to generate new recipes");
+
+    const openai = new OpenAI({
+      apiKey: openaiApiKey,
+    });
+    
+    // Determine the number of recipes to generate (1-4 based on the ratio and some randomness)
+    // Higher AI recipe ratio means more recipes will be generated
+    const numberOfRecipesToGenerate = Math.max(1, Math.min(4, Math.floor(aiRecipeRatio / 25)));
+    
+    console.log(`Will generate ${numberOfRecipesToGenerate} new AI recipes`);
+    
+    // Format the user's dietary preferences and restrictions
+    const dietaryPreferences = {
+      fitness_goal: profile.fitness_goal || "maintain",
+      allergies: profile.food_allergies || [],
+      preferred_cuisines: profile.preferred_cuisines || [],
+      foods_to_avoid: profile.foods_to_avoid || [],
+      dietary_preferences: profile.dietary_preferences || [],
+    };
+    
+    console.log(`User preferences: ${JSON.stringify(dietaryPreferences)}`);
+    
+    // Create the system prompt for recipe generation
+    const systemPrompt = `You are a professional nutritionist and chef creating original recipes tailored to a user's preferences. 
+    The user has the following dietary preferences: ${JSON.stringify(dietaryPreferences)}.
+    
+    Create ${numberOfRecipesToGenerate} original recipes that are NOT known popular recipes but your own creations.
+    Each recipe must be complete with a title, list of ingredients with quantities, step-by-step instructions, and nutritional information.
+    
+    Guidelines:
+    1. Ensure recipes align with the user's fitness goal: ${profile.fitness_goal || "maintain"}
+    2. Avoid any foods the user is allergic to or wants to avoid
+    3. Prefer the user's preferred cuisines when possible
+    4. Include proper nutritional values (calories, protein, carbs, fat)
+    5. Create recipes appropriate for any meal type (breakfast, lunch, dinner, or snack)
+    6. Make the recipes interesting and unique, not just variations of common dishes
+    
+    The response should be a JSON object following this exact structure:
+    {
+      "recipes": [
+        {
+          "title": "Recipe Title",
+          "meal_type": "breakfast", // MUST be one of: "breakfast", "lunch", "dinner", "snack"
+          "ingredients": ["Ingredient 1 with quantity", "Ingredient 2 with quantity", ...],
+          "instructions": ["Step 1", "Step 2", ...],
+          "calories": 300, // estimated total calories
+          "protein": 20, // grams of protein
+          "carbs": 30, // grams of carbohydrates
+          "fat": 10, // grams of fat
+          "is_ai_generated": true // Always true for these recipes
+        },
+        // more recipes...
+      ]
+    }`;
+
+    console.log(`Making request to OpenAI API with model: gpt-4o`);
+    
+    // Make the request to OpenAI
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o", 
+        messages: [
+          { role: "system", content: systemPrompt },
+          { 
+            role: "user", 
+            content: `Create ${numberOfRecipesToGenerate} original recipes that would appeal to me based on my preferences. Make them creative and unique!`
+          }
+        ],
+        temperature: 1.0, // Higher creativity for unique recipes
+        max_tokens: 3000,
+        response_format: { type: "json_object" }
+      });
+      
+      console.log("OpenAI API response received successfully!");
+      
+      // Parse the AI-generated recipes
+      const aiResponse = response.choices[0].message.content;
+      if (!aiResponse) {
+        console.error("OpenAI returned empty response");
+        throw new Error("Failed to generate recipes from OpenAI");
+      }
+      
+      try {
+        const recipesData = JSON.parse(aiResponse);
+        console.log(`AI generated ${recipesData.recipes?.length || 0} recipes successfully`);
+        return recipesData.recipes || [];
+      } catch (parseError) {
+        console.error("Error parsing OpenAI response:", parseError);
+        console.log("Raw response:", aiResponse);
+        throw new Error("Failed to parse recipe data");
+      }
+    } catch (apiError) {
+      console.error("OpenAI API error details:", JSON.stringify(apiError, null, 2));
+      if (apiError.status === 401) {
+        throw new Error("OpenAI API authentication failed. Please check your API key.");
+      } else if (apiError.status === 429) {
+        throw new Error("OpenAI API rate limit exceeded or insufficient quota.");
+      } else {
+        throw new Error(`OpenAI API error: ${apiError.message || "Unknown error"}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error generating AI recipes:", error);
+    throw error;
+  }
+}
+
+/**
  * Generate meal plan using OpenAI
  */
 async function generateAIMealPlan(
   userId: string,
   profile: UserProfile,
   recipes: any[],
+  aiGeneratedRecipes: any[],
   startDate: string,
   endDate: string,
-  aiRecipeRatio: number = 30 // Default to 30% if not specified
+  aiRecipeRatio: number = 30
 ) {
   try {
     console.log(`Generating AI meal plan for user ${userId} from ${startDate} to ${endDate}`);
@@ -38,17 +163,31 @@ async function generateAIMealPlan(
     });
     
     // Create a summarized version of the recipes to send to OpenAI
-    // This keeps the token count down while providing enough information
-    const recipeSummaries = recipes.map(recipe => ({
-      id: recipe.id,
-      title: recipe.title,
-      calories: recipe.calories,
-      protein: recipe.protein,
-      carbs: recipe.carbs,
-      fat: recipe.fat,
-      ingredients: recipe.ingredients || [],
-      categories: recipe.categories || [],
-    }));
+    // Include both database recipes and AI-generated recipes
+    const allRecipes = [
+      ...recipes.map(recipe => ({
+        id: recipe.id,
+        title: recipe.title,
+        calories: recipe.calories,
+        protein: recipe.protein,
+        carbs: recipe.carbs,
+        fat: recipe.fat,
+        ingredients: recipe.ingredients || [],
+        categories: recipe.categories || [],
+        is_ai_generated: false
+      })),
+      ...aiGeneratedRecipes.map((recipe, index) => ({
+        id: `ai-${index}`, // Temporary ID for AI recipes
+        title: recipe.title,
+        calories: recipe.calories,
+        protein: recipe.protein,
+        carbs: recipe.carbs,
+        fat: recipe.fat,
+        ingredients: recipe.ingredients || [],
+        meal_type: recipe.meal_type || "dinner",
+        is_ai_generated: true
+      }))
+    ];
     
     // Format the user's dietary preferences and restrictions
     const dietaryPreferences = {
@@ -66,6 +205,13 @@ async function generateAIMealPlan(
     console.log(`Creating meal plan for ${dayCount} days`);
     console.log(`User preferences: ${JSON.stringify(dietaryPreferences)}`);
     
+    // Calculate how many meals should be AI-generated based on the ratio
+    const totalMealsPerDay = 3; // Breakfast, lunch, dinner (excluding snacks for simplicity)
+    const totalMeals = totalMealsPerDay * dayCount;
+    const aiMealCount = Math.round((aiRecipeRatio / 100) * totalMeals);
+    
+    console.log(`Based on ${aiRecipeRatio}% preference, ${aiMealCount} out of ${totalMeals} meals should be AI-generated`);
+    
     // Prepare the prompt for OpenAI
     const prompt = {
       role: "system",
@@ -75,19 +221,22 @@ async function generateAIMealPlan(
       Your task is to create a meal plan with breakfast, lunch, dinner, and potentially snacks for each day.
       For each meal, select the most appropriate recipe from the provided list.
       
-      The user has specified that they want ${aiRecipeRatio}% of their meals to be AI-generated.
-      For AI-generated meals, mark them with is_ai_generated: true in your JSON response.
+      The user has specified that they want ${aiRecipeRatio}% of their meals to be AI-generated recipes.
+      This means approximately ${aiMealCount} out of ${totalMeals} meals should be AI-generated.
+      
+      You have ${aiGeneratedRecipes.length} AI-generated recipes available (marked with is_ai_generated: true).
+      Use these recipes to fulfill the ${aiRecipeRatio}% preference for AI-generated meals.
       
       Guidelines:
-      1. Breakfast should be light, morning-appropriate foods (cereal, eggs, toast, fruit, yogurt, etc.)
-      2. Lunch should be moderate meals (sandwiches, salads, soups, etc.)
-      3. Dinner should be more substantial meals (proteins with sides, pasta dishes, etc.)
+      1. Breakfast should be light, morning-appropriate foods
+      2. Lunch should be moderate meals
+      3. Dinner should be more substantial meals
       4. Add a snack if the total daily calories are below the user's requirements
       5. Ensure variety across the week
       6. Avoid any foods the user is allergic to or wants to avoid
       7. Prefer the user's preferred cuisines when possible
       8. For each meal, explain why it fits that time of day and the user's goals
-      9. Mark approximately ${aiRecipeRatio}% of meals as AI-generated using is_ai_generated: true
+      9. Distribute the AI-generated recipes (${aiMealCount} meals) evenly throughout the week
       
       IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", "dinner", or "snack". Do not use any other values.
       
@@ -114,7 +263,7 @@ async function generateAIMealPlan(
     };
 
     console.log(`Making request to OpenAI API with model: gpt-4o`);
-    console.log(`Recipes count: ${recipeSummaries.length}`);
+    console.log(`Recipes count: ${allRecipes.length} (including ${aiGeneratedRecipes.length} AI-generated)`);
     
     // Make the request to OpenAI
     try {
@@ -124,11 +273,11 @@ async function generateAIMealPlan(
           prompt,
           {
             role: "user", 
-            content: `Create a meal plan from ${startDate} to ${endDate}. Here are the available recipes: ${JSON.stringify(recipeSummaries)}`
+            content: `Create a meal plan from ${startDate} to ${endDate}. Here are the available recipes: ${JSON.stringify(allRecipes)}`
           }
         ],
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 2500,
         response_format: { type: "json_object" }
       });
       
@@ -146,7 +295,8 @@ async function generateAIMealPlan(
         console.log("AI meal plan successfully generated and parsed");
         return {
           message: "AI-generated meal plan created successfully",
-          mealPlan: mealPlanData
+          mealPlan: mealPlanData,
+          aiGeneratedRecipes: aiGeneratedRecipes
         };
       } catch (parseError) {
         console.error("Error parsing OpenAI response:", parseError);
@@ -249,7 +399,18 @@ serve(async (req) => {
       });
     }
     
-    // Get available recipes
+    // 1. Generate AI recipes first based on the user's preferences
+    let aiGeneratedRecipes = [];
+    try {
+      aiGeneratedRecipes = await generateAIRecipes(profile as unknown as UserProfile, aiRecipeRatio);
+      console.log(`Successfully generated ${aiGeneratedRecipes.length} AI recipes`);
+    } catch (aiRecipeError) {
+      console.error("Error generating AI recipes:", aiRecipeError);
+      // Continue with existing recipes only
+      aiGeneratedRecipes = [];
+    }
+    
+    // 2. Get available recipes from the database
     const { data: recipes, error: recipesError } = await supabase
       .from('recipes')
       .select('*');
@@ -274,14 +435,16 @@ serve(async (req) => {
       });
     }
     
-    console.log(`Fetched ${recipes.length} recipes for meal planning`);
+    console.log(`Fetched ${recipes.length} recipes from database for meal planning`);
+    console.log(`Created ${aiGeneratedRecipes.length} AI-generated recipes`);
     
-    // Generate AI meal plan
+    // 3. Generate AI meal plan using both database recipes and AI-generated recipes
     try {
       const result = await generateAIMealPlan(
         userId, 
         profile as unknown as UserProfile, 
         recipes || [],
+        aiGeneratedRecipes,
         startDate,
         endDate,
         aiRecipeRatio
@@ -295,7 +458,6 @@ serve(async (req) => {
       });
     } catch (aiError) {
       console.error("AI meal plan generation failed:", aiError);
-      console.log("Falling back to algorithmic meal planning...");
       
       // Return a specific error that the frontend can handle
       return new Response(JSON.stringify({ 
