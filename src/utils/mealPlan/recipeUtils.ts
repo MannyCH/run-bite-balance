@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { UserProfile } from '@/types/profile';
 import { Recipe } from '@/context/types';
@@ -140,13 +141,13 @@ export function prioritizeRecipes(recipes: Recipe[], profile: UserProfile): Reci
     
     // Recipes matching the fitness goal get a higher score
     if (profile.fitness_goal && recipe.categories) {
-      const goalWords = {
-        "weight_loss": ["light", "low-calorie", "diet", "lean"],
-        "muscle_gain": ["protein", "high-protein", "muscle", "bodybuilding"],
-        "maintenance": ["balanced", "healthy", "nutrition"]
+      const goalWords: Record<string, string[]> = {
+        "lose": ["light", "low-calorie", "diet", "lean"],
+        "gain": ["protein", "high-protein", "muscle", "bodybuilding"],
+        "maintain": ["balanced", "healthy", "nutrition"]
       };
       
-      const words = goalWords[profile.fitness_goal as keyof typeof goalWords] || [];
+      const words = goalWords[profile.fitness_goal] || [];
       
       if (words.some(word => 
         recipe.categories?.some(cat => cat.toLowerCase().includes(word))
@@ -156,9 +157,9 @@ export function prioritizeRecipes(recipes: Recipe[], profile: UserProfile): Reci
     }
     
     // Score based on nutritional values (if available)
-    if (profile.fitness_goal === "weight_loss" && recipe.calories) {
+    if (profile.fitness_goal === "lose" && recipe.calories) {
       if (recipe.calories < 500) score += 2;
-    } else if (profile.fitness_goal === "muscle_gain" && recipe.protein) {
+    } else if (profile.fitness_goal === "gain" && recipe.protein) {
       if (recipe.protein > 20) score += 2;
     }
     
@@ -265,7 +266,7 @@ export function getContextForMeal(
   if (recipe.protein >= 20) {
     context += ". High in protein";
     
-    if (profile.fitness_goal === "muscle_gain") {
+    if (profile.fitness_goal === "gain") {
       context += ", supporting your muscle gain goals";
     } else {
       context += ", helping maintain muscle mass";
@@ -273,9 +274,9 @@ export function getContextForMeal(
   }
   
   // Add calorie-specific context if relevant
-  if (profile.fitness_goal === "weight_loss" && recipe.calories < 500) {
+  if (profile.fitness_goal === "lose" && recipe.calories < 500) {
     context += ". Lower in calories to support your weight loss goals";
-  } else if (profile.fitness_goal === "muscle_gain" && recipe.calories > 600) {
+  } else if (profile.fitness_goal === "gain" && recipe.calories > 600) {
     context += ". Provides adequate calories to support your training goals";
   }
   
