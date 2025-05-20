@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Calendar, Info } from "lucide-react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 import { Toaster } from "@/components/ui/sonner";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { generateRecipeContentHash } from "@/utils/mealPlan/recipe/getRandomRecipe";
 
 interface MealPlanContentProps {
   selectedDate: Date;
@@ -38,18 +39,69 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
   const selectedDateMeals = getSelectedDateMeals();
   const hasAiGeneratedMeals = selectedDateMeals.some(item => item.is_ai_generated);
   
+  // Calculate uniqueness stats - both by ID and by content
+  const uniqueRecipeStats = useMemo(() => {
+    // Get all AI-generated recipes for the entire week
+    const aiMeals = mealPlanItems.filter(item => item.is_ai_generated);
+    
+    // Count unique recipe IDs
+    const uniqueIds = new Set(aiMeals.map(item => item.recipe_id));
+    
+    // Count unique content signatures (true uniqueness)
+    const uniqueContentHashes = new Set();
+    const contentToRecipeMap = new Map();
+    
+    aiMeals.forEach(item => {
+      if (item.recipe_id && recipes[item.recipe_id]) {
+        const recipe = recipes[item.recipe_id];
+        const contentHash = generateRecipeContentHash(recipe);
+        uniqueContentHashes.add(contentHash);
+        
+        // Store the mapping for debugging
+        if (!contentToRecipeMap.has(contentHash)) {
+          contentToRecipeMap.set(contentHash, []);
+        }
+        contentToRecipeMap.get(contentHash).push(item.recipe_id);
+      }
+    });
+    
+    // Identify any duplicate content recipes
+    const duplicateContentGroups = Array.from(contentToRecipeMap.entries())
+      .filter(([_, recipeIds]) => recipeIds.length > 1)
+      .map(([contentHash, recipeIds]) => ({
+        contentHash,
+        recipeIds,
+        titles: recipeIds.map(id => recipes[id]?.title || 'Unknown').join(', ')
+      }));
+    
+    // Check if all AI recipes across the entire week are truly unique by content
+    const allAiRecipesContentUnique = duplicateContentGroups.length === 0;
+    
+    // For the selected day specifically
+    const selectedDayAiMeals = selectedDateMeals.filter(item => item.is_ai_generated);
+    const selectedDayContentHashes = new Set();
+    selectedDayAiMeals.forEach(item => {
+      if (item.recipe_id && recipes[item.recipe_id]) {
+        const recipe = recipes[item.recipe_id];
+        const contentHash = generateRecipeContentHash(recipe);
+        selectedDayContentHashes.add(contentHash);
+      }
+    });
+    
+    return {
+      totalAiMeals: aiMeals.length,
+      uniqueIds: uniqueIds.size,
+      uniqueContent: uniqueContentHashes.size,
+      allUnique: allAiRecipesContentUnique,
+      duplicateContentGroups,
+      selectedDayAiMeals: selectedDayAiMeals.length,
+      selectedDayUniqueContent: selectedDayContentHashes.size
+    };
+  }, [mealPlanItems, recipes, selectedDateMeals]);
+  
   // Check if the selected date's meals have unique recipes
   const uniqueRecipeCount = new Set(selectedDateMeals.map(item => item.recipe_id)).size;
   const allRecipesUnique = uniqueRecipeCount === selectedDateMeals.length;
-  
-  // Get all unique recipe IDs for AI-generated recipes for the entire week
-  const allAiRecipeIds = mealPlanItems
-    .filter(item => item.is_ai_generated)
-    .map(item => item.recipe_id);
-  const uniqueAiRecipeIds = new Set(allAiRecipeIds);
-  
-  // Check if all AI recipes across the entire week are unique
-  const allAiRecipesUnique = allAiRecipeIds.length === uniqueAiRecipeIds.size;
 
   return (
     <>
@@ -99,26 +151,30 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
                     </div>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
+                    <p className="text-sm font-medium">Content-Based Uniqueness:</p>
                     <p className="text-sm">
-                      {allAiRecipesUnique 
-                        ? "All AI-generated recipes in this week are unique." 
-                        : "Some AI-generated recipes appear multiple times this week."}
+                      {uniqueRecipeStats.uniqueContent} unique recipe contents out of {uniqueRecipeStats.totalAiMeals} AI meals
                     </p>
+                    {uniqueRecipeStats.duplicateContentGroups.length > 0 && (
+                      <p className="text-sm text-amber-500 mt-1">
+                        Found {uniqueRecipeStats.duplicateContentGroups.length} recipes with duplicate content
+                      </p>
+                    )}
                     <p className="text-sm mt-1">
-                      {uniqueAiRecipeIds.size} unique AI recipes used across {allAiRecipeIds.length} meals.
+                      Today: {uniqueRecipeStats.selectedDayUniqueContent} unique recipes out of {uniqueRecipeStats.selectedDayAiMeals} AI meals
                     </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             <div>
-              {allAiRecipesUnique ? (
+              {uniqueRecipeStats.allUnique ? (
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                   All unique AI recipes
                 </Badge>
               ) : (
                 <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                  Some duplicate AI recipes
+                  Some similar AI recipes
                 </Badge>
               )}
             </div>

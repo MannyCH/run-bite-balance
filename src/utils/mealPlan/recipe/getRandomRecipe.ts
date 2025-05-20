@@ -1,4 +1,26 @@
+
 import { Recipe } from '@/context/types';
+import crypto from 'crypto';
+
+/**
+ * Generate a content hash for a recipe based on its core fields
+ * This allows us to identify recipes that have similar content even with different IDs/titles
+ */
+export function generateRecipeContentHash(recipe: Recipe): string {
+  // Combine key content fields to create a unique signature
+  const contentFields = [
+    recipe.ingredients?.join('').toLowerCase(),
+    recipe.instructions?.join('').toLowerCase(),
+    recipe.categories?.join('').toLowerCase(),
+    String(recipe.calories),
+    String(recipe.protein),
+    String(recipe.carbs),
+    String(recipe.fat)
+  ].filter(Boolean).join('|');
+  
+  // Create a hash of this content
+  return crypto.createHash('md5').update(contentFields).digest('hex');
+}
 
 /**
  * Gets a random recipe based on criteria
@@ -8,12 +30,22 @@ export function getRandomRecipe(
   targetCalories: number, 
   targetProtein: number, 
   usedRecipeIds: string[] = [],
-  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'breakfast'
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'breakfast',
+  usedContentHashes: string[] = []
 ): Recipe | null {
   if (!recipes.length) return null;
   
-  // Filter out already used recipes
-  let available = recipes.filter(recipe => !usedRecipeIds.includes(recipe.id));
+  // Filter out already used recipes (by ID) and content hashes
+  let available = recipes.filter(recipe => {
+    // Skip if ID is already used
+    if (usedRecipeIds.includes(recipe.id)) return false;
+    
+    // Skip if content hash is already used (for content-level deduplication)
+    const contentHash = generateRecipeContentHash(recipe);
+    if (usedContentHashes.includes(contentHash)) return false;
+    
+    return true;
+  });
   
   // If no recipes left, return null
   if (available.length === 0) {

@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
 import { validateMealType } from './validators';
+import { generateRecipeContentHash } from './recipe/getRandomRecipe';
+import crypto from 'crypto';
 
 /**
  * Process an AI-generated meal plan into MealPlanItem objects
@@ -50,6 +52,9 @@ export async function processAIMealPlan(
       return null;
     }
 
+    // Track content hashes of AI recipes to ensure true uniqueness
+    const contentHashMap = new Map<string, Recipe>();
+    
     // Check if we have new AI-generated recipes to save
     const newAIRecipesToSave: any[] = [];
     
@@ -57,26 +62,50 @@ export async function processAIMealPlan(
       console.log(`Processing ${aiResponse.aiGeneratedRecipes.length} new AI-generated recipes`);
       
       // Extract AI-generated recipes for saving to database
-      // Add a timestamp and random number to each recipe to ensure uniqueness
       aiResponse.aiGeneratedRecipes.forEach((recipe: any, index: number) => {
         if (recipe && recipe.title) {
-          // Create a really unique ID for each recipe using timestamp + random number + index
-          const timestamp = new Date().getTime();
-          const randomSuffix = Math.floor(Math.random() * 10000);
-          const uniqueTitle = `${recipe.title} (AI ${timestamp}-${randomSuffix}-${index})`;
+          // Create a content hash for deduplication
+          const contentFields = [
+            (recipe.ingredients || []).join('').toLowerCase(),
+            (recipe.instructions || []).join('').toLowerCase(),
+            recipe.meal_type?.toLowerCase() || '',
+            String(recipe.calories || 0),
+            String(recipe.protein || 0),
+            String(recipe.carbs || 0),
+            String(recipe.fat || 0)
+          ].filter(Boolean).join('|');
           
-          newAIRecipesToSave.push({
-            title: uniqueTitle, // Make the title unique
-            calories: recipe.calories || 0,
-            protein: recipe.protein || 0,
-            carbs: recipe.carbs || 0,
-            fat: recipe.fat || 0,
-            ingredients: recipe.ingredients || [],
-            instructions: recipe.instructions || [],
-            categories: recipe.meal_type ? [recipe.meal_type] : [],
-            is_ai_generated: true, // Mark as AI-generated
-            created_at: new Date(timestamp + (index * 1000) + randomSuffix).toISOString() // Give each recipe a different timestamp
-          });
+          const contentHash = crypto.createHash('md5').update(contentFields).digest('hex');
+          
+          // Check if we already have a recipe with very similar content
+          if (!contentHashMap.has(contentHash)) {
+            // Create a really unique ID for each recipe using timestamp + random number + index
+            const timestamp = new Date().getTime();
+            const randomSuffix = Math.floor(Math.random() * 10000);
+            const uniqueTitle = `${recipe.title} (AI ${timestamp}-${randomSuffix}-${index})`;
+            
+            const newRecipe = {
+              title: uniqueTitle, // Make the title unique
+              calories: recipe.calories || 0,
+              protein: recipe.protein || 0,
+              carbs: recipe.carbs || 0,
+              fat: recipe.fat || 0,
+              ingredients: recipe.ingredients || [],
+              instructions: recipe.instructions || [],
+              categories: recipe.meal_type ? [recipe.meal_type] : [],
+              is_ai_generated: true, // Mark as AI-generated
+              created_at: new Date(timestamp + (index * 1000) + randomSuffix).toISOString(), // Give each recipe a different timestamp
+              content_hash: contentHash // Store the content hash for future reference
+            };
+            
+            // Add to our tracking maps
+            contentHashMap.set(contentHash, newRecipe as unknown as Recipe);
+            newAIRecipesToSave.push(newRecipe);
+            
+            console.log(`Added AI recipe "${uniqueTitle}" with hash ${contentHash.substring(0, 8)}`);
+          } else {
+            console.log(`Skipped duplicate recipe "${recipe.title}" (similar to existing recipe)`);
+          }
         }
       });
     }
@@ -85,11 +114,15 @@ export async function processAIMealPlan(
     let savedAIRecipes: Record<string, Recipe> = {};
     
     if (newAIRecipesToSave.length > 0) {
-      console.log(`Saving ${newAIRecipesToSave.length} new AI-generated recipes to the database`);
+      console.log(`Saving ${newAIRecipesToSave.length} unique AI-generated recipes to the database`);
       
       const { data: insertedRecipes, error: recipeError } = await supabase
         .from('recipes')
-        .insert(newAIRecipesToSave)
+        .insert(newAIRecipesToSave.map(recipe => {
+          // Remove the content_hash field before saving to database
+          const { content_hash, ...cleanRecipe } = recipe;
+          return cleanRecipe;
+        }))
         .select();
       
       if (recipeError) {
@@ -136,8 +169,10 @@ export async function processAIMealPlan(
     }[] = [];
     
     // Create a global Set to track all used recipe IDs throughout the entire meal plan
-    // This ensures we don't reuse any recipe across the whole week
     const globalUsedRecipeIds = new Set<string>();
+    
+    // Also track content hashes to ensure true content uniqueness
+    const globalUsedContentHashes = new Set<string>();
     
     // Helper function to get all available AI recipes for a meal type
     const getAvailableAIRecipes = (mealType: string) => {
@@ -145,6 +180,10 @@ export async function processAIMealPlan(
         .filter(([id, recipe]) => {
           // Skip already used recipes
           if (globalUsedRecipeIds.has(id)) return false;
+          
+          // Skip recipes with similar content (true deduplication)
+          const contentHash = generateRecipeContentHash(recipe);
+          if (globalUsedContentHashes.has(contentHash)) return false;
           
           // Check if recipe has categories that match the meal type
           if (recipe.categories && recipe.categories.length > 0) {
@@ -160,11 +199,49 @@ export async function processAIMealPlan(
     };
     
     // Helper function to find real recipe ID for AI-generated recipes
-    // with enhanced uniqueness checks
+    // with enhanced uniqueness checks based on content
     const findRealRecipeId = (tempId: string, mealType: string): string | null => {
       // If it's a regular recipe ID, return it (if not already used)
       if (!tempId.startsWith('ai-')) {
-        // For non-AI recipes, don't enforce uniqueness to maintain backward compatibility
+        // For non-AI recipes, check if already used to prevent duplication
+        if (globalUsedRecipeIds.has(tempId)) {
+          // If already used, find another similar recipe
+          const recipe = recipesMap[tempId];
+          if (recipe) {
+            // Find similar recipes by meal type that aren't already used
+            const similarRecipes = Object.entries(recipesMap)
+              .filter(([id, r]) => {
+                if (globalUsedRecipeIds.has(id)) return false;
+                
+                // Check for category match
+                if (!r.categories) return false;
+                return r.categories.some(cat => 
+                  recipe.categories?.some(originalCat => 
+                    cat.toLowerCase().includes(originalCat.toLowerCase())
+                  )
+                );
+              })
+              .map(([id]) => id);
+            
+            if (similarRecipes.length > 0) {
+              const alternativeId = similarRecipes[Math.floor(Math.random() * similarRecipes.length)];
+              console.log(`Recipe ${tempId} already used, substituting with similar recipe ${alternativeId}`);
+              globalUsedRecipeIds.add(alternativeId);
+              return alternativeId;
+            }
+          }
+        }
+        
+        // Mark as used and return
+        globalUsedRecipeIds.add(tempId);
+        
+        // Also track content hash
+        const recipe = recipesMap[tempId];
+        if (recipe) {
+          const contentHash = generateRecipeContentHash(recipe);
+          globalUsedContentHashes.add(contentHash);
+        }
+        
         return tempId;
       }
       
@@ -179,6 +256,14 @@ export async function processAIMealPlan(
         
         // Mark this recipe as used so we don't use it again anywhere in the meal plan
         globalUsedRecipeIds.add(chosenRecipeId);
+        
+        // Also track its content hash
+        const recipe = recipesMap[chosenRecipeId];
+        if (recipe) {
+          const contentHash = generateRecipeContentHash(recipe);
+          globalUsedContentHashes.add(contentHash);
+          console.log(`Marked content hash ${contentHash.substring(0, 8)} as used for recipe ${chosenRecipeId}`);
+        }
         
         console.log(`Assigned AI recipe ${chosenRecipeId} for meal type ${mealType}`);
         return chosenRecipeId;
@@ -208,7 +293,7 @@ export async function processAIMealPlan(
             // Get recipe details from the map
             const recipe = recipesMap[realRecipeId];
             if (!recipe) continue;
-
+            
             // Create a meal plan item with all required fields explicitly defined
             mealPlanItems.push({
               meal_plan_id: mealPlanId,
@@ -229,7 +314,8 @@ export async function processAIMealPlan(
     }
 
     // Log information about recipe uniqueness for debugging
-    console.log(`Generated ${mealPlanItems.length} meal plan items with ${globalUsedRecipeIds.size} unique AI recipes`);
+    console.log(`Generated ${mealPlanItems.length} meal plan items with ${globalUsedRecipeIds.size} unique recipe IDs`);
+    console.log(`Content-level uniqueness: ${globalUsedContentHashes.size} unique content signatures`);
     
     if (mealPlanItems.length === 0) {
       console.error('No valid meal plan items found in AI response');
