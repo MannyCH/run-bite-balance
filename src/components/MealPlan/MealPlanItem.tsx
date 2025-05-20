@@ -1,9 +1,10 @@
 
 import React from "react";
+import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, BookmarkPlus } from "lucide-react";
+import { Sparkles, BookmarkPlus, ArrowRight } from "lucide-react";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 import { saveRecipeToCollection } from "@/utils/mealPlan/recipeUtils";
 import { toast } from "sonner";
@@ -55,6 +56,21 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
     }
   };
 
+  // Function to determine if the item has enough information to view as a recipe
+  const canViewRecipeDetails = (): boolean => {
+    // If it has a recipe_id and the recipe exists in our database
+    if (item.recipe_id && recipe) {
+      return true;
+    }
+    
+    // If it's an AI-generated recipe with basic information
+    if (item.is_ai_generated && item.custom_title) {
+      return true;
+    }
+    
+    return false;
+  };
+
   return (
     <div className="flex items-start gap-4">
       <Avatar className="h-12 w-12">
@@ -79,18 +95,35 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
             )}
           </div>
           
-          {/* Add save button for AI-generated recipes */}
-          {item.is_ai_generated && (
-            <Button 
-              onClick={handleSaveRecipe} 
-              variant="outline" 
-              size="sm" 
-              className="flex items-center gap-1 bg-purple-50 hover:bg-purple-100 border-purple-200"
-            >
-              <BookmarkPlus className="h-4 w-4" />
-              <span>Save Recipe</span>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Add save button for AI-generated recipes */}
+            {item.is_ai_generated && (
+              <Button 
+                onClick={handleSaveRecipe} 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center gap-1 bg-purple-50 hover:bg-purple-100 border-purple-200"
+              >
+                <BookmarkPlus className="h-4 w-4" />
+                <span>Save</span>
+              </Button>
+            )}
+            
+            {/* Add view recipe details button if applicable */}
+            {canViewRecipeDetails() && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                asChild
+              >
+                <Link to={`/recipe/${item.recipe_id || `ai-${item.id}`}`}>
+                  <span>View</span>
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
         <h3 className="mt-1 font-medium">{item.custom_title || recipe?.title || "Unnamed Recipe"}</h3>
         <div className="mt-1 text-sm text-muted-foreground">

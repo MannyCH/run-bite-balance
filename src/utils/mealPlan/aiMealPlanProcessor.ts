@@ -57,10 +57,15 @@ export async function processAIMealPlan(
       console.log(`Processing ${aiResponse.aiGeneratedRecipes.length} new AI-generated recipes`);
       
       // Extract AI-generated recipes for saving to database
-      aiResponse.aiGeneratedRecipes.forEach((recipe: any) => {
+      // Add a unique seed to each recipe based on the current timestamp to ensure variety
+      aiResponse.aiGeneratedRecipes.forEach((recipe: any, index: number) => {
         if (recipe && recipe.title) {
+          // Add a timestamp suffix to ensure uniqueness across generations
+          const timestamp = new Date().getTime();
+          const uniqueTitle = `${recipe.title} (AI ${timestamp + index})`;
+          
           newAIRecipesToSave.push({
-            title: recipe.title,
+            title: uniqueTitle, // Make the title unique
             calories: recipe.calories || 0,
             protein: recipe.protein || 0,
             carbs: recipe.carbs || 0,
@@ -68,7 +73,8 @@ export async function processAIMealPlan(
             ingredients: recipe.ingredients || [],
             instructions: recipe.instructions || [],
             categories: recipe.meal_type ? [recipe.meal_type] : [],
-            is_ai_generated: true // Mark as AI-generated
+            is_ai_generated: true, // Mark as AI-generated
+            created_at: new Date(timestamp + index).toISOString() // Give each recipe a slightly different timestamp
           });
         }
       });
@@ -141,12 +147,13 @@ export async function processAIMealPlan(
       if (aiResponse && aiResponse.aiGeneratedRecipes && 
           aiResponse.aiGeneratedRecipes[aiIndex]) {
         
-        // Get the title of the AI recipe
-        const aiRecipeTitle = aiResponse.aiGeneratedRecipes[aiIndex].title;
+        // Get the title of the AI recipe (without the unique suffix we added)
+        const aiRecipeBaseTitle = aiResponse.aiGeneratedRecipes[aiIndex].title;
         
-        // Find the saved recipe with the same title
+        // Find the saved recipe with a title that starts with the base title
+        // We use Object.keys to iterate through all saved AI recipes to find a matching one
         const savedRecipeId = Object.keys(savedAIRecipes).find(id => 
-          savedAIRecipes[id].title === aiRecipeTitle
+          savedAIRecipes[id].title.startsWith(aiRecipeBaseTitle)
         );
         
         if (savedRecipeId) {
