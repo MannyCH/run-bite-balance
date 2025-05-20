@@ -163,7 +163,7 @@ export async function generateMealPlanForUser(
       profile: profile as UserProfile,
       recipes,
       startDate,
-      endDateStr
+      endDate: endDateStr  // Fix: Changed from endDateStr to endDate to match the type definition
     });
   } catch (error) {
     console.error('Error generating meal plan:', error);
