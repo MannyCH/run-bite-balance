@@ -1,7 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Recipe } from '@/context/types';
-import crypto from 'crypto';
 import { ContentHashMap, ExtendedRecipe } from './types';
 import { extractMainIngredient } from './ingredientUtils';
 import { generateContentHash } from './contentHash';
@@ -27,22 +26,17 @@ export async function processAIRecipes(
   // Extract AI-generated recipes for saving to database
   aiGeneratedRecipes.forEach((recipe: any, index: number) => {
     if (recipe && recipe.title) {
-      // Get main ingredient from recipe if available
-      const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+      // ALWAYS ensure main ingredient is set, never null
+      const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe) || "unknown";
       
       // Create a content hash for deduplication
-      const contentFields = [
-        (recipe.ingredients || []).join('').toLowerCase(),
-        (recipe.instructions || []).join('').toLowerCase(),
-        recipe.meal_type?.toLowerCase() || '',
-        String(recipe.calories || 0),
-        String(recipe.protein || 0),
-        String(recipe.carbs || 0),
-        String(recipe.fat || 0),
-        mainIngredient
-      ].filter(Boolean).join('|');
+      // First ensure the recipe has the main ingredient set
+      const recipeWithMainIngredient = {
+        ...recipe,
+        main_ingredient: mainIngredient
+      };
       
-      const contentHash = crypto.createHash('md5').update(contentFields).digest('hex');
+      const contentHash = generateContentHash(recipeWithMainIngredient);
       
       // Check if we already have a recipe with very similar content
       if (!contentHashMap.has(contentHash)) {
@@ -61,8 +55,8 @@ export async function processAIRecipes(
           instructions: recipe.instructions || [],
           categories: recipe.meal_type ? [recipe.meal_type] : [],
           is_ai_generated: true, // Mark as AI-generated
-          main_ingredient: mainIngredient, // Add main ingredient field
-          created_at: new Date(timestamp + (index * 1000) + randomSuffix).toISOString(), // Give each recipe a different timestamp
+          main_ingredient: mainIngredient, // ALWAYS set the main ingredient
+          created_at: new Date(timestamp + (index * 1000) + randomSuffix).toISOString(),
           content_hash: contentHash // Store the content hash for future reference
         };
         

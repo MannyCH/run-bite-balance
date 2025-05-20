@@ -24,8 +24,8 @@ export function getAvailableAIRecipes(
       const contentHash = generateContentHash(recipe);
       if (usedContentHashes.has(contentHash)) return false;
       
-      // Get main ingredient
-      const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+      // Get main ingredient - ALWAYS ensure it has a value, never null
+      const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe) || "unknown";
       
       // Skip recipes with main ingredients we've already used
       if (mainIngredientsToAvoid.has(mainIngredient)) return false;
@@ -72,8 +72,8 @@ export function findRealRecipeId(
       // If already used, find another similar recipe
       const recipe = recipesMap[tempId];
       if (recipe) {
-        // Extract its main ingredient
-        const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+        // Extract its main ingredient - ALWAYS ensure it has a value
+        const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe) || "unknown";
         
         // Find similar recipes by meal type that aren't already used
         // and have different main ingredients than what we've used today
@@ -81,8 +81,8 @@ export function findRealRecipeId(
           .filter(([id, r]) => {
             if (globalUsedRecipeIds.has(id)) return false;
             
-            // Extract this recipe's main ingredient
-            const rMainIngredient = r.main_ingredient || extractMainIngredient(r);
+            // Extract this recipe's main ingredient - ALWAYS ensure it has a value
+            const rMainIngredient = r.main_ingredient || extractMainIngredient(r) || "unknown";
             
             // Skip if we've already used this ingredient today
             if (usedIngredientsToday.has(rMainIngredient)) return false;
@@ -107,7 +107,7 @@ export function findRealRecipeId(
           // Track main ingredient
           const altRecipe = recipesMap[alternativeId];
           if (altRecipe) {
-            const altMainIngredient = altRecipe.main_ingredient || extractMainIngredient(altRecipe);
+            const altMainIngredient = altRecipe.main_ingredient || extractMainIngredient(altRecipe) || "unknown";
             usedIngredientsToday.add(altMainIngredient);
             ingredientTracking.allWeek.add(altMainIngredient);
           }
@@ -127,7 +127,7 @@ export function findRealRecipeId(
     // Track main ingredient usage
     const recipe = recipesMap[tempId];
     if (recipe) {
-      const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+      const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe) || "unknown";
       usedIngredientsToday.add(mainIngredient);
       ingredientTracking.allWeek.add(mainIngredient);
       
@@ -165,8 +165,8 @@ export function findRealRecipeId(
       const contentHash = generateContentHash(recipe);
       globalUsedContentHashes.add(contentHash);
       
-      // Track main ingredient for variety
-      const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
+      // Track main ingredient for variety - ALWAYS ensure it has a value
+      const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe) || "unknown";
       usedIngredientsToday.add(mainIngredient);
       ingredientTracking.allWeek.add(mainIngredient);
       

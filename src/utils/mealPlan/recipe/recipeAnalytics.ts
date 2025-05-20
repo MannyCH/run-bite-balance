@@ -30,8 +30,9 @@ export function extractMainIngredient(recipe: any): string {
     }
   }
   
-  // Default to first ingredient
-  return recipe.ingredients[0].split(" ").slice(1).join(" ").split(",")[0] || "unknown";
+  // Default to first ingredient - Never return null or empty
+  const mainPart = recipe.ingredients[0].split(" ").slice(1).join(" ").split(",")[0] || "unknown";
+  return mainPart;
 }
 
 /**
@@ -66,7 +67,7 @@ export function calculateRecipeStats(mealPlanItems: MealPlanItem[], recipes: Rec
       }
       contentToRecipeMap.get(contentHash).push(item.recipe_id);
       
-      // Track main ingredient uniqueness
+      // Track main ingredient uniqueness - ALWAYS ensure it has a value
       const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
       uniqueMainIngredients.add(mainIngredient);
       
@@ -96,10 +97,6 @@ export function calculateRecipeStats(mealPlanItems: MealPlanItem[], recipes: Rec
       titles: recipeIds.map(id => recipes[id]?.title || 'Unknown').join(', ')
     }));
   
-  // Check if all AI recipes across the entire week are truly unique by content
-  const allAiRecipesContentUnique = duplicateContentGroups.length === 0;
-  const allAiRecipesIngredientUnique = duplicateIngredientGroups.length === 0;
-  
   // For the selected day specifically
   const selectedDayAiMeals = selectedDateMeals.filter(item => item.is_ai_generated);
   const selectedDayContentHashes = new Set();
@@ -112,7 +109,7 @@ export function calculateRecipeStats(mealPlanItems: MealPlanItem[], recipes: Rec
       const contentHash = generateRecipeContentHash(recipe);
       selectedDayContentHashes.add(contentHash);
       
-      // Main ingredient
+      // Main ingredient - ALWAYS ensure it has a value
       const mainIngredient = recipe.main_ingredient || extractMainIngredient(recipe);
       selectedDayIngredients.add(mainIngredient);
     }
