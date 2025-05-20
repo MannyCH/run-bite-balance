@@ -181,6 +181,7 @@ export type Database = {
           instructions: string[] | null
           is_ai_generated: boolean | null
           is_blob_url: boolean | null
+          main_ingredient: string | null
           protein: number
           servings: string | null
           title: string
@@ -198,6 +199,7 @@ export type Database = {
           instructions?: string[] | null
           is_ai_generated?: boolean | null
           is_blob_url?: boolean | null
+          main_ingredient?: string | null
           protein?: number
           servings?: string | null
           title: string
@@ -215,6 +217,7 @@ export type Database = {
           instructions?: string[] | null
           is_ai_generated?: boolean | null
           is_blob_url?: boolean | null
+          main_ingredient?: string | null
           protein?: number
           servings?: string | null
           title?: string

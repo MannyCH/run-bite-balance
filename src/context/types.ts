@@ -1,3 +1,4 @@
+
 // Shared types used across the application
 
 // Meal type
@@ -44,7 +45,7 @@ export interface Recipe {
   website?: string;
   servings?: string;
   is_ai_generated?: boolean; // Flag for AI-generated recipes
-  main_ingredient?: string; // NEW: Tracks main ingredient for variety checks
+  main_ingredient?: string; // Added to match database schema for variety checks
 }
 
 // Extended recipe used during processing or DB work

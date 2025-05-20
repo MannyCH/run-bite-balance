@@ -23,7 +23,8 @@ export async function saveRecipeToCollection(recipeData: any): Promise<boolean> 
         ingredients: recipeData.ingredients || [],
         instructions: recipeData.instructions || [],
         categories: recipeData.categories || [],
-        is_ai_generated: recipeData.is_ai_generated
+        is_ai_generated: recipeData.is_ai_generated,
+        main_ingredient: recipeData.main_ingredient || null
       });
     
     if (error) {
