@@ -1,10 +1,10 @@
 
 import { Recipe } from '@/context/types';
-import crypto from 'crypto';
+import { simpleHash } from '../utils';
 
 /**
  * Generate a content hash for a recipe based on its core fields
- * This allows us to identify recipes that have similar content even with different IDs/titles
+ * This is a browser-compatible version that doesn't use Node.js crypto
  */
 export function generateRecipeContentHash(recipe: Recipe): string {
   // Combine key content fields to create a unique signature
@@ -19,8 +19,8 @@ export function generateRecipeContentHash(recipe: Recipe): string {
     recipe.main_ingredient?.toLowerCase() // Include main ingredient in the hash
   ].filter(Boolean).join('|');
   
-  // Create a hash of this content
-  return crypto.createHash('md5').update(contentFields).digest('hex');
+  // Use browser-compatible hashing
+  return simpleHash(contentFields);
 }
 
 /**

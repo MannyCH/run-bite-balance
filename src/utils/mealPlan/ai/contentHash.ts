@@ -1,16 +1,9 @@
 
-import crypto from 'crypto';
-import { Recipe } from '@/context/types';
-import { ExtendedRecipe } from './types';
-
 /**
  * Generate a content hash for a recipe based on its core fields
- * This allows us to identify recipes that have similar content even with different IDs/titles
+ * This is a browser-compatible version that doesn't use Node.js crypto
  */
-export function generateContentHash(recipe: Recipe | ExtendedRecipe): string {
-  // Get main_ingredient if it exists in the recipe
-  const mainIngredient = 'main_ingredient' in recipe ? recipe.main_ingredient : undefined;
-  
+export function generateContentHash(recipe: any): string {
   // Combine key content fields to create a unique signature
   const contentFields = [
     recipe.ingredients?.join('').toLowerCase(),
@@ -20,9 +13,24 @@ export function generateContentHash(recipe: Recipe | ExtendedRecipe): string {
     String(recipe.protein),
     String(recipe.carbs),
     String(recipe.fat),
-    mainIngredient?.toLowerCase() // Include main ingredient in the hash if available
+    recipe.main_ingredient?.toLowerCase() // Include main ingredient in the hash if available
   ].filter(Boolean).join('|');
   
-  // Create a hash of this content
-  return crypto.createHash('md5').update(contentFields).digest('hex');
+  // Use browser-compatible hashing (simple hash function)
+  return simpleHash(contentFields);
+}
+
+/**
+ * A simple string hashing function that works in browsers
+ * Not cryptographically secure, but adequate for our content comparison needs
+ */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  // Convert to hex string and ensure it's positive
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }
