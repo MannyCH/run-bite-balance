@@ -179,6 +179,7 @@ export type Database = {
           imgurl: string | null
           ingredients: string[] | null
           instructions: string[] | null
+          is_ai_generated: boolean | null
           is_blob_url: boolean | null
           protein: number
           servings: string | null
@@ -195,6 +196,7 @@ export type Database = {
           imgurl?: string | null
           ingredients?: string[] | null
           instructions?: string[] | null
+          is_ai_generated?: boolean | null
           is_blob_url?: boolean | null
           protein?: number
           servings?: string | null
@@ -211,6 +213,7 @@ export type Database = {
           imgurl?: string | null
           ingredients?: string[] | null
           instructions?: string[] | null
+          is_ai_generated?: boolean | null
           is_blob_url?: boolean | null
           protein?: number
           servings?: string | null

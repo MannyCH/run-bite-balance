@@ -6,6 +6,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { MealPlanItem } from "./MealPlanItem";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 import { Toaster } from "@/components/ui/sonner";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface MealPlanContentProps {
   selectedDate: Date;
@@ -32,6 +34,9 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
     });
   };
 
+  // Check if there are any AI-generated meals for the selected date
+  const hasAiGeneratedMeals = getSelectedDateMeals().some(item => item.is_ai_generated);
+
   return (
     <>
       <Toaster position="top-right" />
@@ -45,6 +50,11 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
               </CardTitle>
               <CardDescription>
                 Your personalized meal plan for this day
+                {hasAiGeneratedMeals && (
+                  <span className="ml-2 text-purple-500 font-medium">
+                    (includes AI-generated recipes)
+                  </span>
+                )}
               </CardDescription>
             </div>
           </div>

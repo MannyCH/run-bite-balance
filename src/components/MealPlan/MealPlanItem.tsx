@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, BookmarkPlus } from "lucide-react";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 import { saveRecipeToCollection } from "@/utils/mealPlan/recipeUtils";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 interface MealPlanItemProps {
   item: MealPlanItemType;
@@ -85,7 +85,7 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
               onClick={handleSaveRecipe} 
               variant="outline" 
               size="sm" 
-              className="flex items-center gap-1"
+              className="flex items-center gap-1 bg-purple-50 hover:bg-purple-100 border-purple-200"
             >
               <BookmarkPlus className="h-4 w-4" />
               <span>Save Recipe</span>
