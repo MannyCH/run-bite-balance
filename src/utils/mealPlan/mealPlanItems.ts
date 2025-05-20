@@ -2,7 +2,12 @@
 // Functions for generating meal plan items
 import { UserProfile, MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
-import { filterRecipesByPreferences, prioritizeRecipes, getRandomRecipe, getContextForMeal } from './recipeUtils';
+import { 
+  filterRecipesByPreferences, 
+  prioritizeRecipes, 
+  getRandomRecipe, 
+  getContextForMeal 
+} from './recipeUtils';
 import { calculateDailyRequirements, getGenericRequirements } from './requirements';
 
 // Helper function to generate meal plan items
