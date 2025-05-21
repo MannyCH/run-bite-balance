@@ -1,7 +1,5 @@
 
 // Shared types used across the application
-
-// Meal type
 export interface Meal {
   id: string;
   title: string;
@@ -13,10 +11,8 @@ export interface Meal {
   isPlanned: boolean;
   recipeId?: string;
   imgUrl?: string;
-  main_ingredient?: string; 
 }
 
-// Run type
 export interface Run {
   id: string;
   title: string;
@@ -30,7 +26,6 @@ export interface Run {
   isImported?: boolean; // Flag to identify imported runs
 }
 
-// Base recipe type
 export interface Recipe {
   id: string;
   title: string;
@@ -39,20 +34,12 @@ export interface Recipe {
   carbs: number;
   fat: number;
   imgUrl?: string;
-  isBlobUrl?: boolean; // For backward compatibility
+  isBlobUrl?: boolean; // Keeping this for backward compatibility
   ingredients?: string[];
   instructions?: string[];
   categories?: string[];
   website?: string;
   servings?: string;
-  is_ai_generated?: boolean; // Flag for AI-generated recipes
-  main_ingredient?: string; // Added to match database schema for variety checks
-}
-
-// Extended recipe used during processing or DB work
-export interface ExtendedRecipe extends Recipe {
-  created_at: string;
-  content_hash?: string;
 }
 
 // Context type definition

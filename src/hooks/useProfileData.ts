@@ -60,7 +60,6 @@ export const useProfileData = (
               preferredCuisines: profileData.preferred_cuisines || [],
               foodsToAvoid: profileData.foods_to_avoid || [],
               mealComplexity: safeMealComplexityCast(profileData.meal_complexity),
-              aiRecipeRatio: profileData.ai_recipe_ratio || 30,
             },
           });
         }

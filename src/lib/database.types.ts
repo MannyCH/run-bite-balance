@@ -26,8 +26,6 @@ export interface Database {
           website: string | null
           servings: string | null
           created_at: string
-          is_ai_generated: boolean | null // Added for AI-generated recipes
-          main_ingredient: string | null // Added for tracking main ingredients
         }
         Insert: {
           id?: string
@@ -44,8 +42,6 @@ export interface Database {
           website?: string | null
           servings?: string | null
           created_at?: string
-          is_ai_generated?: boolean | null // Added for AI-generated recipes
-          main_ingredient?: string | null // Added for tracking main ingredients
         }
         Update: {
           id?: string
@@ -62,8 +58,6 @@ export interface Database {
           website?: string | null
           servings?: string | null
           created_at?: string
-          is_ai_generated?: boolean | null // Added for AI-generated recipes
-          main_ingredient?: string | null // Added for tracking main ingredients
         }
       }
     }

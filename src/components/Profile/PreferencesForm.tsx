@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
 import { MealComplexity } from '@/types/profile';
 
 // Reuse MultiSelectField from DietaryInfoForm
@@ -78,7 +77,6 @@ const formSchema = z.object({
   mealComplexity: z.enum(['simple', 'moderate', 'complex'], { 
     required_error: 'Please select a meal complexity preference' 
   }),
-  aiRecipeRatio: z.number().min(0).max(100).optional()
 });
 
 export function PreferencesForm() {
@@ -90,7 +88,6 @@ export function PreferencesForm() {
       preferredCuisines: formData.preferences.preferredCuisines || [],
       foodsToAvoid: formData.preferences.foodsToAvoid || [],
       mealComplexity: formData.preferences.mealComplexity || undefined,
-      aiRecipeRatio: formData.preferences.aiRecipeRatio || 30,
     },
   });
 
@@ -103,7 +100,6 @@ export function PreferencesForm() {
           preferredCuisines: value.preferredCuisines || [],
           foodsToAvoid: value.foodsToAvoid || [],
           mealComplexity: value.mealComplexity as MealComplexity,
-          aiRecipeRatio: value.aiRecipeRatio
         }
       }));
     });
@@ -184,38 +180,6 @@ export function PreferencesForm() {
               </Select>
               <FormDescription>
                 How much time are you willing to spend preparing meals?
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* AI Recipe Ratio */}
-        <FormField
-          control={form.control}
-          name="aiRecipeRatio"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>AI-Generated Recipes</FormLabel>
-              <FormControl>
-                <div className="space-y-4">
-                  <Slider
-                    value={[field.value || 30]}
-                    min={0}
-                    max={100}
-                    step={5}
-                    onValueChange={(values) => field.onChange(values[0])}
-                    className="py-4"
-                  />
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>0% (Only database recipes)</span>
-                    <span className="font-medium text-primary">{field.value || 30}%</span>
-                    <span>100% (All AI-generated)</span>
-                  </div>
-                </div>
-              </FormControl>
-              <FormDescription>
-                Control how many AI-generated recipes will be created for your meal plans. Higher percentages mean more completely new recipes will be generated based on your preferences and fitness goals.
               </FormDescription>
               <FormMessage />
             </FormItem>

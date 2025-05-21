@@ -1,113 +1,98 @@
 
 import React from "react";
-import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { RecipeStatsFooter } from "./RecipeStatsFooter";
+import { Button } from "@/components/ui/button";
+import { CardFooter } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 
 interface MealPlanItemProps {
-  title: string;
-  mealType: string;
-  recipeId?: string;
-  nutritionalContext?: string | null;
-  stats?: {
-    calories?: number;
-    protein?: number;
-    carbs?: number;
-    fat?: number;
-  };
-  isAiGenerated?: boolean;
-  mainIngredient?: string | null;
-  // Also support passing the full item and recipe objects
-  item?: MealPlanItemType;
-  recipe?: any;
+  item: MealPlanItemType;
+  recipe: any;
 }
 
-export const MealPlanItem: React.FC<MealPlanItemProps> = ({
-  title,
-  mealType,
-  recipeId,
-  nutritionalContext,
-  stats,
-  isAiGenerated,
-  mainIngredient,
-  item,
-  recipe,
-}) => {
-  // If item and recipe are provided, extract props from them
-  if (item) {
-    recipeId = item.recipe_id || recipeId;
-    mealType = item.meal_type || mealType;
-    nutritionalContext = item.nutritional_context || nutritionalContext;
-    isAiGenerated = item.is_ai_generated || isAiGenerated;
-    mainIngredient = item.main_ingredient || mainIngredient;
-    
-    if (!title && recipe) {
-      title = recipe.title;
-    } else if (!title) {
-      title = item.custom_title || "Custom Meal";
-    }
-    
-    // Use stats from item if not provided directly
-    if (!stats) {
-      stats = {
-        calories: item.calories,
-        protein: item.protein,
-        carbs: item.carbs,
-        fat: item.fat
-      };
-    }
-  }
-  
+export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
+  const navigate = useNavigate();
+
   // Format meal type for display
-  const displayMealType = mealType.charAt(0).toUpperCase() + mealType.slice(1);
-  
-  // Create the card content
-  const cardContent = (
-    <>
-      <CardHeader className="pb-1">
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-lg font-medium">{title}</CardTitle>
-          <Badge variant="outline" className="text-xs bg-gray-100 text-gray-700">
-            {displayMealType}
+  const formatMealType = (type: string) => {
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
+  return (
+    <div key={item.id} className="border rounded-lg overflow-hidden">
+      <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+        <div className="flex items-center">
+          <Badge variant="outline" className="font-medium">
+            {formatMealType(item.meal_type)}
           </Badge>
         </div>
-        {isAiGenerated && (
-          <Badge className="mt-1 bg-emerald-50 text-emerald-700 text-[10px]" variant="outline">
-            AI-Generated
-          </Badge>
+        {item.nutritional_context && (
+          <span className="text-sm text-muted-foreground">
+            {item.nutritional_context}
+          </span>
         )}
-        {mainIngredient && (
-          <Badge className="mt-1 ml-1 bg-blue-50 text-blue-700 text-[10px]" variant="outline">
-            {mainIngredient}
-          </Badge>
+      </div>
+      <div className="p-4">
+        {recipe ? (
+          <div className="flex flex-col md:flex-row gap-4">
+            {recipe.imgurl && (
+              <div className="md:w-1/4 h-40 overflow-hidden rounded-md">
+                <img 
+                  src={recipe.imgurl} 
+                  alt={recipe.title} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+            <div className="flex-1">
+              <h3 className="text-lg font-medium">{recipe.title}</h3>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {item.calories && (
+                  <Badge variant="secondary">{item.calories} cal</Badge>
+                )}
+                {item.protein && (
+                  <Badge variant="secondary">P: {item.protein}g</Badge>
+                )}
+                {item.carbs && (
+                  <Badge variant="secondary">C: {item.carbs}g</Badge>
+                )}
+                {item.fat && (
+                  <Badge variant="secondary">F: {item.fat}g</Badge>
+                )}
+              </div>
+              {recipe.ingredients && recipe.ingredients.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-sm font-medium">Ingredients:</p>
+                  <ul className="text-sm mt-1 list-disc pl-5">
+                    {recipe.ingredients.slice(0, 3).map((ing: string, i: number) => (
+                      <li key={i} className="text-muted-foreground">{ing}</li>
+                    ))}
+                    {recipe.ingredients.length > 3 && (
+                      <li className="text-muted-foreground">+ {recipe.ingredients.length - 3} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p>Recipe information not available</p>
         )}
-      </CardHeader>
-      <CardContent>
-        {nutritionalContext && (
-          <p className="text-sm text-gray-600 mb-3 line-clamp-2">{nutritionalContext}</p>
-        )}
-        {stats && (
-          <RecipeStatsFooter 
-            calories={stats.calories} 
-            protein={stats.protein} 
-            carbs={stats.carbs} 
-            fat={stats.fat} 
-          />
-        )}
-      </CardContent>
-    </>
+      </div>
+      <CardFooter className="bg-gray-50 border-t">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => recipe && navigate(`/recipe/${recipe.id}`)}
+          disabled={!recipe}
+        >
+          View Recipe Details
+        </Button>
+      </CardFooter>
+    </div>
   );
-
-  // If there's a recipe ID, wrap with Link, otherwise just show the card
-  if (recipeId) {
-    return (
-      <Link to={`/recipe/${recipeId}`} className="block">
-        <Card className="h-full hover:shadow-md transition-shadow">{cardContent}</Card>
-      </Link>
-    );
-  }
-
-  return <Card className="h-full">{cardContent}</Card>;
 };

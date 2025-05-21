@@ -9,7 +9,6 @@ export interface GenerateMealPlanParams {
   recipes: Recipe[];
   startDate: string;
   endDate: string;
-  aiRecipeRatio?: number; // Added this property to fix the TypeScript error
 }
 
 export interface MealPlanResult {
@@ -29,6 +28,3 @@ export interface MealRequirements {
     snack: { calories: number; protein: number };
   };
 }
-
-// Re-export AI-specific types
-export * from './ai/types';

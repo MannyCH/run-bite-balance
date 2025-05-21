@@ -17,8 +17,6 @@ export type Database = {
           date: string
           fat: number | null
           id: string
-          is_ai_generated: boolean | null
-          main_ingredient: string | null
           meal_plan_id: string
           meal_type: string
           nutritional_context: string | null
@@ -32,8 +30,6 @@ export type Database = {
           date: string
           fat?: number | null
           id?: string
-          is_ai_generated?: boolean | null
-          main_ingredient?: string | null
           meal_plan_id: string
           meal_type: string
           nutritional_context?: string | null
@@ -47,8 +43,6 @@ export type Database = {
           date?: string
           fat?: number | null
           id?: string
-          is_ai_generated?: boolean | null
-          main_ingredient?: string | null
           meal_plan_id?: string
           meal_type?: string
           nutritional_context?: string | null
@@ -103,7 +97,6 @@ export type Database = {
         Row: {
           activity_level: string | null
           age: number | null
-          ai_recipe_ratio: number | null
           avatar_url: string | null
           bmr: number | null
           created_at: string
@@ -126,7 +119,6 @@ export type Database = {
         Insert: {
           activity_level?: string | null
           age?: number | null
-          ai_recipe_ratio?: number | null
           avatar_url?: string | null
           bmr?: number | null
           created_at?: string
@@ -149,7 +141,6 @@ export type Database = {
         Update: {
           activity_level?: string | null
           age?: number | null
-          ai_recipe_ratio?: number | null
           avatar_url?: string | null
           bmr?: number | null
           created_at?: string
@@ -182,9 +173,7 @@ export type Database = {
           imgurl: string | null
           ingredients: string[] | null
           instructions: string[] | null
-          is_ai_generated: boolean | null
           is_blob_url: boolean | null
-          main_ingredient: string | null
           protein: number
           servings: string | null
           title: string
@@ -200,9 +189,7 @@ export type Database = {
           imgurl?: string | null
           ingredients?: string[] | null
           instructions?: string[] | null
-          is_ai_generated?: boolean | null
           is_blob_url?: boolean | null
-          main_ingredient?: string | null
           protein?: number
           servings?: string | null
           title: string
@@ -218,9 +205,7 @@ export type Database = {
           imgurl?: string | null
           ingredients?: string[] | null
           instructions?: string[] | null
-          is_ai_generated?: boolean | null
           is_blob_url?: boolean | null
-          main_ingredient?: string | null
           protein?: number
           servings?: string | null
           title?: string

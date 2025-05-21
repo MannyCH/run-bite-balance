@@ -1,9 +1,8 @@
+
 // Database operations for meal plans
 import { supabase } from '@/integrations/supabase/client';
-import { MealPlan, MealPlanItem, UserProfile, Gender } from '@/types/profile';
+import { MealPlan, MealPlanItem } from '@/types/profile';
 import { validateStatus, validateMealType } from './validators';
-import { Recipe } from '@/context/types';
-import { safeGenderCast, safeFitnessGoalCast, safeActivityLevelCast, safeMealComplexityCast } from '@/utils/profileUtils';
 
 // Create or update a meal plan record
 export async function createOrUpdateMealPlan(
@@ -104,9 +103,7 @@ export async function insertMealPlanItems(
       calories: item.calories,
       protein: item.protein,
       carbs: item.carbs,
-      fat: item.fat,
-      is_ai_generated: item.is_ai_generated,
-      main_ingredient: item.main_ingredient
+      fat: item.fat
     }));
 
     return typedMealPlanItems;
@@ -117,7 +114,7 @@ export async function insertMealPlanItems(
 }
 
 // Fetch a user's profile
-export async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
+export async function fetchUserProfile(userId: string) {
   try {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -130,32 +127,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
       return null;
     }
 
-    // Use the safe cast utility functions to properly cast the enum type fields
-    const typedProfile: UserProfile = {
-      id: profile.id,
-      username: profile.username,
-      avatar_url: profile.avatar_url,
-      weight: profile.weight,
-      height: profile.height,
-      age: profile.age,
-      gender: safeGenderCast(profile.gender),
-      target_weight: profile.target_weight,
-      fitness_goal: safeFitnessGoalCast(profile.fitness_goal),
-      activity_level: safeActivityLevelCast(profile.activity_level),
-      ical_feed_url: profile.ical_feed_url,
-      bmr: profile.bmr,
-      dietary_preferences: profile.dietary_preferences,
-      nutritional_theory: profile.nutritional_theory,
-      food_allergies: profile.food_allergies,
-      preferred_cuisines: profile.preferred_cuisines,
-      foods_to_avoid: profile.foods_to_avoid,
-      meal_complexity: safeMealComplexityCast(profile.meal_complexity),
-      ai_recipe_ratio: profile.ai_recipe_ratio,
-      created_at: profile.created_at,
-      updated_at: profile.updated_at
-    };
-
-    return typedProfile;
+    return profile;
   } catch (error) {
     console.error('Error in fetchUserProfile:', error);
     return null;
@@ -163,7 +135,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
 }
 
 // Fetch recipes from the database
-export async function fetchRecipes(): Promise<Recipe[] | null> {
+export async function fetchRecipes() {
   try {
     const { data: recipes, error: recipesError } = await supabase
       .from('recipes')
@@ -178,94 +150,5 @@ export async function fetchRecipes(): Promise<Recipe[] | null> {
   } catch (error) {
     console.error('Error in fetchRecipes:', error);
     return [];
-  }
-}
-
-// New improved function to clean up unsaved AI-generated recipes from previous meal plan generations
-export async function cleanupUnsavedAIRecipes(userId: string): Promise<void> {
-  try {
-    console.log(`Cleaning up unsaved AI recipes for user ${userId}`);
-    
-    // Step 1: Get all AI-generated recipes that don't have the 'saved_by_user' category
-    const { data: aiRecipes, error: aiRecipesError } = await supabase
-      .from('recipes')
-      .select('id')
-      .eq('is_ai_generated', true)
-      .not('categories', 'cs', '{"saved_by_user"}');
-      
-    if (aiRecipesError) {
-      console.error('Error fetching AI recipes:', aiRecipesError);
-      return;
-    }
-    
-    if (!aiRecipes || aiRecipes.length === 0) {
-      console.log('No AI recipes found to clean up');
-      return;
-    }
-    
-    console.log(`Found ${aiRecipes.length} AI-generated recipes that could potentially be cleaned up`);
-    
-    // Get all recipe IDs that should be removed
-    const aiRecipeIds = aiRecipes.map(recipe => recipe.id);
-    
-    // Step 2: Get all recipe IDs that are used in active meal plans for this user
-    const { data: mealPlanData, error: mealPlanError } = await supabase
-      .from('meal_plans')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('status', 'active');
-      
-    if (mealPlanError) {
-      console.error('Error fetching meal plans:', mealPlanError);
-      return;
-    }
-    
-    // Only proceed with checking meal plan items if there are active meal plans
-    let inUseRecipeIds: string[] = [];
-    
-    if (mealPlanData && mealPlanData.length > 0) {
-      const mealPlanIds = mealPlanData.map(plan => plan.id);
-      
-      // Get all meal plan items that reference recipes
-      const { data: mealPlanItems, error: itemsError } = await supabase
-        .from('meal_plan_items')
-        .select('recipe_id')
-        .in('meal_plan_id', mealPlanIds)
-        .not('recipe_id', 'is', null);
-        
-      if (itemsError) {
-        console.error('Error fetching meal plan items:', itemsError);
-        return;
-      }
-      
-      // Create a list of recipe IDs that are in use
-      inUseRecipeIds = mealPlanItems?.map(item => item.recipe_id) || [];
-    }
-    
-    // Step 3: Delete AI-generated recipes that are not in use
-    const recipesToDelete = aiRecipeIds.filter(id => !inUseRecipeIds.includes(id));
-      
-    if (recipesToDelete.length === 0) {
-      console.log('No unused AI recipes to delete');
-      return;
-    }
-    
-    console.log(`Deleting ${recipesToDelete.length} unused AI recipes`);
-    
-    // Delete the unused AI-generated recipes
-    const { error: deleteError } = await supabase
-      .from('recipes')
-      .delete()
-      .in('id', recipesToDelete);
-      
-    if (deleteError) {
-      console.error('Error deleting unused AI recipes:', deleteError);
-      return;
-    }
-    
-    console.log(`Successfully deleted ${recipesToDelete.length} unused AI recipes`);
-    
-  } catch (error) {
-    console.error('Error in cleanupUnsavedAIRecipes:', error);
   }
 }

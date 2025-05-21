@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
@@ -5,103 +6,23 @@ import MainLayout from "../components/Layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, BookOpen, Clock, Utensils, Sparkles } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowLeft, BookOpen, Clock, Utensils } from "lucide-react";
 
 const RecipeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { recipes } = useApp();
   const [recipe, setRecipe] = useState<any | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAIGenerated, setIsAIGenerated] = useState(false);
 
   useEffect(() => {
-    const fetchRecipe = async () => {
-      setIsLoading(true);
-      
-      try {
-        // Check if this is an AI-generated recipe from the meal plan
-        if (id && id.startsWith('ai-')) {
-          const mealPlanItemId = id.replace('ai-', '');
-          
-          // Fetch the AI-generated meal plan item
-          const { data: mealPlanItem, error: mealPlanError } = await supabase
-            .from('meal_plan_items')
-            .select('*')
-            .eq('id', mealPlanItemId)
-            .single();
-          
-          if (mealPlanError || !mealPlanItem) {
-            console.error('Error fetching AI meal plan item:', mealPlanError);
-            setIsLoading(false);
-            return;
-          }
-          
-          // Create a recipe object from the meal plan item
-          setRecipe({
-            id: `ai-${mealPlanItem.id}`,
-            title: mealPlanItem.custom_title || `${mealPlanItem.meal_type.charAt(0).toUpperCase() + mealPlanItem.meal_type.slice(1)} Recipe`,
-            calories: mealPlanItem.calories,
-            protein: mealPlanItem.protein,
-            carbs: mealPlanItem.carbs,
-            fat: mealPlanItem.fat,
-            ingredients: [mealPlanItem.nutritional_context || "No ingredients listed"],
-            instructions: ["This AI-generated recipe doesn't include detailed instructions. Try saving it to your collection and adding details."],
-            categories: [mealPlanItem.meal_type],
-            isAIGenerated: true
-          });
-          
-          setIsAIGenerated(true);
-        }
-        // Otherwise, look for the recipe in our normal recipes collection
-        else if (id && recipes.length > 0) {
-          const foundRecipe = recipes.find(r => r.id === id);
-          if (foundRecipe) {
-            setRecipe(foundRecipe);
-            setIsAIGenerated(foundRecipe.is_ai_generated || false);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching recipe details:', error);
-      } finally {
-        setIsLoading(false);
+    if (id && recipes.length > 0) {
+      const foundRecipe = recipes.find(r => r.id === id);
+      if (foundRecipe) {
+        setRecipe(foundRecipe);
         // Scroll to top when recipe loads
         window.scrollTo(0, 0);
       }
-    };
-    
-    fetchRecipe();
+    }
   }, [id, recipes]);
-
-  if (isLoading) {
-    return (
-      <MainLayout>
-        <div className="container mx-auto px-4 pb-16 max-w-5xl">
-          <div className="mb-6">
-            <Skeleton className="h-10 w-32" />
-          </div>
-          <Skeleton className="h-64 w-full mb-6" />
-          <Skeleton className="h-12 w-3/4 mb-4" />
-          <Skeleton className="h-8 w-1/2 mb-6" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <Skeleton className="h-8 w-40 mb-4" />
-              <Skeleton className="h-6 w-full mb-2" />
-              <Skeleton className="h-6 w-full mb-2" />
-              <Skeleton className="h-6 w-3/4" />
-            </div>
-            <div>
-              <Skeleton className="h-8 w-40 mb-4" />
-              <Skeleton className="h-6 w-full mb-2" />
-              <Skeleton className="h-6 w-full mb-2" />
-              <Skeleton className="h-6 w-3/4" />
-            </div>
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
 
   if (!recipe) {
     return (
@@ -109,7 +30,7 @@ const RecipeDetail: React.FC = () => {
         <div className="flex flex-col items-center justify-center py-16">
           <h2 className="text-2xl font-semibold mb-4">Recipe not found</h2>
           <Button asChild>
-            <Link to="/meal-planner">Back to meal planner</Link>
+            <Link to="/suggested-meals">Back to recipes</Link>
           </Button>
         </div>
       </MainLayout>
@@ -176,43 +97,21 @@ const RecipeDetail: React.FC = () => {
     );
   };
 
-  // Format ingredients and instructions for display
-  const formatIngredients = () => {
-    if (!recipe.ingredients || recipe.ingredients.length === 0) {
-      return [];
-    }
-    
-    // If it's a single string (like from AI-generated content), split it
-    if (recipe.ingredients.length === 1 && recipe.ingredients[0].includes(',')) {
-      return recipe.ingredients[0].split(',').map(item => item.trim());
-    }
-    
-    return recipe.ingredients;
-  };
-
   return (
     <MainLayout>
       <div className="container mx-auto px-4 pb-16 max-w-5xl">
         <div className="mb-6">
           <Button variant="ghost" className="pl-0 mb-2" asChild>
-            <Link to="/meal-planner">
+            <Link to="/suggested-meals">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to meal planner
+              Back to recipes
             </Link>
           </Button>
         </div>
         
         {renderHeroImage()}
         
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          <h1 className="text-3xl md:text-4xl font-bold mr-2">{recipe.title}</h1>
-          {isAIGenerated && (
-            <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full flex items-center">
-              <Sparkles className="h-4 w-4 mr-1" />
-              <span className="text-sm font-medium">AI Generated</span>
-            </div>
-          )}
-        </div>
+        <h1 className="text-3xl md:text-4xl font-bold mb-4">{recipe.title}</h1>
         
         {renderNutritionInfo()}
         
@@ -242,9 +141,9 @@ const RecipeDetail: React.FC = () => {
               Ingredients
             </h2>
             <Separator className="mb-4" />
-            {formatIngredients().length > 0 ? (
+            {recipe.ingredients && recipe.ingredients.length > 0 ? (
               <ul className="space-y-2">
-                {formatIngredients().map((ingredient: string, index: number) => (
+                {recipe.ingredients.map((ingredient: string, index: number) => (
                   <li key={index} className="flex items-baseline">
                     <span className="inline-block w-2 h-2 bg-primary rounded-full mr-2 mt-2"></span>
                     <span>{ingredient}</span>

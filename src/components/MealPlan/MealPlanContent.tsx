@@ -1,8 +1,9 @@
 
-import React, { useState } from "react";
-import { format } from "date-fns";
+import React from "react";
+import { Calendar } from "lucide-react";
+import { format, isSameDay, parseISO } from "date-fns";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { MealPlanItem } from "./MealPlanItem";
-import { MealList } from "./MealList";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 
 interface MealPlanContentProps {
@@ -14,49 +15,51 @@ interface MealPlanContentProps {
 export const MealPlanContent: React.FC<MealPlanContentProps> = ({
   selectedDate,
   mealPlanItems,
-  recipes,
+  recipes
 }) => {
-  // Get items for the selected date
-  const formattedDate = format(selectedDate, "yyyy-MM-dd");
-  const itemsForSelectedDate = mealPlanItems.filter(
-    (item) => item.date === formattedDate
-  );
+  // Get meals for the selected date
+  const getSelectedDateMeals = () => {
+    if (!mealPlanItems.length) return [];
 
-  // Group items by meal type
-  const breakfast = itemsForSelectedDate.filter(
-    (item) => item.meal_type === "breakfast"
-  );
-  const lunch = itemsForSelectedDate.filter(
-    (item) => item.meal_type === "lunch"
-  );
-  const dinner = itemsForSelectedDate.filter(
-    (item) => item.meal_type === "dinner"
-  );
-  const snacks = itemsForSelectedDate.filter(
-    (item) => item.meal_type === "snack"
-  );
+    return mealPlanItems.filter(item => {
+      const itemDate = parseISO(item.date);
+      return isSameDay(itemDate, selectedDate);
+    }).sort((a, b) => {
+      // Sort by meal type: breakfast, lunch, dinner, snack
+      const order = { breakfast: 1, lunch: 2, dinner: 3, snack: 4 };
+      return order[a.meal_type] - order[b.meal_type];
+    });
+  };
 
   return (
-    <div className="mt-6">
-      <h2 className="text-xl font-semibold mb-4">
-        Meals for {format(selectedDate, "EEEE, MMMM d")}
-      </h2>
-
-      <div className="space-y-8">
-        {/* Breakfast */}
-        <MealList title="Breakfast" meals={breakfast} recipes={recipes} />
-
-        {/* Lunch */}
-        <MealList title="Lunch" meals={lunch} recipes={recipes} />
-
-        {/* Dinner */}
-        <MealList title="Dinner" meals={dinner} recipes={recipes} />
-
-        {/* Snacks */}
-        {snacks.length > 0 && (
-          <MealList title="Snacks" meals={snacks} recipes={recipes} />
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle className="flex items-center">
+              <Calendar className="h-5 w-5 mr-2" />
+              Meals for {format(selectedDate, "EEEE, MMMM d")}
+            </CardTitle>
+            <CardDescription>
+              Your personalized meal plan for this day
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {getSelectedDateMeals().length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-muted-foreground">No meals planned for this day</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {getSelectedDateMeals().map((item) => {
+              const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
+              return <MealPlanItem key={item.id} item={item} recipe={recipe} />;
+            })}
+          </div>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
