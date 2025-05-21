@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React from "react";
 import MainLayout from "../components/Layout/MainLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GenerateMealPlan } from "@/components/MealPlan/GenerateMealPlan";
@@ -8,8 +8,6 @@ import { MealPlanContent } from "@/components/MealPlan/MealPlanContent";
 import { NoMealPlan } from "@/components/MealPlan/NoMealPlan";
 import { useMealPlan } from "@/hooks/useMealPlan";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { removeQuinoaRecipes } from "@/utils/recipeCleanup";
 
 const WeeklyMealPlanner: React.FC = () => {
   const {
@@ -22,41 +20,6 @@ const WeeklyMealPlanner: React.FC = () => {
     daysOfWeek,
     fetchLatestMealPlan,
   } = useMealPlan();
-  
-  const { toast } = useToast();
-  const [isRemoving, setIsRemoving] = useState(false);
-
-  const handleRemoveQuinoaRecipes = async () => {
-    if (isRemoving) return;
-    
-    setIsRemoving(true);
-    try {
-      const count = await removeQuinoaRecipes();
-      
-      if (count > 0) {
-        toast({
-          title: "Success",
-          description: `Successfully removed ${count} quinoa recipes from the database.`,
-        });
-        
-        // Refresh meal plan data if needed
-        await fetchLatestMealPlan();
-      } else {
-        toast({
-          title: "No Changes",
-          description: "No quinoa recipes were found in the database.",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to remove quinoa recipes. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRemoving(false);
-    }
-  };
 
   return (
     <MainLayout>
@@ -71,16 +34,7 @@ const WeeklyMealPlanner: React.FC = () => {
       </div>
 
       {/* Generate Meal Plan Button */}
-      <div className="flex justify-between mb-6">
-        <GenerateMealPlan onMealPlanGenerated={fetchLatestMealPlan} />
-        <button
-          onClick={handleRemoveQuinoaRecipes}
-          disabled={isRemoving}
-          className="px-3 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors"
-        >
-          {isRemoving ? "Removing..." : "Remove Quinoa Recipes"}
-        </button>
-      </div>
+      <GenerateMealPlan onMealPlanGenerated={fetchLatestMealPlan} />
 
       {isLoading ? (
         <div className="space-y-4">
