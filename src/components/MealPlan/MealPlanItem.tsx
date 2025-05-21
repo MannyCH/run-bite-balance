@@ -3,6 +3,7 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 import { AlertCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MealPlanItemProps {
   item: MealPlanItemType;
@@ -52,10 +53,18 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
                 <h3 className="text-lg font-semibold flex items-center">
                   {title}
                   {!recipe && (
-                    <AlertCircle 
-                      className="h-4 w-4 ml-2 text-amber-500" 
-                      title="Recipe has been removed from database" 
-                    />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <AlertCircle className="h-4 w-4 ml-2 text-amber-500" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Recipe has been removed from database</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
                 </h3>
               </div>
