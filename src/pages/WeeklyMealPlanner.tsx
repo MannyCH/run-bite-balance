@@ -8,6 +8,10 @@ import { MealPlanContent } from "@/components/MealPlan/MealPlanContent";
 import { NoMealPlan } from "@/components/MealPlan/NoMealPlan";
 import { useMealPlan } from "@/hooks/useMealPlan";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { removeQuinoaRecipes } from "@/utils/mealPlan/recipe/deleteRecipes";
 
 const WeeklyMealPlanner: React.FC = () => {
   const {
@@ -20,6 +24,49 @@ const WeeklyMealPlanner: React.FC = () => {
     daysOfWeek,
     fetchLatestMealPlan,
   } = useMealPlan();
+  
+  const { toast } = useToast();
+  const [isRemoving, setIsRemoving] = React.useState(false);
+
+  const handleRemoveQuinoaRecipes = async () => {
+    try {
+      setIsRemoving(true);
+      const result = await removeQuinoaRecipes();
+      
+      if (result.success) {
+        if (result.count > 0) {
+          toast({
+            title: "Success",
+            description: `Successfully removed ${result.count} quinoa recipes.`,
+          });
+          // Refresh data if we have a current meal plan
+          if (mealPlan) {
+            await fetchLatestMealPlan();
+          }
+        } else {
+          toast({
+            title: "No quinoa recipes found",
+            description: "There were no quinoa recipes in the database to remove.",
+          });
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to remove quinoa recipes. See console for details.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error in handleRemoveQuinoaRecipes:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while removing quinoa recipes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRemoving(false);
+    }
+  };
 
   return (
     <MainLayout>
@@ -35,6 +82,19 @@ const WeeklyMealPlanner: React.FC = () => {
 
       {/* Generate Meal Plan Button */}
       <GenerateMealPlan onMealPlanGenerated={fetchLatestMealPlan} />
+      
+      {/* Remove Quinoa Recipes Button */}
+      <div className="mb-6">
+        <Button 
+          onClick={handleRemoveQuinoaRecipes} 
+          variant="outline" 
+          disabled={isRemoving}
+          className="flex items-center gap-2 text-orange-600 border-orange-300 hover:bg-orange-50"
+        >
+          <AlertTriangle className="h-4 w-4" />
+          {isRemoving ? 'Removing quinoa recipes...' : 'Remove all quinoa recipes'}
+        </Button>
+      </div>
 
       {isLoading ? (
         <div className="space-y-4">
