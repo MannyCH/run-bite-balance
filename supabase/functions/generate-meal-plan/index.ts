@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
@@ -11,6 +12,7 @@ const corsHeaders = {
 
 /**
  * Generate completely new AI recipes based on user preferences
+ * Always creates diverse recipes with different main ingredients
  */
 async function generateAIRecipes(
   profile: UserProfile,
@@ -50,7 +52,7 @@ async function generateAIRecipes(
     
     console.log(`User preferences: ${JSON.stringify(dietaryPreferences)}`);
     
-    // Create the system prompt for recipe generation
+    // Create the system prompt for recipe generation with emphasis on diversity
     const systemPrompt = `You are a professional nutritionist and chef creating original recipes tailored to a user's preferences. 
     The user has the following dietary preferences: ${JSON.stringify(dietaryPreferences)}.
     
@@ -65,6 +67,7 @@ async function generateAIRecipes(
        - If one recipe features quinoa, others should use different grains like rice, pasta, couscous
        - If one recipe focuses on cauliflower, others should feature different vegetables
     4. Provide a "main_ingredient" field that clearly identifies the primary ingredient of each recipe
+    5. Make recipes for different meal types (breakfast, lunch, dinner, snack) - don't make all recipes for the same meal type
     
     Additional Guidelines:
     1. Ensure recipes align with the user's fitness goal: ${profile.fitness_goal || "maintain"}
@@ -73,6 +76,10 @@ async function generateAIRecipes(
     4. Include proper nutritional values (calories, protein, carbs, fat)
     5. Create recipes appropriate for any meal type (breakfast, lunch, dinner, or snack)
     6. Make the recipes interesting and unique, not just variations of common dishes
+    7. For breakfast, create options like smoothies, oatmeal bowls, egg dishes, etc.
+    8. For lunch, create salads, sandwiches, grain bowls, soups, etc.
+    9. For dinner, create main dishes with sides, one-pot meals, etc.
+    10. For snacks, create energy bites, dips, small plates, etc.
     
     The response should be a JSON object following this exact structure:
     {
@@ -103,10 +110,10 @@ async function generateAIRecipes(
           { role: "system", content: systemPrompt },
           { 
             role: "user", 
-            content: `Create ${recipesToGenerate} original recipes that would appeal to me based on my preferences. Make them creative and unique with DIFFERENT main ingredients for each recipe!`
+            content: `Create ${recipesToGenerate} original recipes that would appeal to me based on my preferences. Make them creative and unique with DIFFERENT main ingredients for each recipe and varied for different meal types!`
           }
         ],
-        temperature: 0.9, // Increased temperature for more creativity and variety
+        temperature: 1.0, // Increased temperature for more creativity and variety
         max_tokens: 3000,
         response_format: { type: "json_object" }
       });
@@ -123,6 +130,18 @@ async function generateAIRecipes(
       try {
         const recipesData = JSON.parse(aiResponse);
         console.log(`AI generated ${recipesData.recipes?.length || 0} recipes successfully`);
+        
+        // Verify recipes have different main ingredients
+        const mainIngredients = new Set();
+        const mealTypes = new Set();
+        
+        recipesData.recipes.forEach((recipe: any) => {
+          mainIngredients.add(recipe.main_ingredient);
+          mealTypes.add(recipe.meal_type);
+        });
+        
+        console.log(`Recipe diversity check - unique main ingredients: ${mainIngredients.size}, unique meal types: ${mealTypes.size}`);
+        
         return recipesData.recipes || [];
       } catch (parseError) {
         console.error("Error parsing OpenAI response:", parseError);

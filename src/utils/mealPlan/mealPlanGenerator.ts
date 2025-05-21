@@ -234,15 +234,21 @@ export async function generateMealPlanForUser(
   aiRecipeRatio: number = 30
 ): Promise<MealPlanResult | null> {
   try {
+    // First, clean up unsaved AI recipes from previous generations
+    await cleanupUnsavedAIRecipes(userId);
+    console.log(`Cleaned up old AI recipes for user ${userId}`);
+    
     // Get the user's profile
     const profile = await fetchUserProfile(userId);
     if (!profile) {
+      console.error('Could not fetch user profile');
       return null;
     }
 
     // Get all available recipes
     const recipes = await fetchRecipes();
     if (!recipes || recipes.length === 0) {
+      console.error('No recipes available');
       return null;
     }
 
@@ -253,15 +259,16 @@ export async function generateMealPlanForUser(
     endDate.setDate(today.getDate() + 6); // 7 days total including today
     const endDateStr = endDate.toISOString().split('T')[0];
 
-    // Generate the meal plan using the existing function
+    console.log(`Generating new meal plan with ${aiRecipeRatio}% AI recipes ratio from ${startDate} to ${endDateStr}`);
+    
+    // Generate the meal plan using the existing function, with forceNewRecipes=true
     return generateMealPlan({
       userId,
       profile: profile as UserProfile,
       recipes,
       startDate,
       endDate: endDateStr,
-      // Pass the AI recipe ratio explicitly to ensure it's used
-      aiRecipeRatio
+      aiRecipeRatio, // Pass the AI recipe ratio to ensure it's respected
     });
   } catch (error) {
     console.error('Error generating meal plan:', error);

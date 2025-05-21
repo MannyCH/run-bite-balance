@@ -181,16 +181,17 @@ export async function fetchRecipes(): Promise<Recipe[] | null> {
   }
 }
 
-// New function to clean up unsaved AI-generated recipes from previous meal plan generations
+// New improved function to clean up unsaved AI-generated recipes from previous meal plan generations
 export async function cleanupUnsavedAIRecipes(userId: string): Promise<void> {
   try {
     console.log(`Cleaning up unsaved AI recipes for user ${userId}`);
     
-    // Step 1: Get all AI-generated recipes
+    // Step 1: Get all AI-generated recipes that don't have the 'saved_by_user' category
     const { data: aiRecipes, error: aiRecipesError } = await supabase
       .from('recipes')
-      .select('id, categories')
-      .eq('is_ai_generated', true);
+      .select('id')
+      .eq('is_ai_generated', true)
+      .not('categories', 'cs', '{"saved_by_user"}');
       
     if (aiRecipesError) {
       console.error('Error fetching AI recipes:', aiRecipesError);
@@ -202,53 +203,47 @@ export async function cleanupUnsavedAIRecipes(userId: string): Promise<void> {
       return;
     }
     
-    console.log(`Found ${aiRecipes.length} AI-generated recipes`);
+    console.log(`Found ${aiRecipes.length} AI-generated recipes that could potentially be cleaned up`);
     
-    // Step 2: Get all recipe IDs that are used in meal plans for this user
+    // Get all recipe IDs that should be removed
+    const aiRecipeIds = aiRecipes.map(recipe => recipe.id);
+    
+    // Step 2: Get all recipe IDs that are used in active meal plans for this user
     const { data: mealPlanData, error: mealPlanError } = await supabase
       .from('meal_plans')
       .select('id')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('status', 'active');
       
     if (mealPlanError) {
       console.error('Error fetching meal plans:', mealPlanError);
       return;
     }
     
-    if (!mealPlanData || mealPlanData.length === 0) {
-      console.log('No meal plans found for this user');
-      // No meal plans means no recipes are in use, but we still need to keep those
-      // that have been explicitly saved by the user
-    }
+    // Only proceed with checking meal plan items if there are active meal plans
+    let inUseRecipeIds: string[] = [];
     
-    const mealPlanIds = mealPlanData?.map(plan => plan.id) || [];
-    
-    // Get all meal plan items that reference recipes
-    const { data: mealPlanItems, error: itemsError } = await supabase
-      .from('meal_plan_items')
-      .select('recipe_id')
-      .in('meal_plan_id', mealPlanIds.length > 0 ? mealPlanIds : ['no_plans'])
-      .not('recipe_id', 'is', null);
+    if (mealPlanData && mealPlanData.length > 0) {
+      const mealPlanIds = mealPlanData.map(plan => plan.id);
       
-    if (itemsError) {
-      console.error('Error fetching meal plan items:', itemsError);
-      return;
+      // Get all meal plan items that reference recipes
+      const { data: mealPlanItems, error: itemsError } = await supabase
+        .from('meal_plan_items')
+        .select('recipe_id')
+        .in('meal_plan_id', mealPlanIds)
+        .not('recipe_id', 'is', null);
+        
+      if (itemsError) {
+        console.error('Error fetching meal plan items:', itemsError);
+        return;
+      }
+      
+      // Create a list of recipe IDs that are in use
+      inUseRecipeIds = mealPlanItems?.map(item => item.recipe_id) || [];
     }
     
-    // Create a set of recipe IDs that are in use
-    const inUseRecipeIds = new Set(mealPlanItems?.map(item => item.recipe_id) || []);
-    
-    // Step 3: Delete AI-generated recipes that are not in use AND not explicitly saved by user
-    const recipesToDelete = aiRecipes
-      .filter(recipe => {
-        // Don't delete if it's in use in a meal plan
-        if (inUseRecipeIds.has(recipe.id)) return false;
-        
-        // Don't delete if it has been explicitly saved by the user
-        // Check if 'saved_by_user' is in the categories array
-        return !(recipe.categories || []).includes('saved_by_user');
-      })
-      .map(recipe => recipe.id);
+    // Step 3: Delete AI-generated recipes that are not in use
+    const recipesToDelete = aiRecipeIds.filter(id => !inUseRecipeIds.includes(id));
       
     if (recipesToDelete.length === 0) {
       console.log('No unused AI recipes to delete');

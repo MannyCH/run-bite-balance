@@ -51,7 +51,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
 
         toast({
           title: "Success",
-          description: `Your meal plan with ${aiRecipeCount} AI recipes (${actualPercentage}%) has been generated successfully!`,
+          description: `Your meal plan with ${aiRecipeCount} fresh AI recipes (${actualPercentage}%) has been generated successfully!`,
         });
 
         await onMealPlanGenerated();
@@ -81,7 +81,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
         <div>
           <h3 className="text-lg font-medium">Need a new meal plan?</h3>
           <p className="text-muted-foreground">
-            Generate a personalized plan with {aiRecipeRatio}% AI recipes based
+            Generate a personalized plan with {aiRecipeRatio}% fresh AI recipes based
             on your profile and dietary preferences
           </p>
         </div>
