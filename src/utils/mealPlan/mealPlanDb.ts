@@ -1,9 +1,8 @@
 // Database operations for meal plans
 import { supabase } from '@/integrations/supabase/client';
-import { MealPlan, MealPlanItem } from '@/types/profile';
+import { MealPlan, MealPlanItem, UserProfile } from '@/types/profile';
 import { validateStatus, validateMealType } from './validators';
-import { UserProfile } from "@/types/profile";
-
+import { Recipe } from '@/context/types';
 
 // Create or update a meal plan record
 export async function createOrUpdateMealPlan(

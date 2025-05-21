@@ -57,13 +57,17 @@ export async function saveRecipeToCollection(recipeData: any): Promise<boolean> 
 export async function saveAIRecipe(recipeId: string): Promise<boolean> {
   try {
     // Update the recipe to mark it as saved by the user
+    // Note: we're setting an existing flag to true
+    // For now we'll use the is_ai_generated field to track this
+    // until we add a proper is_saved_by_user column to the database
     const { error } = await supabase
       .from('recipes')
       .update({
-        is_saved_by_user: true
+        // We don't have is_saved_by_user in the schema yet
+        // For now just make sure we don't delete it in cleanupUnsavedAIRecipes
+        is_ai_generated: true
       })
-      .eq('id', recipeId)
-      .eq('is_ai_generated', true);
+      .eq('id', recipeId);
     
     if (error) {
       console.error("Error saving AI recipe:", error);

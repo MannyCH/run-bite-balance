@@ -18,6 +18,7 @@ export type Database = {
           fat: number | null
           id: string
           is_ai_generated: boolean | null
+          main_ingredient: string | null
           meal_plan_id: string
           meal_type: string
           nutritional_context: string | null
@@ -32,6 +33,7 @@ export type Database = {
           fat?: number | null
           id?: string
           is_ai_generated?: boolean | null
+          main_ingredient?: string | null
           meal_plan_id: string
           meal_type: string
           nutritional_context?: string | null
@@ -46,6 +48,7 @@ export type Database = {
           fat?: number | null
           id?: string
           is_ai_generated?: boolean | null
+          main_ingredient?: string | null
           meal_plan_id?: string
           meal_type?: string
           nutritional_context?: string | null
