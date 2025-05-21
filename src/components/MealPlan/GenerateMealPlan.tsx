@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { generateMealPlanForUser } from "@/utils/mealPlan";
+import { useProfile } from "@/context/ProfileContext";
 
 interface GenerateMealPlanProps {
   onMealPlanGenerated: () => Promise<void>;
@@ -14,8 +15,12 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
   onMealPlanGenerated
 }) => {
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Get AI recipe ratio preference (default to 30% if not set)
+  const aiRecipeRatio = profile?.ai_recipe_ratio !== null ? profile?.ai_recipe_ratio : 30;
 
   // Generate a new meal plan
   const handleGenerateMealPlan = async () => {
@@ -35,7 +40,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
       if (result) {
         toast({
           title: "Success",
-          description: "Your meal plan with fresh AI recipes has been generated successfully!",
+          description: `Your meal plan with ${aiRecipeRatio}% AI recipes has been generated successfully!`,
         });
         // Refresh data
         await onMealPlanGenerated();
@@ -64,7 +69,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
         <div>
           <h3 className="text-lg font-medium">Need a new meal plan?</h3>
           <p className="text-muted-foreground">
-            Generate a personalized plan with fresh AI recipes based on your profile and dietary preferences
+            Generate a personalized plan with {aiRecipeRatio}% AI recipes based on your profile and dietary preferences
           </p>
         </div>
         <Button 

@@ -1,14 +1,9 @@
 
-import React, { useMemo } from "react";
-import { Calendar } from "lucide-react";
-import { format, isSameDay, parseISO } from "date-fns";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { MealPlanItem as MealPlanItemType } from "@/types/profile";
-import { Toaster } from "@/components/ui/sonner";
-import { Badge } from "@/components/ui/badge";
+import React from "react";
+import { format } from "date-fns";
+import { MealPlanItem } from "./MealPlanItem";
 import { MealList } from "./MealList";
-import { RecipeStatsFooter } from "./RecipeStatsFooter";
-import { calculateRecipeStats } from "@/utils/mealPlan/recipe/recipeAnalytics";
+import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 
 interface MealPlanContentProps {
   selectedDate: Date;
@@ -19,61 +14,145 @@ interface MealPlanContentProps {
 export const MealPlanContent: React.FC<MealPlanContentProps> = ({
   selectedDate,
   mealPlanItems,
-  recipes
+  recipes,
 }) => {
-  // Get meals for the selected date
-  const selectedDateMeals = useMemo(() => {
-    if (!mealPlanItems.length) return [];
+  // Get items for the selected date
+  const formattedDate = format(selectedDate, "yyyy-MM-dd");
+  const itemsForSelectedDate = mealPlanItems.filter(
+    (item) => item.date === formattedDate
+  );
 
-    return mealPlanItems.filter(item => {
-      const itemDate = parseISO(item.date);
-      return isSameDay(itemDate, selectedDate);
-    }).sort((a, b) => {
-      // Sort by meal type: breakfast, lunch, dinner, snack
-      const order = { breakfast: 1, lunch: 2, dinner: 3, snack: 4 };
-      return order[a.meal_type] - order[b.meal_type];
-    });
-  }, [mealPlanItems, selectedDate]);
-
-  // Check if there are any AI-generated meals for the selected date
-  const hasAiGeneratedMeals = useMemo(() => 
-    selectedDateMeals.some(item => item.is_ai_generated),
-  [selectedDateMeals]);
-  
-  // Calculate uniqueness stats - both by ID, content, and main ingredients
-  const uniqueRecipeStats = useMemo(() => 
-    calculateRecipeStats(mealPlanItems, recipes, selectedDateMeals),
-  [mealPlanItems, recipes, selectedDateMeals]);
+  // Group items by meal type
+  const breakfast = itemsForSelectedDate.filter(
+    (item) => item.meal_type === "breakfast"
+  );
+  const lunch = itemsForSelectedDate.filter(
+    (item) => item.meal_type === "lunch"
+  );
+  const dinner = itemsForSelectedDate.filter(
+    (item) => item.meal_type === "dinner"
+  );
+  const snacks = itemsForSelectedDate.filter(
+    (item) => item.meal_type === "snack"
+  );
 
   return (
-    <>
-      <Toaster position="top-right" />
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle className="flex items-center">
-                <Calendar className="h-5 w-5 mr-2" />
-                Meals for {format(selectedDate, "EEEE, MMMM d")}
-              </CardTitle>
-              <CardDescription className="flex items-center space-x-2">
-                <span>Your personalized meal plan for this day</span>
-                {hasAiGeneratedMeals && (
-                  <Badge className="ml-2 bg-purple-500 hover:bg-purple-600">
-                    AI-generated
-                  </Badge>
-                )}
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <MealList meals={selectedDateMeals} recipes={recipes} />
-        </CardContent>
-        {hasAiGeneratedMeals && (
-          <RecipeStatsFooter uniqueRecipeStats={uniqueRecipeStats} />
+    <div className="mt-6">
+      <h2 className="text-xl font-semibold mb-4">
+        Meals for {format(selectedDate, "EEEE, MMMM d")}
+      </h2>
+
+      <div className="space-y-8">
+        {/* Breakfast */}
+        <MealList title="Breakfast">
+          {breakfast.length > 0 ? (
+            breakfast.map((item) => {
+              const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
+              return (
+                <MealPlanItem
+                  key={item.id}
+                  title={recipe ? recipe.title : item.custom_title || "Custom Meal"}
+                  mealType="breakfast"
+                  recipeId={item.recipe_id}
+                  nutritionalContext={item.nutritional_context}
+                  stats={{
+                    calories: item.calories,
+                    protein: item.protein,
+                    carbs: item.carbs,
+                    fat: item.fat,
+                  }}
+                  isAiGenerated={item.is_ai_generated}
+                  mainIngredient={item.main_ingredient}
+                />
+              );
+            })
+          ) : (
+            <p className="text-gray-500">No breakfast planned</p>
+          )}
+        </MealList>
+
+        {/* Lunch */}
+        <MealList title="Lunch">
+          {lunch.length > 0 ? (
+            lunch.map((item) => {
+              const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
+              return (
+                <MealPlanItem
+                  key={item.id}
+                  title={recipe ? recipe.title : item.custom_title || "Custom Meal"}
+                  mealType="lunch"
+                  recipeId={item.recipe_id}
+                  nutritionalContext={item.nutritional_context}
+                  stats={{
+                    calories: item.calories,
+                    protein: item.protein,
+                    carbs: item.carbs,
+                    fat: item.fat,
+                  }}
+                  isAiGenerated={item.is_ai_generated}
+                  mainIngredient={item.main_ingredient}
+                />
+              );
+            })
+          ) : (
+            <p className="text-gray-500">No lunch planned</p>
+          )}
+        </MealList>
+
+        {/* Dinner */}
+        <MealList title="Dinner">
+          {dinner.length > 0 ? (
+            dinner.map((item) => {
+              const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
+              return (
+                <MealPlanItem
+                  key={item.id}
+                  title={recipe ? recipe.title : item.custom_title || "Custom Meal"}
+                  mealType="dinner"
+                  recipeId={item.recipe_id}
+                  nutritionalContext={item.nutritional_context}
+                  stats={{
+                    calories: item.calories,
+                    protein: item.protein,
+                    carbs: item.carbs,
+                    fat: item.fat,
+                  }}
+                  isAiGenerated={item.is_ai_generated}
+                  mainIngredient={item.main_ingredient}
+                />
+              );
+            })
+          ) : (
+            <p className="text-gray-500">No dinner planned</p>
+          )}
+        </MealList>
+
+        {/* Snacks */}
+        {snacks.length > 0 && (
+          <MealList title="Snacks">
+            {snacks.map((item) => {
+              const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
+              return (
+                <MealPlanItem
+                  key={item.id}
+                  title={recipe ? recipe.title : item.custom_title || "Custom Meal"}
+                  mealType="snack"
+                  recipeId={item.recipe_id}
+                  nutritionalContext={item.nutritional_context}
+                  stats={{
+                    calories: item.calories,
+                    protein: item.protein,
+                    carbs: item.carbs,
+                    fat: item.fat,
+                  }}
+                  isAiGenerated={item.is_ai_generated}
+                  mainIngredient={item.main_ingredient}
+                />
+              );
+            })}
+          </MealList>
         )}
-      </Card>
-    </>
+      </div>
+    </div>
   );
 };
