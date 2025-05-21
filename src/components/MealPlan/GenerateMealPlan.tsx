@@ -25,7 +25,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
         .slice(0, 10);
 
       // STEP 1 — Call your Supabase Edge Function to generate AI recipes
-      const res = await fetch("/functions/v1/generate-meal-plan", {
+      const res = await fetch("https://lnaaxnpffaoqjyccpeso.supabase.co/functions/v1/generate-meal-plan", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
