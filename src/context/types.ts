@@ -13,6 +13,7 @@ export interface Meal {
   isPlanned: boolean;
   recipeId?: string;
   imgUrl?: string;
+  main_ingredient?: string; 
 }
 
 // Run type
