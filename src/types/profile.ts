@@ -93,5 +93,5 @@ export interface MealPlanItem {
   carbs?: number;
   fat?: number;
   is_ai_generated?: boolean; // Field to track AI-generated recipes
-  main_ingredient?: string | null; // New field to track main ingredient for variety
+  main_ingredient?: string | null; // Field to track main ingredient for variety
 }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -94,7 +93,7 @@ export const useMealPlan = () => {
         carbs: item.carbs,
         fat: item.fat,
         is_ai_generated: item.is_ai_generated || false, // Ensure the flag is included
-        main_ingredient: item.main_ingredient || null // Add main ingredient
+        main_ingredient: item.main_ingredient // Add main ingredient field properly
       }));
       
       setMealPlanItems(typedItems);
