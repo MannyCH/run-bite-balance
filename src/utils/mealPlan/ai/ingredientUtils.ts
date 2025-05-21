@@ -1,60 +1,50 @@
-import { Recipe } from "@/context/types";
 
 /**
  * Extract the main ingredient from a recipe based on ingredients list
- * Always returns a non-null string
+ * This is a fallback for recipes that don't have a main_ingredient field
  */
 export function extractMainIngredient(recipe: any): string {
-  // If main_ingredient is already set, use it
+  if (!recipe) return "unknown";
+  
   if (recipe.main_ingredient) {
     return recipe.main_ingredient;
   }
   
-  // If no ingredients, return a default
   if (!recipe.ingredients || recipe.ingredients.length === 0) {
     return "unknown";
   }
   
-  // Common food categories that might be main ingredients
-  const ingredientKeywords = [
-    "chicken", "beef", "pork", "turkey", "fish", "salmon", "tuna", 
-    "tofu", "tempeh", "eggs", "rice", "pasta", "quinoa", "bread",
-    "tortilla", "noodle", "couscous", "farro", "cauliflower", 
-    "broccoli", "potato", "sweet potato", "squash", "eggplant",
-    "zucchini", "beans", "lentils", "chickpeas"
-  ];
+  // Common protein sources that are often main ingredients
+  const proteinKeywords = ["chicken", "beef", "pork", "turkey", "fish", "salmon", "tuna", "tofu", "tempeh", "eggs"];
   
-  // Look for potential main ingredients in the first few ingredients
+  // Common grains that are often main ingredients
+  const grainKeywords = ["rice", "pasta", "quinoa", "bread", "tortilla", "noodle", "couscous", "farro"];
+  
+  // Common vegetables that might be main ingredients
+  const vegKeywords = ["cauliflower", "broccoli", "potato", "sweet potato", "squash", "eggplant", "zucchini"];
+  
+  // Common legumes
+  const legumeKeywords = ["beans", "lentils", "chickpeas"];
+  
+  // All potential main ingredient keywords
+  const allKeywords = [...proteinKeywords, ...grainKeywords, ...vegKeywords, ...legumeKeywords];
+  
+  // Look for potential main ingredients in the first few ingredients (which are usually the main ones)
   const firstFewIngredients = recipe.ingredients.slice(0, 3).join(" ").toLowerCase();
   
-  for (const keyword of ingredientKeywords) {
+  for (const keyword of allKeywords) {
     if (firstFewIngredients.includes(keyword)) {
       return keyword;
     }
   }
   
-  // If we couldn't find a match, extract from the first ingredient
-  const firstIngredient = recipe.ingredients[0].toLowerCase();
-  // Extract the main part by removing quantities and prep instructions
-  const mainPart = firstIngredient.split(" ").slice(1).join(" ").split(",")[0];
-  
-  // Never return null or empty string
-  return mainPart || "unknown";
-}
-
-/**
- * Determines if a recipe qualifies as a breakfast recipe based on ingredients or categories
- */
-export function isBreakfastRecipe(recipe: Recipe): boolean {
-  if (!recipe.categories || recipe.categories.length === 0) {
-    return false;
+  // If we couldn't find a match in common ingredients, just return the first ingredient
+  try {
+    const firstIngredient = recipe.ingredients[0].toLowerCase();
+    // Extract the main part by removing quantities and prep instructions
+    const mainPart = firstIngredient.split(" ").slice(1).join(" ").split(",")[0];
+    return mainPart || "unknown";
+  } catch (e) {
+    return "unknown";
   }
-  
-  const breakfastKeywords = ["breakfast", "morning", "brunch"];
-  
-  return recipe.categories.some(category => 
-    breakfastKeywords.some(keyword => 
-      category.toLowerCase().includes(keyword)
-    )
-  );
 }

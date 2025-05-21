@@ -38,9 +38,14 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
       const result = await generateMealPlanForUser(user.id);
 
       if (result) {
+        // Count AI generated recipes in the meal plan for feedback
+        const aiRecipeCount = result.mealPlanItems.filter(item => item.is_ai_generated).length;
+        const totalRecipes = result.mealPlanItems.length;
+        const actualPercentage = Math.round((aiRecipeCount / totalRecipes) * 100);
+        
         toast({
           title: "Success",
-          description: `Your meal plan with ${aiRecipeRatio}% AI recipes has been generated successfully!`,
+          description: `Your meal plan with ${aiRecipeCount} AI recipes (${actualPercentage}%) has been generated successfully!`,
         });
         // Refresh data
         await onMealPlanGenerated();

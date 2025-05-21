@@ -65,6 +65,7 @@ export async function generateMealPlan({
         // Fall back to algorithm-based meal planning
       } else if (data && data.mealPlan) {
         console.log('Using AI-generated meal plan with fresh AI recipes');
+        console.log(`AI generated recipes count: ${data.aiGeneratedRecipes?.length || 0}`);
         
         // Save AI-generated recipes to the database first
         if (data.aiGeneratedRecipes && data.aiGeneratedRecipes.length > 0) {
@@ -116,6 +117,10 @@ export async function generateMealPlan({
         );
         
         if (mealPlanItems) {
+          // Count how many AI-generated recipes are included in the meal plan
+          const aiRecipeCount = mealPlanItems.filter(item => item.is_ai_generated).length;
+          console.log(`Meal plan created with ${aiRecipeCount} AI-generated recipes out of ${mealPlanItems.length} total meals`);
+          
           // Get the meal plan record
           const { data: mealPlans } = await supabase
             .from('meal_plans')
