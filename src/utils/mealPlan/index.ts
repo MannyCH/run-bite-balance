@@ -6,3 +6,6 @@ export { generateMealPlanItems } from './mealPlanItems';
 export type { MealPlanResult, GenerateMealPlanParams } from './types';
 export { getMealTypeSuitabilityScores, getRecipesForMealType } from './mealTypeClassifier';
 export { processAIMealPlan } from './aiMealPlanProcessor';
+export { assignMealTypesWithAI } from './assignMealTypesWithAI';
+export { generateDatedMealItems } from './generateDatedMealItems';
+export { processAIRecipes } from './aiRecipeProcessor';

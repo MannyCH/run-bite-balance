@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { generateMealPlanForUser } from "@/utils/mealPlan";
+import { generateMealPlanForUser } from "@/utils/mealPlan/generateMealPlanForUser";
 import { useProfile } from "@/context/ProfileContext";
 
 interface GenerateMealPlanProps {
@@ -37,8 +37,48 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
 
     setIsGenerating(true);
     try {
-      // Pass the AI recipe ratio to the meal plan generation function
-      const result = await generateMealPlanForUser(user.id, aiRecipeRatio);
+      // Call the new generateMealPlanForUser function with the current date range
+      const today = new Date();
+      const startDate = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+      
+      // Set end date to 6 days from now (7 days total including today)
+      const endDate = new Date(today);
+      endDate.setDate(today.getDate() + 6);
+      const endDateStr = endDate.toISOString().split('T')[0];
+      
+      // Call the Supabase Edge Function to get AI-generated recipes
+      const { data: edgeFunctionData, error: edgeFunctionError } = await fetch(
+        "https://lnaaxnpffaoqjyccpeso.supabase.co/functions/v1/generate-meal-plan",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("supabase.auth.token")}`
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            startDate: startDate,
+            endDate: endDateStr,
+            aiRecipeRatio: aiRecipeRatio,
+            forceNewRecipes: true
+          })
+        }
+      ).then(res => res.json());
+      
+      if (edgeFunctionError) {
+        throw new Error(edgeFunctionError.message || "Failed to generate AI recipes");
+      }
+      
+      if (!edgeFunctionData) {
+        throw new Error("No data returned from AI recipe generation");
+      }
+      
+      const result = await generateMealPlanForUser(
+        user.id, 
+        startDate, 
+        endDateStr, 
+        edgeFunctionData.aiGeneratedRecipes || []
+      );
 
       if (result) {
         const aiRecipeCount = result.mealPlanItems.filter(
