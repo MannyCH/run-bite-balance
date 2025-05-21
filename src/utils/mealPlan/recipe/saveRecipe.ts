@@ -56,23 +56,33 @@ export async function saveRecipeToCollection(recipeData: any): Promise<boolean> 
  */
 export async function saveAIRecipe(recipeId: string): Promise<boolean> {
   try {
-    // Create a flag in the database to mark this recipe as explicitly saved by the user
-    // This will prevent it from being cleaned up by the cleanupUnsavedAIRecipes function
-    const { error } = await supabase
+    // Get the current categories for the recipe
+    const { data: recipeData, error: fetchError } = await supabase
       .from('recipes')
-      .update({
-        // Update the categories to include 'saved_by_user' 
-        // This serves as a flag until we have a proper is_saved_by_user column
-        categories: supabase.rpc('array_append_unique', { 
-          arr: supabase.rpc('get_recipe_categories', { recipe_id: recipeId }),
-          el: 'saved_by_user'
-        })
-      })
-      .eq('id', recipeId);
+      .select('categories')
+      .eq('id', recipeId)
+      .single();
     
-    if (error) {
-      console.error("Error saving AI recipe:", error);
+    if (fetchError) {
+      console.error("Error fetching recipe categories:", fetchError);
       return false;
+    }
+    
+    // Add 'saved_by_user' to the categories if it doesn't exist already
+    const currentCategories = recipeData?.categories || [];
+    if (!currentCategories.includes('saved_by_user')) {
+      const updatedCategories = [...currentCategories, 'saved_by_user'];
+      
+      // Update the recipe with the new categories
+      const { error: updateError } = await supabase
+        .from('recipes')
+        .update({ categories: updatedCategories })
+        .eq('id', recipeId);
+      
+      if (updateError) {
+        console.error("Error updating recipe categories:", updateError);
+        return false;
+      }
     }
     
     return true;

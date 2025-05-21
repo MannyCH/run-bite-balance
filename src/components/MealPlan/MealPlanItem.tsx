@@ -88,7 +88,14 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({
         {nutritionalContext && (
           <p className="text-sm text-gray-600 mb-3 line-clamp-2">{nutritionalContext}</p>
         )}
-        {stats && <RecipeStatsFooter calories={stats.calories} protein={stats.protein} carbs={stats.carbs} fat={stats.fat} />}
+        {stats && (
+          <RecipeStatsFooter 
+            calories={stats.calories} 
+            protein={stats.protein} 
+            carbs={stats.carbs} 
+            fat={stats.fat} 
+          />
+        )}
       </CardContent>
     </>
   );

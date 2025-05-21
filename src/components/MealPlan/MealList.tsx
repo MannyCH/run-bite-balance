@@ -1,3 +1,4 @@
+
 import React from "react";
 import { MealPlanItem } from "@/components/MealPlan/MealPlanItem";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
@@ -40,7 +41,15 @@ export const MealList: React.FC<MealListProps> = ({ meals, recipes, title, child
       <div className="space-y-4">
         {meals.map((item) => {
           const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
-          return <MealPlanItem key={item.id} item={item} recipe={recipe} />;
+          return (
+            <MealPlanItem 
+              key={item.id} 
+              item={item} 
+              recipe={recipe}
+              title={recipe?.title || item.custom_title || "Unnamed Meal"}
+              mealType={item.meal_type}
+            />
+          );
         })}
       </div>
     </div>
