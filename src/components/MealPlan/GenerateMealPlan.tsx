@@ -23,6 +23,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
       const endDate = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000)
         .toISOString()
         .slice(0, 10);
+console.log("Access Token:", session?.access_token);
 
       // STEP 1 — Call your Supabase Edge Function to generate AI recipes
       const res = await fetch("https://lnaaxnpffaoqjyccpeso.supabase.co/functions/v1/generate-meal-plan", {
