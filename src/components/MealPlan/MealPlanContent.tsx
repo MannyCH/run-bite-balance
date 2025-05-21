@@ -1,10 +1,14 @@
 
 import React from "react";
-import { Calendar } from "lucide-react";
+import { Calendar, ShoppingCart } from "lucide-react";
 import { format, isSameDay, parseISO } from "date-fns";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { MealPlanItem } from "./MealPlanItem";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
+import { useShoppingList } from "@/context/ShoppingListContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface MealPlanContentProps {
   selectedDate: Date;
@@ -17,6 +21,9 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
   mealPlanItems,
   recipes
 }) => {
+  const { generateShoppingList } = useShoppingList();
+  const navigate = useNavigate();
+
   // Get meals for the selected date
   const getSelectedDateMeals = () => {
     if (!mealPlanItems.length) return [];
@@ -29,6 +36,20 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
       const order = { breakfast: 1, lunch: 2, dinner: 3, snack: 4 };
       return order[a.meal_type] - order[b.meal_type];
     });
+  };
+
+  const handleGenerateShoppingList = () => {
+    // Collect all recipes used in the meal plan
+    const recipesInPlan = Object.values(recipes).filter(recipe => recipe && recipe.ingredients);
+    
+    if (recipesInPlan.length === 0) {
+      toast.error("No recipes with ingredients found in the meal plan");
+      return;
+    }
+    
+    generateShoppingList(recipesInPlan);
+    toast.success("Shopping list generated successfully");
+    navigate("/shopping-list");
   };
 
   return (
@@ -60,6 +81,17 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
           </div>
         )}
       </CardContent>
+      {Object.keys(recipes).length > 0 && (
+        <CardFooter className="border-t pt-4 flex justify-end">
+          <Button 
+            onClick={handleGenerateShoppingList}
+            className="flex items-center"
+          >
+            <ShoppingCart className="h-4 w-4 mr-2" />
+            Generate Shopping List
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 };

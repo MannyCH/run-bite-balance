@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { CalendarDays, ChevronRight, PieChart, Menu, Home, MapPin, UtensilsCrossed, LogIn } from "lucide-react";
+import { CalendarDays, ChevronRight, PieChart, Menu, Home, MapPin, UtensilsCrossed, LogIn, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import UserButton from "@/components/Auth/UserButton";
 import { useAuth } from "@/context/AuthContext";
@@ -21,6 +21,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
     { name: "Past Meals", path: "/past-meals", icon: PieChart },
     { name: "Suggested Meals", path: "/suggested-meals", icon: UtensilsCrossed },
     { name: "Planned Runs", path: "/planned-runs", icon: MapPin },
+    { name: "Meal Planner", path: "/meal-planner", icon: CalendarDays },
+    { name: "Shopping List", path: "/shopping-list", icon: ShoppingCart },
   ];
 
   return (
