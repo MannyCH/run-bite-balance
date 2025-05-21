@@ -1,3 +1,4 @@
+
 import {
   fetchUserProfile,
   fetchRecipes,
@@ -8,7 +9,7 @@ import { processAIRecipes } from "./aiRecipeProcessor";
 import { generateDatedMealItems } from "./generateDatedMealItems";
 import { MealPlanItem } from "@/types/profile";
 import { Recipe } from "@/context/types";
-import { shuffleArray } from "../utils/shuffleArray";
+import { shuffleArray } from "../shuffleArray";
 
 /**
  * Creates a weekly meal plan based on user preferences.
