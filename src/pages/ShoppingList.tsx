@@ -93,11 +93,13 @@ const ShoppingList: React.FC = () => {
                   <div className="flex-1">
                     <label 
                       htmlFor={item.id} 
-                      className={`flex flex-col cursor-pointer ${item.isBought ? 'line-through text-gray-400' : ''}`}
+                      className={`flex items-center cursor-pointer ${item.isBought ? 'line-through text-gray-400' : ''}`}
                     >
                       <span className="font-medium capitalize">{item.name}</span>
                       {item.quantity && (
-                        <span className="text-sm text-muted-foreground">{item.quantity}</span>
+                        <span className="ml-2 text-sm bg-gray-100 px-2 py-0.5 rounded text-gray-700">
+                          {item.quantity}
+                        </span>
                       )}
                     </label>
                   </div>
