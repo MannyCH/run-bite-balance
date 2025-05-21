@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -80,21 +81,24 @@ export const useMealPlan = () => {
       }
 
       // Ensure meal plan items are properly typed
-      const typedItems: MealPlanItem[] = (itemsData || []).map(item => ({
-        id: item.id,
-        meal_plan_id: item.meal_plan_id,
-        recipe_id: item.recipe_id,
-        date: item.date,
-        meal_type: validateMealType(item.meal_type),
-        nutritional_context: item.nutritional_context,
-        custom_title: item.custom_title,
-        calories: item.calories,
-        protein: item.protein,
-        carbs: item.carbs,
-        fat: item.fat,
-        is_ai_generated: item.is_ai_generated || false, // Ensure the flag is included
-        main_ingredient: item.main_ingredient // Add main ingredient field properly
-      }));
+      const typedItems: MealPlanItem[] = (itemsData || []).map(item => {
+        // Create a typed object with all properties, including main_ingredient
+        return {
+          id: item.id,
+          meal_plan_id: item.meal_plan_id,
+          recipe_id: item.recipe_id,
+          date: item.date,
+          meal_type: validateMealType(item.meal_type),
+          nutritional_context: item.nutritional_context,
+          custom_title: item.custom_title,
+          calories: item.calories,
+          protein: item.protein,
+          carbs: item.carbs,
+          fat: item.fat,
+          is_ai_generated: item.is_ai_generated || false,
+          main_ingredient: item.main_ingredient || null // Add main_ingredient with null fallback
+        };
+      });
       
       setMealPlanItems(typedItems);
 
