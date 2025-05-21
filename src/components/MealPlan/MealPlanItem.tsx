@@ -1,157 +1,84 @@
 
 import React from "react";
-import { Link } from "react-router-dom";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Sparkles, BookmarkPlus, ArrowRight } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
-import { saveRecipeToCollection } from "@/utils/mealPlan/recipeUtils";
-import { toast } from "sonner";
+import { AlertCircle } from "lucide-react";
 
 interface MealPlanItemProps {
   item: MealPlanItemType;
-  recipe: any;
+  recipe: any | null;
 }
 
 export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
-  const formatMealType = (mealType: string) => {
-    return mealType.charAt(0).toUpperCase() + mealType.slice(1);
-  };
+  // Determine what title to display
+  const title = item.custom_title || (recipe ? recipe.title : "Recipe removed");
+  
+  // If recipe exists, use its data; otherwise fall back to item data
+  const calories = recipe ? recipe.calories : item.calories || 0;
+  const protein = recipe ? recipe.protein : item.protein || 0;
+  const carbs = recipe ? recipe.carbs : item.carbs || 0;
+  const fat = recipe ? recipe.fat : item.fat || 0;
+  
+  // Get the image URL if available
+  const imageUrl = recipe?.imgurl || "/placeholder.svg";
 
-  const handleSaveRecipe = async () => {
-    try {
-      // Only allow saving AI-generated recipes
-      if (!item.is_ai_generated) return;
-      
-      // If no custom recipe data, we can't save it
-      if (!item.custom_title) {
-        toast.error("Recipe data incomplete. Cannot save this recipe.");
-        return;
-      }
-      
-      const recipeData = {
-        title: item.custom_title,
-        calories: item.calories || 0,
-        protein: item.protein || 0,
-        carbs: item.carbs || 0,
-        fat: item.fat || 0,
-        // Use any available nutritional information as ingredients description
-        ingredients: item.nutritional_context ? [item.nutritional_context] : [],
-        instructions: [],
-        categories: [formatMealType(item.meal_type)],
-        is_ai_generated: true
-      };
-      
-      const success = await saveRecipeToCollection(recipeData);
-      
-      if (success) {
-        toast.success("Recipe saved to your collection!");
-      } else {
-        toast.error("Failed to save recipe. Please try again.");
-      }
-    } catch (error) {
-      console.error("Error saving recipe:", error);
-      toast.error("An error occurred while saving the recipe.");
-    }
-  };
-
-  // Function to determine if the item has enough information to view as a recipe
-  const canViewRecipeDetails = (): boolean => {
-    // If it has a recipe_id and the recipe exists in our database
-    if (item.recipe_id && recipe) {
-      return true;
-    }
-    
-    // If it's an AI-generated recipe with basic information
-    if (item.is_ai_generated && item.custom_title) {
-      return true;
-    }
-    
-    return false;
+  // Format meal type for display
+  const formatMealType = (type: string) => {
+    return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
   return (
-    <div className="flex items-start gap-4">
-      <Avatar className="h-12 w-12">
-        {recipe?.imgurl ? (
-          <AvatarImage src={recipe.imgurl} alt={item.custom_title || ""} />
-        ) : null}
-        <AvatarFallback className="bg-primary/10 text-primary">
-          {formatMealType(item.meal_type).charAt(0)}
-        </AvatarFallback>
-      </Avatar>
-      <div className="flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <h4 className="text-lg font-medium leading-none">
-              {formatMealType(item.meal_type)}
-            </h4>
-            {item.is_ai_generated && (
-              <Badge variant="secondary" className="flex items-center gap-1 bg-purple-100">
-                <Sparkles className="h-3 w-3" />
-                <span>AI Generated</span>
-              </Badge>
+    <Card className="overflow-hidden">
+      <div className="grid grid-cols-5 h-full">
+        {/* Left side: Image */}
+        <div className="col-span-1 bg-gray-100">
+          <div
+            className="h-full w-full bg-cover bg-center"
+            style={{
+              backgroundImage: `url(${imageUrl})`,
+              minHeight: "120px",
+            }}
+          />
+        </div>
+
+        {/* Right side: Info */}
+        <CardContent className="col-span-4 p-4 flex flex-col justify-between">
+          <div>
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <p className="text-sm font-medium text-gray-500">
+                  {formatMealType(item.meal_type)}
+                </p>
+                <h3 className="text-lg font-semibold flex items-center">
+                  {title}
+                  {!recipe && (
+                    <AlertCircle 
+                      className="h-4 w-4 ml-2 text-amber-500" 
+                      title="Recipe has been removed from database" 
+                    />
+                  )}
+                </h3>
+              </div>
+              {item.is_ai_generated && (
+                <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">
+                  AI-generated
+                </span>
+              )}
+            </div>
+
+            {item.nutritional_context && (
+              <p className="text-sm text-gray-600 mb-2">{item.nutritional_context}</p>
             )}
           </div>
-          
-          <div className="flex items-center gap-2">
-            {/* Add save button for AI-generated recipes */}
-            {item.is_ai_generated && (
-              <Button 
-                onClick={handleSaveRecipe} 
-                variant="outline" 
-                size="sm" 
-                className="flex items-center gap-1 bg-purple-50 hover:bg-purple-100 border-purple-200"
-              >
-                <BookmarkPlus className="h-4 w-4" />
-                <span>Save</span>
-              </Button>
-            )}
-            
-            {/* Add view recipe details button if applicable */}
-            {canViewRecipeDetails() && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                asChild
-              >
-                <Link to={`/recipe/${item.recipe_id || `ai-${item.id}`}`}>
-                  <span>View</span>
-                  <ArrowRight className="h-3 w-3" />
-                </Link>
-              </Button>
-            )}
+
+          <div className="flex space-x-4 text-sm text-gray-500 mt-2">
+            <span>{calories} cal</span>
+            <span>{protein}g protein</span>
+            <span>{carbs}g carbs</span>
+            <span>{fat}g fat</span>
           </div>
-        </div>
-        <h3 className="mt-1 font-medium">{item.custom_title || recipe?.title || "Unnamed Recipe"}</h3>
-        <div className="mt-1 text-sm text-muted-foreground">
-          {item.nutritional_context || "No additional information available."}
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {item.calories !== undefined && item.calories !== null && (
-            <Badge variant="outline">
-              {item.calories} calories
-            </Badge>
-          )}
-          {item.protein !== undefined && item.protein !== null && (
-            <Badge variant="outline">
-              {item.protein}g protein
-            </Badge>
-          )}
-          {item.carbs !== undefined && item.carbs !== null && (
-            <Badge variant="outline">
-              {item.carbs}g carbs
-            </Badge>
-          )}
-          {item.fat !== undefined && item.fat !== null && (
-            <Badge variant="outline">
-              {item.fat}g fat
-            </Badge>
-          )}
-        </div>
+        </CardContent>
       </div>
-    </div>
+    </Card>
   );
 };
