@@ -1,54 +1,92 @@
-import { openaiGenerateRecipe } from "@/integrations/openai";
-import { getSavedRecipesForUser } from "@/utils/recipes";
-import { insertMealPlan, insertMealPlanItems } from "./mealPlanDb";
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
+import { generateMealPlanForUser } from "@/utils/mealPlan";
+import { useProfile } from "@/context/ProfileContext";
 
-export const generateMealPlanForUser = async (userId: string, aiRecipeRatio: number) => {
-  const totalMeals = 10; // Adjust based on your use case
-  const aiCount = Math.round((aiRecipeRatio / 100) * totalMeals);
-  const savedCount = totalMeals - aiCount;
+interface GenerateMealPlanProps {
+  onMealPlanGenerated: () => Promise<void>;
+}
 
-  console.log(`Generating ${aiCount} AI recipes and ${savedCount} saved recipes for user.`);
+export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
+  onMealPlanGenerated,
+}) => {
+  const { user } = useAuth();
+  const { profile } = useProfile();
+  const { toast } = useToast();
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  // Step 1: Generate AI recipes
-  const aiRecipes = [];
-  for (let i = 0; i < aiCount; i++) {
-    const aiRecipe = await openaiGenerateRecipe(userId);
-    if (aiRecipe) {
-      aiRecipes.push({
-        ...aiRecipe,
-        is_ai_generated: true,
+  // Get AI recipe ratio preference (default to 30% if not set)
+  const aiRecipeRatio =
+    profile?.ai_recipe_ratio !== null && profile?.ai_recipe_ratio !== undefined
+      ? profile.ai_recipe_ratio
+      : 30;
+
+  const handleGenerateMealPlan = async () => {
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "You need to be signed in to generate a meal plan.",
+        variant: "destructive",
       });
+      return;
     }
-  }
 
-  // Step 2: Get saved recipes (you might want to shuffle or randomize)
-  const savedRecipes = await getSavedRecipesForUser(userId, savedCount);
-  const finalSaved = savedRecipes.slice(0, savedCount);
+    setIsGenerating(true);
+    try {
+      const result = await generateMealPlanForUser(user.id, aiRecipeRatio);
 
-  // Step 3: Create meal plan entry
-  const mealPlan = await insertMealPlan(userId);
+      if (result) {
+        const aiRecipeCount = result.mealPlanItems.filter(
+          (item) => item.is_ai_generated
+        ).length;
+        const totalRecipes = result.mealPlanItems.length;
+        const actualPercentage = Math.round(
+          (aiRecipeCount / totalRecipes) * 100
+        );
 
-  // Step 4: Build meal plan items
-  const mealPlanItems = [...aiRecipes, ...finalSaved].map((recipe, index) => ({
-    meal_plan_id: mealPlan.id,
-    recipe_id: recipe.id,
-    date: new Date().toISOString(), // Replace with dynamic dates if needed
-    meal_type: "lunch", // Replace or rotate through 'breakfast', 'dinner', etc.
-    is_ai_generated: recipe.is_ai_generated || false,
-    nutritional_context: null,
-    custom_title: recipe.title || null,
-    calories: recipe.calories || 0,
-    protein: recipe.protein || 0,
-    carbs: recipe.carbs || 0,
-    fat: recipe.fat || 0,
-    main_ingredient: recipe.main_ingredient || null,
-  }));
+        toast({
+          title: "Success",
+          description: `Your meal plan with ${aiRecipeCount} AI recipes (${actualPercentage}%) has been generated successfully!`,
+        });
 
-  // Step 5: Store items
-  await insertMealPlanItems(mealPlanItems);
-
-  return {
-    mealPlan,
-    mealPlanItems,
+        await onMealPlanGenerated();
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to generate a meal plan. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error generating meal plan:", error);
+      toast({
+        title: "Error",
+        description:
+          "Something went wrong while generating your meal plan.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
+
+  return (
+    <Card className="mb-6">
+      <CardContent className="pt-6 flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-medium">Need a new meal plan?</h3>
+          <p className="text-muted-foreground">
+            Generate a personalized plan with {aiRecipeRatio}% AI recipes based
+            on your profile and dietary preferences
+          </p>
+        </div>
+        <Button onClick={handleGenerateMealPlan} disabled={isGenerating}>
+          {isGenerating ? "Generating..." : "Generate New Plan"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
 };
