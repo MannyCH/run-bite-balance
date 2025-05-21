@@ -1,9 +1,10 @@
+
 // Database operations for meal plans
 import { supabase } from '@/integrations/supabase/client';
 import { MealPlan, MealPlanItem, UserProfile, Gender } from '@/types/profile';
 import { validateStatus, validateMealType } from './validators';
 import { Recipe } from '@/context/types';
-import { safeGenderCast } from '@/utils/profileUtils';
+import { safeGenderCast, safeFitnessGoalCast, safeActivityLevelCast, safeMealComplexityCast } from '@/utils/profileUtils';
 
 // Create or update a meal plan record
 export async function createOrUpdateMealPlan(
@@ -130,7 +131,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
       return null;
     }
 
-    // Use the safeGenderCast utility to properly cast the gender field
+    // Use the safe cast utility functions to properly cast the enum type fields
     const typedProfile: UserProfile = {
       id: profile.id,
       username: profile.username,
@@ -140,8 +141,8 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
       age: profile.age,
       gender: safeGenderCast(profile.gender),
       target_weight: profile.target_weight,
-      fitness_goal: profile.fitness_goal,
-      activity_level: profile.activity_level,
+      fitness_goal: safeFitnessGoalCast(profile.fitness_goal),
+      activity_level: safeActivityLevelCast(profile.activity_level),
       ical_feed_url: profile.ical_feed_url,
       bmr: profile.bmr,
       dietary_preferences: profile.dietary_preferences,
@@ -149,7 +150,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
       food_allergies: profile.food_allergies,
       preferred_cuisines: profile.preferred_cuisines,
       foods_to_avoid: profile.foods_to_avoid,
-      meal_complexity: profile.meal_complexity,
+      meal_complexity: safeMealComplexityCast(profile.meal_complexity),
       ai_recipe_ratio: profile.ai_recipe_ratio,
       created_at: profile.created_at,
       updated_at: profile.updated_at
