@@ -14,6 +14,7 @@ import {
 import { GenerateMealPlanParams, MealPlanResult } from './types';
 import { supabase } from '@/integrations/supabase/client';
 import { validateStatus } from './validators';
+import { saveRecipeToCollection } from './recipe';
 
 // Function to generate a meal plan based on user profile and available recipes
 export async function generateMealPlan({
@@ -59,6 +60,47 @@ export async function generateMealPlan({
         // Fall back to algorithm-based meal planning
       } else if (data && data.mealPlan) {
         console.log('Using AI-generated meal plan with fresh AI recipes');
+        
+        // Save AI-generated recipes to the database first
+        if (data.aiGeneratedRecipes && data.aiGeneratedRecipes.length > 0) {
+          console.log(`Saving ${data.aiGeneratedRecipes.length} AI-generated recipes to the database`);
+          const savedRecipePromises = data.aiGeneratedRecipes.map(async (recipe: any) => {
+            // Make sure the recipe has required fields
+            const recipeToSave = {
+              ...recipe,
+              is_ai_generated: true,
+              // Add any missing required fields
+              calories: recipe.calories || 0,
+              protein: recipe.protein || 0,
+              carbs: recipe.carbs || 0,
+              fat: recipe.fat || 0
+            };
+            
+            // Save the recipe to the database
+            const success = await saveRecipeToCollection(recipeToSave);
+            if (success) {
+              console.log(`Successfully saved AI recipe: ${recipe.title}`);
+              return true;
+            } else {
+              console.error(`Failed to save AI recipe: ${recipe.title}`);
+              return false;
+            }
+          });
+          
+          // Wait for all recipes to be saved
+          await Promise.all(savedRecipePromises);
+          
+          // Fetch fresh recipes to include the newly saved AI recipes
+          const freshRecipes = await fetchRecipes();
+          if (freshRecipes) {
+            // Update the recipes map with newly saved recipes
+            freshRecipes.forEach(recipe => {
+              recipesMap[recipe.id] = recipe;
+            });
+            console.log(`Updated recipes map now contains ${Object.keys(recipesMap).length} recipes`);
+          }
+        }
+        
         // Process the AI-generated meal plan with both existing and new recipes
         const mealPlanItems = await processAIMealPlan(
           userId, 

@@ -93,7 +93,8 @@ export const useMealPlan = () => {
         protein: item.protein,
         carbs: item.carbs,
         fat: item.fat,
-        is_ai_generated: item.is_ai_generated || false // Ensure the flag is included
+        is_ai_generated: item.is_ai_generated || false, // Ensure the flag is included
+        main_ingredient: item.main_ingredient || null // Add main ingredient
       }));
       
       setMealPlanItems(typedItems);
