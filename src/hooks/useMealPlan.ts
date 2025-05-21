@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -37,16 +36,17 @@ export const useMealPlan = () => {
 
     try {
       setIsLoading(true);
+
       // Get the latest meal plan
       const { data: planData, error: planError } = await supabase
-        .from('meal_plans')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .from("meal_plans")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
         .limit(1);
 
       if (planError) {
-        console.error('Error fetching meal plan:', planError);
+        console.error("Error fetching meal plan:", planError);
         return;
       }
 
@@ -56,70 +56,64 @@ export const useMealPlan = () => {
       }
 
       const plan = planData[0];
-      
-      // Ensure the plan status is properly typed
+
       const typedPlan: MealPlan = {
         id: plan.id,
         user_id: plan.user_id,
         week_start_date: plan.week_start_date,
         week_end_date: plan.week_end_date,
         created_at: plan.created_at,
-        status: validateStatus(plan.status)
+        status: validateStatus(plan.status),
       };
-      
+
       setMealPlan(typedPlan);
 
       // Get the meal plan items
       const { data: itemsData, error: itemsError } = await supabase
-        .from('meal_plan_items')
-        .select('*')
-        .eq('meal_plan_id', plan.id);
+        .from("meal_plan_items")
+        .select("*")
+        .eq("meal_plan_id", plan.id);
 
       if (itemsError) {
-        console.error('Error fetching meal plan items:', itemsError);
+        console.error("Error fetching meal plan items:", itemsError);
         return;
       }
 
-      // Ensure meal plan items are properly typed
-      const typedItems: MealPlanItem[] = (itemsData || []).map(item => {
-        // Note: This now correctly handles the main_ingredient field that is defined in the MealPlanItem type
-        return {
-          id: item.id,
-          meal_plan_id: item.meal_plan_id,
-          recipe_id: item.recipe_id,
-          date: item.date,
-          meal_type: validateMealType(item.meal_type),
-          nutritional_context: item.nutritional_context,
-          custom_title: item.custom_title,
-          calories: item.calories,
-          protein: item.protein,
-          carbs: item.carbs,
-          fat: item.fat,
-          is_ai_generated: item.is_ai_generated || false,
-          main_ingredient: item.main_ingredient || null // Add main_ingredient with null fallback
-        };
-      });
-      
+      // Properly type items and include main_ingredient
+      const typedItems: MealPlanItem[] = (itemsData || []).map((item): MealPlanItem => ({
+        id: item.id,
+        meal_plan_id: item.meal_plan_id,
+        recipe_id: item.recipe_id,
+        date: item.date,
+        meal_type: validateMealType(item.meal_type),
+        nutritional_context: item.nutritional_context,
+        custom_title: item.custom_title,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+        is_ai_generated: item.is_ai_generated || false,
+        main_ingredient: item.main_ingredient || null,
+      }));
+
       setMealPlanItems(typedItems);
 
       // Get all recipe IDs from the meal plan items
       const recipeIds = typedItems
-        .filter(item => item.recipe_id)
-        .map(item => item.recipe_id) || [];
+        .filter((item) => item.recipe_id)
+        .map((item) => item.recipe_id as string);
 
       if (recipeIds.length > 0) {
-        // Fetch all recipes at once
         const { data: recipesData, error: recipesError } = await supabase
-          .from('recipes')
-          .select('*')
-          .in('id', recipeIds);
+          .from("recipes")
+          .select("*")
+          .in("id", recipeIds);
 
         if (recipesError) {
-          console.error('Error fetching recipes:', recipesError);
+          console.error("Error fetching recipes:", recipesError);
           return;
         }
 
-        // Create a map of recipe ID to recipe
         const recipesMap = (recipesData || []).reduce((acc, recipe) => {
           if (recipe.id) {
             acc[recipe.id] = recipe;
@@ -129,9 +123,8 @@ export const useMealPlan = () => {
 
         setRecipes(recipesMap);
       }
-
     } catch (error) {
-      console.error('Error in fetchLatestMealPlan:', error);
+      console.error("Error in fetchLatestMealPlan:", error);
     } finally {
       setIsLoading(false);
     }
