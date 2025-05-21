@@ -44,113 +44,17 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
 
       <div className="space-y-8">
         {/* Breakfast */}
-        <MealList title="Breakfast">
-          {breakfast.length > 0 ? (
-            breakfast.map((item) => {
-              const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
-              return (
-                <MealPlanItem
-                  key={item.id}
-                  title={recipe ? recipe.title : item.custom_title || "Custom Meal"}
-                  mealType="breakfast"
-                  recipeId={item.recipe_id}
-                  nutritionalContext={item.nutritional_context}
-                  stats={{
-                    calories: item.calories,
-                    protein: item.protein,
-                    carbs: item.carbs,
-                    fat: item.fat,
-                  }}
-                  isAiGenerated={item.is_ai_generated}
-                  mainIngredient={item.main_ingredient}
-                />
-              );
-            })
-          ) : (
-            <p className="text-gray-500">No breakfast planned</p>
-          )}
-        </MealList>
+        <MealList title="Breakfast" meals={breakfast} recipes={recipes} />
 
         {/* Lunch */}
-        <MealList title="Lunch">
-          {lunch.length > 0 ? (
-            lunch.map((item) => {
-              const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
-              return (
-                <MealPlanItem
-                  key={item.id}
-                  title={recipe ? recipe.title : item.custom_title || "Custom Meal"}
-                  mealType="lunch"
-                  recipeId={item.recipe_id}
-                  nutritionalContext={item.nutritional_context}
-                  stats={{
-                    calories: item.calories,
-                    protein: item.protein,
-                    carbs: item.carbs,
-                    fat: item.fat,
-                  }}
-                  isAiGenerated={item.is_ai_generated}
-                  mainIngredient={item.main_ingredient}
-                />
-              );
-            })
-          ) : (
-            <p className="text-gray-500">No lunch planned</p>
-          )}
-        </MealList>
+        <MealList title="Lunch" meals={lunch} recipes={recipes} />
 
         {/* Dinner */}
-        <MealList title="Dinner">
-          {dinner.length > 0 ? (
-            dinner.map((item) => {
-              const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
-              return (
-                <MealPlanItem
-                  key={item.id}
-                  title={recipe ? recipe.title : item.custom_title || "Custom Meal"}
-                  mealType="dinner"
-                  recipeId={item.recipe_id}
-                  nutritionalContext={item.nutritional_context}
-                  stats={{
-                    calories: item.calories,
-                    protein: item.protein,
-                    carbs: item.carbs,
-                    fat: item.fat,
-                  }}
-                  isAiGenerated={item.is_ai_generated}
-                  mainIngredient={item.main_ingredient}
-                />
-              );
-            })
-          ) : (
-            <p className="text-gray-500">No dinner planned</p>
-          )}
-        </MealList>
+        <MealList title="Dinner" meals={dinner} recipes={recipes} />
 
         {/* Snacks */}
         {snacks.length > 0 && (
-          <MealList title="Snacks">
-            {snacks.map((item) => {
-              const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
-              return (
-                <MealPlanItem
-                  key={item.id}
-                  title={recipe ? recipe.title : item.custom_title || "Custom Meal"}
-                  mealType="snack"
-                  recipeId={item.recipe_id}
-                  nutritionalContext={item.nutritional_context}
-                  stats={{
-                    calories: item.calories,
-                    protein: item.protein,
-                    carbs: item.carbs,
-                    fat: item.fat,
-                  }}
-                  isAiGenerated={item.is_ai_generated}
-                  mainIngredient={item.main_ingredient}
-                />
-              );
-            })}
-          </MealList>
+          <MealList title="Snacks" meals={snacks} recipes={recipes} />
         )}
       </div>
     </div>

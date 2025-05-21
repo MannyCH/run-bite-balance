@@ -4,12 +4,13 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RecipeStatsFooter } from "./RecipeStatsFooter";
+import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 
 interface MealPlanItemProps {
   title: string;
   mealType: string;
   recipeId?: string;
-  nutritionalContext?: string;
+  nutritionalContext?: string | null;
   stats?: {
     calories?: number;
     protein?: number;
@@ -18,6 +19,9 @@ interface MealPlanItemProps {
   };
   isAiGenerated?: boolean;
   mainIngredient?: string | null;
+  // Also support passing the full item and recipe objects
+  item?: MealPlanItemType;
+  recipe?: any;
 }
 
 export const MealPlanItem: React.FC<MealPlanItemProps> = ({
@@ -28,7 +32,34 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({
   stats,
   isAiGenerated,
   mainIngredient,
+  item,
+  recipe,
 }) => {
+  // If item and recipe are provided, extract props from them
+  if (item) {
+    recipeId = item.recipe_id || recipeId;
+    mealType = item.meal_type || mealType;
+    nutritionalContext = item.nutritional_context || nutritionalContext;
+    isAiGenerated = item.is_ai_generated || isAiGenerated;
+    mainIngredient = item.main_ingredient || mainIngredient;
+    
+    if (!title && recipe) {
+      title = recipe.title;
+    } else if (!title) {
+      title = item.custom_title || "Custom Meal";
+    }
+    
+    // Use stats from item if not provided directly
+    if (!stats) {
+      stats = {
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat
+      };
+    }
+  }
+  
   // Format meal type for display
   const displayMealType = mealType.charAt(0).toUpperCase() + mealType.slice(1);
   
@@ -57,7 +88,7 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({
         {nutritionalContext && (
           <p className="text-sm text-gray-600 mb-3 line-clamp-2">{nutritionalContext}</p>
         )}
-        {stats && <RecipeStatsFooter stats={stats} />}
+        {stats && <RecipeStatsFooter calories={stats.calories} protein={stats.protein} carbs={stats.carbs} fat={stats.fat} />}
       </CardContent>
     </>
   );
