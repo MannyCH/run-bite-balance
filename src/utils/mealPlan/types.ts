@@ -9,6 +9,7 @@ export interface GenerateMealPlanParams {
   recipes: Recipe[];
   startDate: string;
   endDate: string;
+  aiRecipeRatio?: number; // Added this property to fix the TypeScript error
 }
 
 export interface MealPlanResult {
