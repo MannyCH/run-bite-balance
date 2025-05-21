@@ -1,8 +1,9 @@
 // Database operations for meal plans
 import { supabase } from '@/integrations/supabase/client';
-import { MealPlan, MealPlanItem, UserProfile } from '@/types/profile';
+import { MealPlan, MealPlanItem, UserProfile, Gender } from '@/types/profile';
 import { validateStatus, validateMealType } from './validators';
 import { Recipe } from '@/context/types';
+import { safeGenderCast } from '@/utils/profileUtils';
 
 // Create or update a meal plan record
 export async function createOrUpdateMealPlan(
@@ -103,7 +104,9 @@ export async function insertMealPlanItems(
       calories: item.calories,
       protein: item.protein,
       carbs: item.carbs,
-      fat: item.fat
+      fat: item.fat,
+      is_ai_generated: item.is_ai_generated,
+      main_ingredient: item.main_ingredient
     }));
 
     return typedMealPlanItems;
@@ -127,7 +130,32 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
       return null;
     }
 
-    return profile;
+    // Use the safeGenderCast utility to properly cast the gender field
+    const typedProfile: UserProfile = {
+      id: profile.id,
+      username: profile.username,
+      avatar_url: profile.avatar_url,
+      weight: profile.weight,
+      height: profile.height,
+      age: profile.age,
+      gender: safeGenderCast(profile.gender),
+      target_weight: profile.target_weight,
+      fitness_goal: profile.fitness_goal,
+      activity_level: profile.activity_level,
+      ical_feed_url: profile.ical_feed_url,
+      bmr: profile.bmr,
+      dietary_preferences: profile.dietary_preferences,
+      nutritional_theory: profile.nutritional_theory,
+      food_allergies: profile.food_allergies,
+      preferred_cuisines: profile.preferred_cuisines,
+      foods_to_avoid: profile.foods_to_avoid,
+      meal_complexity: profile.meal_complexity,
+      ai_recipe_ratio: profile.ai_recipe_ratio,
+      created_at: profile.created_at,
+      updated_at: profile.updated_at
+    };
+
+    return typedProfile;
   } catch (error) {
     console.error('Error in fetchUserProfile:', error);
     return null;
