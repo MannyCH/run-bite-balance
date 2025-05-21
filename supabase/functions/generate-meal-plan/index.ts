@@ -5,8 +5,7 @@ import OpenAI from "https://esm.sh/openai@4.20.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
@@ -14,6 +13,7 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // ✅ Auth check
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
     return new Response(JSON.stringify({ error: "Missing auth header" }), {
@@ -22,16 +22,38 @@ serve(async (req) => {
     });
   }
 
-  const { userId, aiRecipeRatio = 30 } = await req.json();
-
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
     {
-      global: { headers: { Authorization: authHeader } },
+      global: {
+        headers: {
+          Authorization: authHeader, // ✅ ensures Supabase uses the user's session
+        },
+      },
     }
   );
 
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+      status: 400,
+      headers: corsHeaders,
+    });
+  }
+
+  const { userId, aiRecipeRatio = 30 } = body;
+
+  if (!userId) {
+    return new Response(JSON.stringify({ error: "Missing userId" }), {
+      status: 400,
+      headers: corsHeaders,
+    });
+  }
+
+  // ✅ Fetch user profile
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
@@ -45,7 +67,6 @@ serve(async (req) => {
     });
   }
 
-  // 🧠 Determine how many recipes to generate
   const totalMeals = 21;
   const aiCount = Math.max(1, Math.round((aiRecipeRatio / 100) * totalMeals));
 
@@ -62,16 +83,16 @@ serve(async (req) => {
   const systemPrompt = `
 You are a nutritionist chef. Create ${aiCount} original recipes based on:
 - Preferences: ${JSON.stringify(dietary)}
-- Each must have:
+- Each recipe must have:
   - title
   - ingredients (array of strings with quantity)
   - instructions (array)
   - calories, protein, carbs, fat
   - main_ingredient (no duplicates!)
-  - meal_type (breakfast, lunch, or dinner — based on the recipe)
+  - meal_type: "breakfast", "lunch", or "dinner" (must match recipe style)
+  - is_ai_generated: true
 
-Avoid duplicates. Return JSON:
-
+Return this structure:
 {
   "recipes": [
     {
@@ -112,14 +133,12 @@ Avoid duplicates. Return JSON:
   try {
     recipes = JSON.parse(raw).recipes;
   } catch (e) {
-    console.error("Failed to parse JSON:", raw);
     return new Response(JSON.stringify({ error: "Invalid JSON from OpenAI" }), {
       status: 500,
       headers: corsHeaders,
     });
   }
 
-  // ✅ Save recipes to Supabase
   const toSave = recipes.map((r: any) => ({
     title: r.title,
     calories: r.calories,
@@ -146,8 +165,8 @@ Avoid duplicates. Return JSON:
     });
   }
 
-  return new Response(
-    JSON.stringify({ aiRecipes: inserted }),
-    { status: 200, headers: corsHeaders }
-  );
+  return new Response(JSON.stringify({ aiRecipes: inserted }), {
+    status: 200,
+    headers: corsHeaders,
+  });
 });
