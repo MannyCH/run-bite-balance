@@ -31,14 +31,13 @@ async function generateAIRecipes(
       apiKey: openaiApiKey,
     });
     
-    // Determine the number of recipes to generate based on the AI recipe ratio
-    // Higher AI recipe ratio means more recipes will be generated
-    // For 30% we generate 3-4 recipes, for 50% we generate 5-6, for 80%+ we generate 7-8
-    const baseCount = Math.max(3, Math.ceil(aiRecipeRatio / 10));
-    const maxCount = Math.min(8, baseCount + 1);
-    const numberOfRecipesToGenerate = Math.min(maxCount, Math.max(1, baseCount));
+    // IMPROVED AI RECIPE COUNTING LOGIC:
+    // Calculate number of recipes based on the ratio with better scaling
+    // For a typical week with ~21 meals, at 30% we should generate ~6-7 recipes
+    const TOTAL_WEEKLY_MEALS = 21; // 3 meals a day for 7 days
+    const recipesToGenerate = Math.max(1, Math.round((aiRecipeRatio / 100) * TOTAL_WEEKLY_MEALS));
     
-    console.log(`Will generate ${numberOfRecipesToGenerate} new AI recipes based on ${aiRecipeRatio}% ratio`);
+    console.log(`IMPROVED CALCULATION: Will generate ${recipesToGenerate} new AI recipes based on ${aiRecipeRatio}% ratio of ${TOTAL_WEEKLY_MEALS} weekly meals`);
     
     // Format the user's dietary preferences and restrictions
     const dietaryPreferences = {
@@ -55,7 +54,7 @@ async function generateAIRecipes(
     const systemPrompt = `You are a professional nutritionist and chef creating original recipes tailored to a user's preferences. 
     The user has the following dietary preferences: ${JSON.stringify(dietaryPreferences)}.
     
-    Create ${numberOfRecipesToGenerate} original recipes that are NOT known popular recipes but your own creations.
+    Create ${recipesToGenerate} original recipes that are NOT known popular recipes but your own creations.
     Each recipe must be complete with a title, list of ingredients with quantities, step-by-step instructions, and nutritional information.
     
     IMPORTANT REQUIREMENTS FOR INGREDIENT DIVERSITY:
@@ -104,7 +103,7 @@ async function generateAIRecipes(
           { role: "system", content: systemPrompt },
           { 
             role: "user", 
-            content: `Create ${numberOfRecipesToGenerate} original recipes that would appeal to me based on my preferences. Make them creative and unique with DIFFERENT main ingredients for each recipe!`
+            content: `Create ${recipesToGenerate} original recipes that would appeal to me based on my preferences. Make them creative and unique with DIFFERENT main ingredients for each recipe!`
           }
         ],
         temperature: 0.9, // Increased temperature for more creativity and variety
@@ -475,36 +474,14 @@ serve(async (req) => {
     console.log(`Fetched ${recipes.length} recipes from database for meal planning`);
     console.log(`Created ${aiGeneratedRecipes.length} AI-generated recipes for ${aiRecipeRatio}% ratio`);
     
-    // 3. Generate AI meal plan using both database recipes and AI-generated recipes
-    try {
-      const result = await generateAIMealPlan(
-        userId, 
-        profile as unknown as UserProfile, 
-        recipes || [],
-        aiGeneratedRecipes,
-        startDate,
-        endDate,
-        aiRecipeRatio
-      );
-      
-      console.log("Meal plan generated successfully");
-      
-      return new Response(JSON.stringify(result), { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
-    } catch (aiError) {
-      console.error("AI meal plan generation failed:", aiError);
-      
-      // Return a specific error that the frontend can handle
-      return new Response(JSON.stringify({ 
-        error: aiError.message || 'Error generating AI meal plan',
-        fallback: true 
-      }), { 
-        status: 200, // Important: Return 200 even for fallback so frontend can handle it
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
-    }
+    // Return AI-generated recipes and existing recipes to client
+    return new Response(JSON.stringify({
+      aiGeneratedRecipes,
+      recipes
+    }), { 
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
   } catch (error) {
     console.error('Error in generate-meal-plan function:', error);
     return new Response(JSON.stringify({ 

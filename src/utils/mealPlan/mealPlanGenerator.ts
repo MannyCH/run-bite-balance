@@ -48,6 +48,12 @@ export async function generateMealPlan({
         recipesMap[recipe.id] = recipe;
       });
       
+      // Calculate number of target recipes based on total weekly meals (21 meals)
+      // This ensures that even with 30% ratio, we still generate enough recipes
+      const TOTAL_WEEKLY_MEALS = 21; // 3 meals a day for 7 days
+      const targetAIRecipeCount = Math.max(1, Math.round((aiRecipeRatio / 100) * TOTAL_WEEKLY_MEALS));
+      console.log(`Target AI recipe count based on ${aiRecipeRatio}%: ${targetAIRecipeCount} AI recipes out of ~${TOTAL_WEEKLY_MEALS} weekly meals`);
+      
       // Call the Supabase Edge Function with the AI recipe ratio
       // Added forceNewRecipes flag to ensure fresh recipes are always generated
       const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
@@ -63,9 +69,14 @@ export async function generateMealPlan({
       if (error) {
         console.error('Error calling AI meal planner:', error);
         // Fall back to algorithm-based meal planning
-      } else if (data && data.mealPlan) {
+      } else if (data && data.aiGeneratedRecipes) {
         console.log('Using AI-generated meal plan with fresh AI recipes');
         console.log(`AI generated recipes count: ${data.aiGeneratedRecipes?.length || 0}`);
+        console.log(`AI generated recipes: ${JSON.stringify(data.aiGeneratedRecipes?.map((r: any) => r.title))}`);
+        
+        if (data.aiGeneratedRecipes && data.aiGeneratedRecipes.length === 0) {
+          console.warn('No AI-generated recipes were returned despite requesting them. Check the edge function logs.');
+        }
         
         // Save AI-generated recipes to the database first
         if (data.aiGeneratedRecipes && data.aiGeneratedRecipes.length > 0) {
@@ -107,7 +118,37 @@ export async function generateMealPlan({
           }
         }
         
-        // Process the AI-generated meal plan with both existing and new recipes
+        // Create or update a meal plan record
+        const mealPlan = await createOrUpdateMealPlan(userId, startDate, endDate);
+        if (!mealPlan) {
+          return null;
+        }
+
+        // Delete any existing meal plan items for this plan
+        const deleteSuccess = await deleteExistingMealPlanItems(mealPlan.id);
+        if (!deleteSuccess) {
+          return null;
+        }
+        
+        // Create a simplified data structure that mimics what would come from the AI
+        const mealPlanData = {
+          mealPlan: {
+            days: [] 
+          }
+        };
+        
+        // Generate the meal plan items using our existing algorithm but ensuring AI ratio is respected
+        const allRecipes = Object.values(recipesMap);
+        
+        // Separate AI and normal recipes
+        const aiRecipes = allRecipes.filter(r => r.is_ai_generated);
+        const regularRecipes = allRecipes.filter(r => !r.is_ai_generated);
+        
+        console.log(`AI recipes available: ${aiRecipes.length}`);
+        console.log(`Regular recipes available: ${regularRecipes.length}`);
+        
+        // Generate meal plan items using processAIMealPlan which will handle the distribution
+        // of AI vs regular recipes according to the ratio
         const mealPlanItems = await processAIMealPlan(
           userId, 
           data, 
@@ -189,7 +230,8 @@ export async function generateMealPlan({
 
 // Add a new simplified function that returns a meal plan based on user's profile data
 export async function generateMealPlanForUser(
-  userId: string
+  userId: string,
+  aiRecipeRatio: number = 30
 ): Promise<MealPlanResult | null> {
   try {
     // Get the user's profile
@@ -217,7 +259,9 @@ export async function generateMealPlanForUser(
       profile: profile as UserProfile,
       recipes,
       startDate,
-      endDate: endDateStr
+      endDate: endDateStr,
+      // Pass the AI recipe ratio explicitly to ensure it's used
+      aiRecipeRatio
     });
   } catch (error) {
     console.error('Error generating meal plan:', error);

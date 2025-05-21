@@ -21,7 +21,7 @@ export function extractMainIngredient(recipe: any): string {
   const grainKeywords = ["rice", "pasta", "quinoa", "bread", "tortilla", "noodle", "couscous", "farro"];
   
   // Common vegetables that might be main ingredients
-  const vegKeywords = ["cauliflower", "broccoli", "potato", "sweet potato", "squash", "eggplant", "zucchini"];
+  const vegKeywords = ["cauliflower", "broccoli", "potato", "sweet potato", "squash", "eggplant", "zucchini", "spinach", "kale"];
   
   // Common legumes
   const legumeKeywords = ["beans", "lentils", "chickpeas"];

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,6 +37,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
 
     setIsGenerating(true);
     try {
+      // Pass the AI recipe ratio to the meal plan generation function
       const result = await generateMealPlanForUser(user.id, aiRecipeRatio);
 
       if (result) {
