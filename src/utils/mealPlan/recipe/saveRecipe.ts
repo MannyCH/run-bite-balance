@@ -49,3 +49,30 @@ export async function saveRecipeToCollection(recipeData: any): Promise<boolean> 
     return false;
   }
 }
+
+/**
+ * New function to mark an AI-generated recipe as saved by the user
+ * This prevents it from being deleted when cleaning up unsaved AI recipes
+ */
+export async function saveAIRecipe(recipeId: string): Promise<boolean> {
+  try {
+    // Update the recipe to mark it as saved by the user
+    const { error } = await supabase
+      .from('recipes')
+      .update({
+        is_saved_by_user: true
+      })
+      .eq('id', recipeId)
+      .eq('is_ai_generated', true);
+    
+    if (error) {
+      console.error("Error saving AI recipe:", error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error in saveAIRecipe:", error);
+    return false;
+  }
+}

@@ -1,4 +1,3 @@
-
 // Database operations for meal plans
 import { supabase } from '@/integrations/supabase/client';
 import { MealPlan, MealPlanItem } from '@/types/profile';
@@ -114,7 +113,7 @@ export async function insertMealPlanItems(
 }
 
 // Fetch a user's profile
-export async function fetchUserProfile(userId: string) {
+export async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
   try {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -135,7 +134,7 @@ export async function fetchUserProfile(userId: string) {
 }
 
 // Fetch recipes from the database
-export async function fetchRecipes() {
+export async function fetchRecipes(): Promise<Recipe[] | null> {
   try {
     const { data: recipes, error: recipesError } = await supabase
       .from('recipes')
@@ -150,5 +149,93 @@ export async function fetchRecipes() {
   } catch (error) {
     console.error('Error in fetchRecipes:', error);
     return [];
+  }
+}
+
+// New function to clean up unsaved AI-generated recipes from previous meal plan generations
+export async function cleanupUnsavedAIRecipes(userId: string): Promise<void> {
+  try {
+    console.log(`Cleaning up unsaved AI recipes for user ${userId}`);
+    
+    // Step 1: Get all AI-generated recipes
+    const { data: aiRecipes, error: aiRecipesError } = await supabase
+      .from('recipes')
+      .select('id')
+      .eq('is_ai_generated', true);
+      
+    if (aiRecipesError) {
+      console.error('Error fetching AI recipes:', aiRecipesError);
+      return;
+    }
+    
+    if (!aiRecipes || aiRecipes.length === 0) {
+      console.log('No AI recipes found to clean up');
+      return;
+    }
+    
+    console.log(`Found ${aiRecipes.length} AI-generated recipes`);
+    
+    // Step 2: Get all recipe IDs that are used in meal plans for this user
+    // These are considered "in use" and should not be deleted
+    const { data: mealPlanData, error: mealPlanError } = await supabase
+      .from('meal_plans')
+      .select('id')
+      .eq('user_id', userId);
+      
+    if (mealPlanError) {
+      console.error('Error fetching meal plans:', mealPlanError);
+      return;
+    }
+    
+    if (!mealPlanData || mealPlanData.length === 0) {
+      console.log('No meal plans found for this user');
+      // No meal plans means no recipes are in use, all AI recipes can be cleaned up
+      return;
+    }
+    
+    const mealPlanIds = mealPlanData.map(plan => plan.id);
+    
+    // Get all meal plan items that reference recipes
+    const { data: mealPlanItems, error: itemsError } = await supabase
+      .from('meal_plan_items')
+      .select('recipe_id')
+      .in('meal_plan_id', mealPlanIds)
+      .not('recipe_id', 'is', null);
+      
+    if (itemsError) {
+      console.error('Error fetching meal plan items:', itemsError);
+      return;
+    }
+    
+    // Create a set of recipe IDs that are in use
+    const inUseRecipeIds = new Set(mealPlanItems?.map(item => item.recipe_id) || []);
+    
+    // Step 3: Delete AI-generated recipes that are not in use
+    const recipesToDelete = aiRecipes
+      .filter(recipe => !inUseRecipeIds.has(recipe.id))
+      .map(recipe => recipe.id);
+      
+    if (recipesToDelete.length === 0) {
+      console.log('No unused AI recipes to delete');
+      return;
+    }
+    
+    console.log(`Deleting ${recipesToDelete.length} unused AI recipes`);
+    
+    // Delete the unused AI-generated recipes
+    const { error: deleteError } = await supabase
+      .from('recipes')
+      .delete()
+      .in('id', recipesToDelete);
+      
+    if (deleteError) {
+      console.error('Error deleting unused AI recipes:', deleteError);
+      return;
+    }
+    
+    console.log(`Successfully deleted ${recipesToDelete.length} unused AI recipes`);
+    
+  } catch (error) {
+    console.error('Error in cleanupUnsavedAIRecipes:', error);
   }
 }

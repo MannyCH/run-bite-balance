@@ -9,7 +9,8 @@ import {
   deleteExistingMealPlanItems, 
   insertMealPlanItems,
   fetchUserProfile,
-  fetchRecipes
+  fetchRecipes,
+  cleanupUnsavedAIRecipes
 } from './mealPlanDb';
 import { GenerateMealPlanParams, MealPlanResult } from './types';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,6 +35,10 @@ export async function generateMealPlan({
     // Get the user's AI recipe ratio preference (default to 30% if not set)
     const aiRecipeRatio = profile.ai_recipe_ratio !== null ? profile.ai_recipe_ratio : 30;
     console.log(`User AI recipe ratio preference: ${aiRecipeRatio}%`);
+    
+    // First clean up any unsaved AI recipes from previous generations
+    await cleanupUnsavedAIRecipes(userId);
+    console.log('Cleaned up unsaved AI recipes from previous meal plan generations');
     
     // ALWAYS use the AI meal planner to generate fresh AI recipes
     // The ratio determines the percentage of AI-generated recipes in the meal plan

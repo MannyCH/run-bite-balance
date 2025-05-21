@@ -82,7 +82,7 @@ export const useMealPlan = () => {
 
       // Ensure meal plan items are properly typed
       const typedItems: MealPlanItem[] = (itemsData || []).map(item => {
-        // Create a typed object with all properties, including main_ingredient
+        // Note: This now correctly handles the main_ingredient field that is defined in the MealPlanItem type
         return {
           id: item.id,
           meal_plan_id: item.meal_plan_id,
