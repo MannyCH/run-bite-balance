@@ -32,10 +32,12 @@ serve(async (req) => {
       
       Do the following:
       1. Remove preparation instructions and irrelevant words (like "chopped", "sliced", "organic", etc.)
-      2. Consolidate similar ingredients (e.g., different types of olive oil should become just "Olive oil")
+      2. Consolidate similar ingredients (e.g., different types of olive oil like "olive oil", "olivenöl", "olivenöl extra vergine" should become just "Olive oil")
       3. Group basic ingredients like salt, pepper, oils into single items
-      4. Summarize quantities when possible
-      5. Format for easy reading
+      4. Remove measurement abbreviations like "EL", "TL", "TSP" (they mean tablespoon, teaspoon)
+      5. Summarize quantities when possible
+      6. Format for easy reading
+      7. Place amounts next to ingredients with consistent formatting
       
       Return the result as a JSON array with the same structure as the input (id, name, quantity, isBought).
     `;

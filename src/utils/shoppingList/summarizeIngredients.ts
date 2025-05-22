@@ -33,13 +33,18 @@ export async function summarizeWithAI(items: ShoppingListItem[]): Promise<Shoppi
 
 // Basic ingredients that should be treated as single items
 const BASIC_INGREDIENTS = [
-  "olive oil", "vegetable oil", "sunflower oil", "canola oil", "coconut oil",
-  "salt", "pepper", "black pepper", "white pepper", 
-  "sugar", "brown sugar", "powdered sugar",
-  "flour", "all-purpose flour", "wheat flour",
-  "water", "milk",
+  "olive oil", "olivenöl", "olivenoel", "vegetable oil", "sunflower oil", "canola oil", "coconut oil",
+  "salt", "salz", "pepper", "pfeffer", "black pepper", "white pepper", 
+  "sugar", "zucker", "brown sugar", "powdered sugar",
+  "flour", "mehl", "all-purpose flour", "wheat flour",
+  "water", "wasser", "milk", "milch",
   "butter", "margarine",
-  "vinegar", "balsamic vinegar", "white vinegar",
+  "vinegar", "essig", "balsamic vinegar", "white vinegar",
+];
+
+// Words to remove from quantities
+const MEASUREMENT_ABBREVIATIONS = [
+  "EL", "TL", "TSP", "TBSP", "esslöffel", "teelöffel", "teaspoon", "tablespoon"
 ];
 
 /**
@@ -52,21 +57,29 @@ export function groupBasicIngredients(items: ShoppingListItem[]): ShoppingListIt
   
   // First pass: separate basic ingredients from regular ones
   items.forEach(item => {
+    // Clean the item name and quantity
+    const cleanedItem = {
+      ...item,
+      name: item.name.toLowerCase(),
+      quantity: cleanQuantity(item.quantity)
+    };
+    
     let categorized = false;
     
     for (const basic of BASIC_INGREDIENTS) {
-      if (item.name.toLowerCase().includes(basic.toLowerCase())) {
-        if (!basicIngredientGroups[basic]) {
-          basicIngredientGroups[basic] = [];
+      if (cleanedItem.name.includes(basic.toLowerCase())) {
+        const basicKey = normalizeBasicIngredient(basic);
+        if (!basicIngredientGroups[basicKey]) {
+          basicIngredientGroups[basicKey] = [];
         }
-        basicIngredientGroups[basic].push(item);
+        basicIngredientGroups[basicKey].push(cleanedItem);
         categorized = true;
         break;
       }
     }
     
     if (!categorized) {
-      result.push(item);
+      result.push(cleanedItem);
     }
   });
   
@@ -85,4 +98,51 @@ export function groupBasicIngredients(items: ShoppingListItem[]): ShoppingListIt
   });
   
   return result;
+}
+
+/**
+ * Normalize basic ingredient names to consistent forms
+ */
+function normalizeBasicIngredient(name: string): string {
+  const lowerName = name.toLowerCase();
+  
+  // Map of normalized names
+  const normalizationMap: Record<string, string[]> = {
+    "olive oil": ["olivenöl", "olivenoel", "extra virgin olive oil", "virgin olive oil"],
+    "sugar": ["zucker", "brown sugar", "powdered sugar"],
+    "salt": ["salz", "sea salt", "kosher salt"],
+    "pepper": ["pfeffer", "black pepper", "white pepper"],
+    "flour": ["mehl", "all-purpose flour", "wheat flour"],
+    "water": ["wasser"],
+    "milk": ["milch"],
+  };
+  
+  // Check if the name matches any normalized form
+  for (const [normalName, variations] of Object.entries(normalizationMap)) {
+    if (normalName === lowerName || variations.some(v => v === lowerName)) {
+      return normalName;
+    }
+  }
+  
+  return lowerName;
+}
+
+/**
+ * Clean quantity by removing measurement abbreviations
+ */
+function cleanQuantity(quantity: string): string {
+  if (!quantity) return "";
+  
+  let cleanedQuantity = quantity;
+  
+  // Remove measurement abbreviations
+  MEASUREMENT_ABBREVIATIONS.forEach(abbr => {
+    const regex = new RegExp(`\\b${abbr}\\b`, 'gi');
+    cleanedQuantity = cleanedQuantity.replace(regex, '');
+  });
+  
+  // Clean up extra spaces and trim
+  cleanedQuantity = cleanedQuantity.replace(/\s+/g, ' ').trim();
+  
+  return cleanedQuantity;
 }

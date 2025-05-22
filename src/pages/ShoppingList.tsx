@@ -116,25 +116,28 @@ const ShoppingList: React.FC = () => {
                   key={item.id} 
                   className="flex items-center p-2 border-b last:border-0 hover:bg-gray-50 rounded-md"
                 >
+                  {/* Checkbox first */}
                   <Checkbox 
                     id={item.id} 
                     checked={item.isBought}
                     onCheckedChange={() => handleCheckboxChange(item.id)}
                     className="mr-3 flex-shrink-0"
                   />
-                  <div className="flex flex-1 items-center justify-between">
-                    <label 
-                      htmlFor={item.id} 
-                      className={`flex flex-1 items-center cursor-pointer ${item.isBought ? 'line-through text-gray-400' : ''}`}
-                    >
-                      <span className="font-medium capitalize">{item.name}</span>
-                    </label>
-                    {item.quantity && (
-                      <Badge variant="secondary" className="ml-2 text-sm px-2 py-0.5">
-                        {item.quantity}
-                      </Badge>
-                    )}
-                  </div>
+                  
+                  {/* Quantity Badge before name */}
+                  {item.quantity && (
+                    <Badge variant="secondary" className="mr-3 text-sm px-2 py-0.5">
+                      {item.quantity}
+                    </Badge>
+                  )}
+                  
+                  {/* Item name */}
+                  <label 
+                    htmlFor={item.id} 
+                    className={`flex flex-1 cursor-pointer ${item.isBought ? 'line-through text-gray-400' : ''}`}
+                  >
+                    <span className="font-medium capitalize">{item.name}</span>
+                  </label>
                 </li>
               ))}
             </ul>
