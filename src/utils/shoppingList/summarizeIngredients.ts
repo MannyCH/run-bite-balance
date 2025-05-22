@@ -1,6 +1,6 @@
 
 import { ShoppingListItem } from "@/types/shoppingList";
-import { createClient } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Use OpenAI via Supabase Edge Function to summarize and clean up the shopping list
@@ -9,7 +9,6 @@ export async function summarizeWithAI(items: ShoppingListItem[]): Promise<Shoppi
   if (items.length === 0) return [];
   
   try {
-    const supabase = createClient();
     const { data, error } = await supabase.functions.invoke('summarize-shopping-list', {
       body: { items }
     });
