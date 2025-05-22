@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -36,20 +37,23 @@ ${JSON.stringify(items, null, 2)}
 Instructions:
 1. Remove words like "chopped", "organic", "sliced", "diced", etc.
 2. Combine variations of the same item (e.g. "olivenöl", "olive oil", "extra virgin olive oil" → "Olive oil")
-3. Normalize units and remove "EL", "TL", "TSP"
-4. Group items like salt, pepper, oil
-5. Summarize quantities across items
-6. Output only a valid JSON array with this structure:
+3. Normalize units and remove measurement words like "EL", "TL", "TSP", "TBSP", "esslöffel", "teelöffel"
+4. For basic ingredients like salt, pepper, olive oil, etc., omit the quantity and just list the ingredient
+5. For items with multiple entries of the same type (like eggplants), summarize the total quantity (e.g. "5 eggplants" instead of listing them individually)
+6. Group similar items when appropriate
+7. Output only a valid JSON array with this structure:
 
 [
   {
     "id": "string", // keep original ID
     "name": "Broccoli",
-    "quantity": "500g",
+    "quantity": "500g", // can be empty string for basic ingredients
     "isBought": false
   },
   ...
 ]
+
+Basic ingredients that should not show quantities: olive oil, salt, pepper, spices, butter, water.
 
 IMPORTANT: Return only the valid JSON array. Do NOT include explanations, markdown, or text around it.
     `;
@@ -75,7 +79,7 @@ IMPORTANT: Return only the valid JSON array. Do NOT include explanations, markdo
     });
 
     const data = await response.json();
-console.log("🔍 Raw OpenAI response:", JSON.stringify(data, null, 2));
+    console.log("🔍 Raw OpenAI response:", JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       console.error("OpenAI API error:", data);
