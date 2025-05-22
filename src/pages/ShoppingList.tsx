@@ -1,23 +1,51 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/Layout/MainLayout";
 import { useShoppingList } from "@/context/ShoppingListContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { ListChecks, Search, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
+import { ShoppingListItem } from "@/types/shoppingList";
+import { summarizeWithAI } from "@/utils/shoppingList/summarizeIngredients";
 
 const ShoppingList: React.FC = () => {
   const { shoppingList, toggleItemBought, clearShoppingList } = useShoppingList();
   const [searchTerm, setSearchTerm] = useState("");
+  const [processedList, setProcessedList] = useState<ShoppingListItem[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Process the shopping list with AI when it changes
+  useEffect(() => {
+    const processList = async () => {
+      if (shoppingList.length > 0) {
+        setIsProcessing(true);
+        try {
+          const summarized = await summarizeWithAI(shoppingList);
+          setProcessedList(summarized);
+        } catch (error) {
+          console.error("Error processing shopping list:", error);
+          // Fallback to original list if AI processing fails
+          setProcessedList(shoppingList);
+        } finally {
+          setIsProcessing(false);
+        }
+      } else {
+        setProcessedList([]);
+      }
+    };
+    
+    processList();
+  }, [shoppingList]);
 
   const filteredItems = searchTerm
-    ? shoppingList.filter(item => 
+    ? processedList.filter(item => 
         item.name.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    : shoppingList;
+    : processedList;
 
   const handleCheckboxChange = (id: string) => {
     toggleItemBought(id);
@@ -67,7 +95,11 @@ const ShoppingList: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {filteredItems.length === 0 ? (
+          {isProcessing ? (
+            <div className="text-center py-10">
+              <p className="text-muted-foreground">Processing your shopping list...</p>
+            </div>
+          ) : filteredItems.length === 0 ? (
             <div className="text-center py-10">
               {shoppingList.length === 0 ? (
                 <p className="text-muted-foreground">
@@ -82,26 +114,26 @@ const ShoppingList: React.FC = () => {
               {filteredItems.map((item) => (
                 <li 
                   key={item.id} 
-                  className="flex items-start p-2 border-b last:border-0 hover:bg-gray-50 rounded-md"
+                  className="flex items-center p-2 border-b last:border-0 hover:bg-gray-50 rounded-md"
                 >
                   <Checkbox 
                     id={item.id} 
                     checked={item.isBought}
                     onCheckedChange={() => handleCheckboxChange(item.id)}
-                    className="mt-1 mr-3"
+                    className="mr-3 flex-shrink-0"
                   />
-                  <div className="flex-1">
+                  <div className="flex flex-1 items-center justify-between">
                     <label 
                       htmlFor={item.id} 
-                      className={`flex items-center cursor-pointer ${item.isBought ? 'line-through text-gray-400' : ''}`}
+                      className={`flex flex-1 items-center cursor-pointer ${item.isBought ? 'line-through text-gray-400' : ''}`}
                     >
                       <span className="font-medium capitalize">{item.name}</span>
-                      {item.quantity && (
-                        <span className="ml-2 text-sm bg-gray-100 px-2 py-0.5 rounded text-gray-700">
-                          {item.quantity}
-                        </span>
-                      )}
                     </label>
+                    {item.quantity && (
+                      <Badge variant="secondary" className="ml-2 text-sm px-2 py-0.5">
+                        {item.quantity}
+                      </Badge>
+                    )}
                   </div>
                 </li>
               ))}
