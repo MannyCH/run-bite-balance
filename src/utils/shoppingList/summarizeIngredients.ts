@@ -41,6 +41,8 @@ const BASIC_INGREDIENTS = [
   "butter", "margarine",
   "vinegar", "essig", "balsamic vinegar", "white vinegar",
   "spices", "herbs", "gewürze", "kräuter",
+  "garlic", "knoblauch", "knoblauchzehe",
+  "cinnamon", "zimt",
 ];
 
 // Items that should be summarized with quantities
@@ -51,6 +53,16 @@ const QUANTITY_SUMMARIZE_ITEMS = [
   "onion", "zwiebel",
   "apple", "apfel",
   "banana", "banane",
+  "carrot", "rüebli", "karotte",
+  "egg", "ei", "eier",
+  "cheese", "käse",
+  "milk", "milch",
+  "yogurt", "joghurt",
+  "bread", "brot",
+  "rice", "reis",
+  "pasta", "nudeln",
+  "meat", "fleisch",
+  "chicken", "huhn", "poulet",
 ];
 
 // Words to remove from quantities
@@ -189,6 +201,8 @@ function normalizeBasicIngredient(name: string): string {
     "flour": ["mehl", "all-purpose flour", "wheat flour"],
     "water": ["wasser"],
     "butter": ["margarine", "butter"],
+    "garlic": ["knoblauch", "knoblauchzehe"],
+    "cinnamon": ["zimt"],
   };
   
   // Check if the name matches any normalized form
@@ -215,6 +229,9 @@ function normalizeItemName(name: string): string {
     "onion": ["zwiebel", "zwiebeln"],
     "apple": ["apfel", "äpfel"],
     "banana": ["banane", "bananen"],
+    "carrot": ["rüebli", "karotte", "möhre"],
+    "egg": ["ei", "eier"],
+    "chicken": ["huhn", "poulet", "hähnchen"],
   };
   
   // Check if the name matches any normalized form
