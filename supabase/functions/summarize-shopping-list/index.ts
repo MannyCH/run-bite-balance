@@ -75,6 +75,7 @@ IMPORTANT: Return only the valid JSON array. Do NOT include explanations, markdo
     });
 
     const data = await response.json();
+console.log("🔍 Raw OpenAI response:", JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       console.error("OpenAI API error:", data);
