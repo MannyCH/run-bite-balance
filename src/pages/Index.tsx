@@ -8,6 +8,7 @@ import WeeklyCalendar from "../components/Dashboard/WeeklyCalendar";
 import ActivityTimeline from "../components/Dashboard/ActivityTimeline";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useMealPlan } from "@/hooks/useMealPlan";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ import { CalendarCheck } from "lucide-react";
 
 const Index: React.FC = () => {
   const { user } = useAuth();
+  const { runs } = useApp();
+  const { mealPlanItems, recipes } = useMealPlan();
   const [hasMealPlan, setHasMealPlan] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
@@ -46,6 +49,9 @@ const Index: React.FC = () => {
     
     checkMealPlan();
   }, [user?.id]);
+
+  // Filter for only imported runs
+  const importedRuns = runs.filter(run => run.isImported);
 
   return (
     <MainLayout>
@@ -80,7 +86,11 @@ const Index: React.FC = () => {
       </div>
 
       <div className="mb-6">
-        <ActivityTimeline />
+        <ActivityTimeline 
+          runs={importedRuns} 
+          mealPlanItems={mealPlanItems} 
+          recipes={recipes}
+        />
       </div>
     </MainLayout>
   );

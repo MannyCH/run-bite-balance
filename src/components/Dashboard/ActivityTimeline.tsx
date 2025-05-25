@@ -1,46 +1,92 @@
 
 import React from "react";
 import { format } from "date-fns";
-import { useApp } from "@/context/AppContext";
 import { MapPin, UtensilsCrossed, Route } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Run } from "@/context/types";
+import { MealPlanItem } from "@/types/profile";
 
-const ActivityTimeline: React.FC = () => {
-  const { meals, runs, selectedDate } = useApp();
+interface ActivityTimelineProps {
+  runs: Run[];
+  mealPlanItems: MealPlanItem[];
+  recipes: Record<string, any>;
+}
 
-  // Combine meals and runs for the timeline with proper typing
-  type MealActivity = {
-    type: "meal";
-  } & Omit<typeof meals[0], "type">;
-
+const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ 
+  runs, 
+  mealPlanItems, 
+  recipes 
+}) => {
+  // Create activity objects for runs and meals
   type RunActivity = {
     type: "run";
-  } & Omit<typeof runs[0], "type">;
+    id: string;
+    title: string;
+    date: Date;
+    distance: number;
+    duration: number;
+    pace: number;
+    isImported: boolean;
+  };
 
-  type Activity = MealActivity | RunActivity;
+  type MealActivity = {
+    type: "meal";
+    id: string;
+    title: string;
+    date: Date;
+    meal_type: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    recipe_id?: string;
+  };
 
-  // Create properly typed activities array
-  const activities: Activity[] = [
-    ...meals.map((meal) => ({
-      ...meal,
-      type: "meal" as const,
-    })),
-    ...runs.map((run) => ({
-      ...run,
-      type: "run" as const,
-    })),
-  ];
+  type Activity = RunActivity | MealActivity;
+
+  // Convert runs to activities
+  const runActivities: RunActivity[] = runs.map((run) => ({
+    type: "run",
+    id: run.id,
+    title: run.title,
+    date: new Date(run.date),
+    distance: run.distance,
+    duration: run.duration,
+    pace: run.pace,
+    isImported: run.isImported || false,
+  }));
+
+  // Convert meal plan items to activities
+  const mealActivities: MealActivity[] = mealPlanItems.map((item) => {
+    const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
+    return {
+      type: "meal",
+      id: item.id,
+      title: item.custom_title || recipe?.title || "Planned Meal",
+      date: new Date(item.date),
+      meal_type: item.meal_type,
+      calories: item.calories || recipe?.calories || 0,
+      protein: item.protein || recipe?.protein || 0,
+      carbs: item.carbs || recipe?.carbs || 0,
+      fat: item.fat || recipe?.fat || 0,
+      recipe_id: item.recipe_id,
+    };
+  });
+
+  // Combine all activities
+  const activities: Activity[] = [...runActivities, ...mealActivities];
 
   // Sort by date
   const sortedActivities = activities.sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    (a, b) => a.date.getTime() - b.date.getTime()
   );
 
   // Group by date
-  const groupedActivities: Record<string, typeof sortedActivities> = {};
+  const groupedActivities: Record<string, Activity[]> = {};
   
   sortedActivities.forEach((activity) => {
-    const dateKey = format(new Date(activity.date), "yyyy-MM-dd");
+    const dateKey = format(activity.date, "yyyy-MM-dd");
     if (!groupedActivities[dateKey]) {
       groupedActivities[dateKey] = [];
     }
@@ -58,6 +104,10 @@ const ActivityTimeline: React.FC = () => {
   if (timelineData.length === 0) {
     return (
       <Card>
+        <CardHeader>
+          <CardTitle>Activity Timeline</CardTitle>
+          <CardDescription>Your imported runs and planned meals</CardDescription>
+        </CardHeader>
         <CardContent className="pt-6">
           <p className="text-center text-muted-foreground">No activities to display</p>
         </CardContent>
@@ -65,11 +115,15 @@ const ActivityTimeline: React.FC = () => {
     );
   }
 
+  const formatMealType = (type: string) => {
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Activity Timeline</CardTitle>
-        <CardDescription>Your upcoming and past activities</CardDescription>
+        <CardDescription>Your imported runs and planned meals</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-8">
@@ -88,31 +142,32 @@ const ActivityTimeline: React.FC = () => {
                       <div className={`p-2 rounded-full ${
                         activity.type === "meal" 
                           ? "bg-teal-100 text-teal-600" 
-                          : (activity as RunActivity).isImported 
-                            ? "bg-blue-100 text-blue-600" 
-                            : "bg-blue-100 text-blue-600"
+                          : "bg-blue-100 text-blue-600"
                       }`}>
                         {activity.type === "meal" ? (
                           <UtensilsCrossed className="h-5 w-5" />
-                        ) : (activity as RunActivity).isImported ? (
-                          <Route className="h-5 w-5" />
                         ) : (
-                          <MapPin className="h-5 w-5" />
+                          <Route className="h-5 w-5" />
                         )}
                       </div>
                     </div>
                     <div className="flex-1 bg-white rounded-lg shadow p-4">
                       <div className="flex justify-between items-center">
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-2">
                           <h3 className="font-medium">{activity.title}</h3>
-                          {activity.type === "run" && (activity as RunActivity).isImported && (
-                            <span className="text-xs text-blue-500 ml-2 bg-blue-100 px-1.5 py-0.5 rounded-full">
+                          {activity.type === "run" && (
+                            <span className="text-xs text-blue-500 bg-blue-100 px-1.5 py-0.5 rounded-full">
                               Imported
                             </span>
                           )}
+                          {activity.type === "meal" && (
+                            <Badge variant="outline" className="text-xs">
+                              {formatMealType((activity as MealActivity).meal_type)}
+                            </Badge>
+                          )}
                         </div>
                         <span className="text-sm text-gray-500">
-                          {format(new Date(activity.date), "h:mm a")}
+                          {format(activity.date, "h:mm a")}
                         </span>
                       </div>
                       <div className="mt-1 text-sm text-gray-600">
