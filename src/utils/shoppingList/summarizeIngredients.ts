@@ -1,34 +1,70 @@
-
 import { ShoppingListItem } from "@/types/shoppingList";
 import { supabase } from "@/integrations/supabase/client";
+import { extractRawIngredients, convertCategorizedToShoppingList } from "./extractIngredients";
+import { Recipe } from "@/context/types";
 
 /**
- * Use OpenAI via Supabase Edge Function to summarize and clean up the shopping list
+ * Use OpenAI via Supabase Edge Function to create a categorized shopping list
  */
-export async function summarizeWithAI(items: ShoppingListItem[]): Promise<ShoppingListItem[]> {
-  if (items.length === 0) return [];
+export async function summarizeWithAI(recipes: Recipe[]): Promise<ShoppingListItem[]> {
+  if (recipes.length === 0) return [];
   
   try {
+    // Extract raw ingredients from all recipes
+    const rawIngredients = extractRawIngredients(recipes);
+    
+    if (rawIngredients.length === 0) {
+      console.log("No ingredients found in recipes");
+      return [];
+    }
+    
+    console.log("Sending raw ingredients to AI:", rawIngredients);
+    
     const { data, error } = await supabase.functions.invoke('summarize-shopping-list', {
-      body: { items }
+      body: { ingredients: rawIngredients }
     });
     
     if (error) {
       console.error("Error calling summarize-shopping-list function:", error);
-      // Fall back to local processing if the edge function fails
-      return groupBasicIngredients(items);
+      // Fall back to simple aggregation if the edge function fails
+      return groupBasicIngredients(convertRecipesToItems(recipes));
     }
     
-    if (data && data.items && Array.isArray(data.items)) {
-      return data.items;
+    if (data && data.categories) {
+      console.log("Received categorized data from AI:", data);
+      return convertCategorizedToShoppingList(data);
     }
     
     throw new Error("Invalid response from summarize-shopping-list function");
   } catch (err) {
     console.error("Error summarizing shopping list with AI:", err);
-    // Fall back to local processing
-    return groupBasicIngredients(items);
+    // Fall back to simple aggregation
+    return groupBasicIngredients(convertRecipesToItems(recipes));
   }
+}
+
+/**
+ * Convert recipes to basic shopping list items for fallback processing
+ */
+function convertRecipesToItems(recipes: Recipe[]): ShoppingListItem[] {
+  const items: ShoppingListItem[] = [];
+  
+  recipes.forEach(recipe => {
+    if (!recipe.ingredients) return;
+    
+    recipe.ingredients.forEach(ingredient => {
+      if (ingredient && ingredient.trim()) {
+        items.push({
+          id: `${ingredient.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`,
+          name: ingredient.trim(),
+          quantity: "",
+          isBought: false
+        });
+      }
+    });
+  });
+  
+  return items;
 }
 
 // Basic ingredients that should be treated as single items without quantities

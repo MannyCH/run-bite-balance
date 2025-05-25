@@ -4,6 +4,7 @@ export interface ShoppingListItem {
   name: string;
   quantity: string;
   isBought: boolean;
+  category?: string;
 }
 
 export type ShoppingList = ShoppingListItem[];

@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { ShoppingList, ShoppingListItem } from "@/types/shoppingList";
 import { Recipe } from "@/context/types";
-import { aggregateIngredients } from "@/utils/shoppingList/extractIngredients";
+import { summarizeWithAI } from "@/utils/shoppingList/summarizeIngredients";
 
 interface ShoppingListContextType {
   shoppingList: ShoppingList;
@@ -44,8 +44,10 @@ export const ShoppingListProvider: React.FC<{ children: React.ReactNode }> = ({ 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(shoppingList));
   }, [shoppingList]);
 
-  const generateShoppingList = (recipes: Recipe[]) => {
-    const newList = aggregateIngredients(recipes);
+  const generateShoppingList = async (recipes: Recipe[]) => {
+    console.log("Generating shopping list from recipes:", recipes.length);
+    const newList = await summarizeWithAI(recipes);
+    console.log("Generated shopping list:", newList);
     setShoppingList(newList);
   };
 

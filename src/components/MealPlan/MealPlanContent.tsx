@@ -38,16 +38,19 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
     });
   };
 
-  const handleGenerateShoppingList = () => {
+  const handleGenerateShoppingList = async () => {
     // Collect all recipes used in the meal plan
-    const recipesInPlan = Object.values(recipes).filter(recipe => recipe && recipe.ingredients);
+    const recipesInPlan = Object.values(recipes).filter(recipe => 
+      recipe && recipe.ingredients && Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0
+    );
     
     if (recipesInPlan.length === 0) {
       toast.error("No recipes with ingredients found in the meal plan");
       return;
     }
     
-    generateShoppingList(recipesInPlan);
+    console.log("Generating shopping list from recipes:", recipesInPlan);
+    await generateShoppingList(recipesInPlan);
     toast.success("Shopping list generated successfully");
     navigate("/shopping-list");
   };

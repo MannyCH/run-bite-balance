@@ -10,42 +10,16 @@ import { Badge } from "@/components/ui/badge";
 import { ListChecks, Search, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { ShoppingListItem } from "@/types/shoppingList";
-import { summarizeWithAI } from "@/utils/shoppingList/summarizeIngredients";
 
 const ShoppingList: React.FC = () => {
   const { shoppingList, toggleItemBought, clearShoppingList } = useShoppingList();
   const [searchTerm, setSearchTerm] = useState("");
-  const [processedList, setProcessedList] = useState<ShoppingListItem[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  // Process the shopping list with AI when it changes
-  useEffect(() => {
-    const processList = async () => {
-      if (shoppingList.length > 0) {
-        setIsProcessing(true);
-        try {
-          const summarized = await summarizeWithAI(shoppingList);
-          setProcessedList(summarized);
-        } catch (error) {
-          console.error("Error processing shopping list:", error);
-          // Fallback to original list if AI processing fails
-          setProcessedList(shoppingList);
-        } finally {
-          setIsProcessing(false);
-        }
-      } else {
-        setProcessedList([]);
-      }
-    };
-    
-    processList();
-  }, [shoppingList]);
 
   const filteredItems = searchTerm
-    ? processedList.filter(item => 
+    ? shoppingList.filter(item => 
         item.name.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    : processedList;
+    : shoppingList;
 
   const handleCheckboxChange = (id: string) => {
     toggleItemBought(id);
@@ -61,6 +35,16 @@ const ShoppingList: React.FC = () => {
   const purchasedItems = shoppingList.filter(item => item.isBought).length;
   const totalItems = shoppingList.length;
 
+  // Group items by category
+  const groupedItems = filteredItems.reduce((groups, item) => {
+    const category = item.category || "Other";
+    if (!groups[category]) {
+      groups[category] = [];
+    }
+    groups[category].push(item);
+    return groups;
+  }, {} as Record<string, ShoppingListItem[]>);
+
   return (
     <MainLayout>
       <div className="mb-8">
@@ -69,7 +53,7 @@ const ShoppingList: React.FC = () => {
           Shopping List
         </h1>
         <p className="text-gray-600">
-          Items from your meal plan recipes
+          Items from your meal plan recipes, organized by category
         </p>
       </div>
 
@@ -95,11 +79,7 @@ const ShoppingList: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {isProcessing ? (
-            <div className="text-center py-10">
-              <p className="text-muted-foreground">Processing your shopping list...</p>
-            </div>
-          ) : filteredItems.length === 0 ? (
+          {filteredItems.length === 0 ? (
             <div className="text-center py-10">
               {shoppingList.length === 0 ? (
                 <p className="text-muted-foreground">
@@ -110,37 +90,43 @@ const ShoppingList: React.FC = () => {
               )}
             </div>
           ) : (
-            <ul className="space-y-2">
-              {filteredItems.map((item) => (
-                <li 
-                  key={item.id} 
-                  className="flex items-center p-2 border-b last:border-0 hover:bg-gray-50 rounded-md"
-                >
-                  {/* Checkbox first */}
-                  <Checkbox 
-                    id={item.id} 
-                    checked={item.isBought}
-                    onCheckedChange={() => handleCheckboxChange(item.id)}
-                    className="mr-3 flex-shrink-0"
-                  />
-                  
-                  {/* Quantity Badge before name */}
-                  {item.quantity && (
-                    <Badge variant="secondary" className="mr-3 text-sm px-2 py-0.5">
-                      {item.quantity}
-                    </Badge>
-                  )}
-                  
-                  {/* Item name */}
-                  <label 
-                    htmlFor={item.id} 
-                    className={`flex flex-1 cursor-pointer ${item.isBought ? 'line-through text-gray-400' : ''}`}
-                  >
-                    <span className="font-medium capitalize">{item.name}</span>
-                  </label>
-                </li>
+            <div className="space-y-6">
+              {Object.entries(groupedItems).map(([category, items]) => (
+                <div key={category}>
+                  <h3 className="text-lg font-medium mb-3 text-gray-700 border-b pb-1">
+                    {category}
+                  </h3>
+                  <ul className="space-y-2 ml-4">
+                    {items.map((item) => (
+                      <li 
+                        key={item.id} 
+                        className="flex items-center p-2 border-b last:border-0 hover:bg-gray-50 rounded-md"
+                      >
+                        <Checkbox 
+                          id={item.id} 
+                          checked={item.isBought}
+                          onCheckedChange={() => handleCheckboxChange(item.id)}
+                          className="mr-3 flex-shrink-0"
+                        />
+                        
+                        {item.quantity && (
+                          <Badge variant="secondary" className="mr-3 text-sm px-2 py-0.5">
+                            {item.quantity}
+                          </Badge>
+                        )}
+                        
+                        <label 
+                          htmlFor={item.id} 
+                          className={`flex flex-1 cursor-pointer ${item.isBought ? 'line-through text-gray-400' : ''}`}
+                        >
+                          <span className="font-medium capitalize">{item.name}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </CardContent>
       </Card>

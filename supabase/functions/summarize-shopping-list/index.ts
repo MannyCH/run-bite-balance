@@ -27,38 +27,49 @@ serve(async (req) => {
   }
 
   try {
-    const { items } = await req.json();
+    const { ingredients } = await req.json();
 
     const prompt = `
-You are a helpful assistant. Clean and consolidate the following shopping list:
+Here is a list of ingredients extracted from a weekly meal plan:
 
-${JSON.stringify(items, null, 2)}
+${ingredients.map((ing: string) => `• ${ing}`).join('\n')}
 
-Instructions:
-1. Remove words like "chopped", "organic", "sliced", "diced", etc.
-2. Combine variations of the same item (e.g. "olivenöl", "olive oil", "extra virgin olive oil" → "Olive oil")
-3. Normalize units and remove measurement words like "EL", "TL", "TSP", "TBSP", "esslöffel", "teelöffel"
-4. For basic ingredients like salt, pepper, olive oil, etc., omit the quantity and just list the ingredient ONCE
-5. For items with multiple entries of the same type (like eggplants), summarize the total quantity (e.g. "5 eggplants" instead of listing them individually)
-6. Group similar items when appropriate
-7. Output only a valid JSON array with this structure:
+Please:
+1. Combine duplicate ingredients by summing their amounts
+2. Sum partial quantities (e.g., 1/4 + 1 = 1.25)
+3. Ignore quantities for basic items like olive oil, salt, and pepper
+4. Mark optional ingredients with "(optional)"
+5. Normalize ingredient names (e.g., "Zwiebel" and "onion" count as the same)
+6. Categorize all ingredients into:
+   • Fruits
+   • Vegetables
+   • Dairy Products
+   • Grains & Legumes
+   • Meat & Fish
+   • Canned & Dry Goods
+   • Spices & Condiments
+   • Other
 
-[
-  {
-    "id": "string", // keep original ID from first occurrence
-    "name": "Broccoli",
-    "quantity": "500g", // must be empty string for basic ingredients
-    "isBought": false
-  },
-  ...
-]
+Output the final shopping list grouped by category in this JSON format:
 
-Basic ingredients that should NEVER show quantities and should only appear ONCE in the list: 
-olive oil, salt, pepper, spices, butter, water, garlic, cinnamon, sugar, flour.
+{
+  "categories": {
+    "Fruits": [
+      {"id": "unique-id", "name": "Apple", "quantity": "3", "isBought": false}
+    ],
+    "Vegetables": [
+      {"id": "unique-id", "name": "Broccoli", "quantity": "500g", "isBought": false}
+    ],
+    "Dairy Products": [...],
+    "Grains & Legumes": [...],
+    "Meat & Fish": [...],
+    "Canned & Dry Goods": [...],
+    "Spices & Condiments": [...],
+    "Other": [...]
+  }
+}
 
-For other ingredients that appear multiple times with different quantities, summarize them with their total amount.
-
-IMPORTANT: Return only the valid JSON array. Do NOT include explanations, markdown, or text around it.
+IMPORTANT: Return only the valid JSON object. Do NOT include explanations, markdown, or text around it.
     `;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -73,7 +84,7 @@ IMPORTANT: Return only the valid JSON array. Do NOT include explanations, markdo
           {
             role: "system",
             content:
-              "You are a helpful shopping list organizer. Return only clean JSON output.",
+              "You are a helpful shopping list organizer. Return only clean JSON output with categorized ingredients.",
           },
           { role: "user", content: prompt },
         ],
@@ -89,23 +100,23 @@ IMPORTANT: Return only the valid JSON array. Do NOT include explanations, markdo
       throw new Error("Failed to process shopping list with OpenAI");
     }
 
-    let processedItems;
+    let processedData;
     const content = data.choices[0].message.content;
 
     try {
       // Try direct JSON parse
-      processedItems = JSON.parse(content);
+      processedData = JSON.parse(content);
     } catch {
-      // Fallback to extracting array from wrapped text
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      // Fallback to extracting JSON from wrapped text
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        processedItems = JSON.parse(jsonMatch[0]);
+        processedData = JSON.parse(jsonMatch[0]);
       } else {
         throw new Error("Could not extract JSON from OpenAI response");
       }
     }
 
-    return new Response(JSON.stringify({ items: processedItems }), {
+    return new Response(JSON.stringify(processedData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
