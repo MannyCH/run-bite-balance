@@ -1,23 +1,83 @@
 import { Recipe } from "@/context/types";
 import { ShoppingListItem } from "@/types/shoppingList";
+import { MealPlanItem } from "@/types/profile";
 
 /**
- * Extract raw ingredients from all recipes for OpenAI processing
+ * Extract raw ingredients from recipes with frequency multipliers based on meal plan occurrences
  */
-export function extractRawIngredients(recipes: Recipe[]): string[] {
+export function extractRawIngredientsWithFrequency(
+  recipes: Recipe[], 
+  mealPlanItems: MealPlanItem[]
+): string[] {
   const allIngredients: string[] = [];
   
+  // Count how many times each recipe appears in the meal plan
+  const recipeFrequency = new Map<string, number>();
+  mealPlanItems.forEach(item => {
+    if (item.recipe_id) {
+      const currentCount = recipeFrequency.get(item.recipe_id) || 0;
+      recipeFrequency.set(item.recipe_id, currentCount + 1);
+    }
+  });
+  
+  // Extract ingredients and multiply by frequency
   recipes.forEach(recipe => {
-    if (!recipe.ingredients) return;
+    if (!recipe.ingredients || !recipe.id) return;
+    
+    const frequency = recipeFrequency.get(recipe.id) || 1;
     
     recipe.ingredients.forEach(ingredient => {
       if (ingredient && ingredient.trim()) {
-        allIngredients.push(ingredient.trim());
+        // If frequency > 1, we need to multiply the quantity in the ingredient string
+        if (frequency > 1) {
+          const multipliedIngredient = multiplyIngredientQuantity(ingredient.trim(), frequency);
+          allIngredients.push(multipliedIngredient);
+        } else {
+          allIngredients.push(ingredient.trim());
+        }
       }
     });
   });
   
   return allIngredients;
+}
+
+/**
+ * Multiply the quantity in an ingredient string by a given factor
+ */
+function multiplyIngredientQuantity(ingredient: string, multiplier: number): string {
+  // Match patterns like "2 cups flour", "500g rice", "1 tbsp olive oil", "1/2 tsp salt"
+  const quantityMatch = ingredient.match(/^(\d+(?:\/\d+)?(?:\.\d+)?)\s*(.*)$/);
+  
+  if (quantityMatch) {
+    const originalQuantity = quantityMatch[1];
+    const restOfIngredient = quantityMatch[2];
+    
+    let numericQuantity: number;
+    
+    // Handle fractions like "1/2"
+    if (originalQuantity.includes('/')) {
+      const [numerator, denominator] = originalQuantity.split('/');
+      numericQuantity = parseFloat(numerator) / parseFloat(denominator);
+    } else {
+      numericQuantity = parseFloat(originalQuantity);
+    }
+    
+    const multipliedQuantity = numericQuantity * multiplier;
+    
+    // Convert back to a reasonable format
+    if (multipliedQuantity % 1 === 0) {
+      // If it's a whole number
+      return `${multipliedQuantity} ${restOfIngredient}`;
+    } else {
+      // If it has decimals, keep 2 decimal places max
+      return `${multipliedQuantity.toFixed(2)} ${restOfIngredient}`;
+    }
+  }
+  
+  // If no quantity pattern found, just return original ingredient
+  // This handles cases like "salt", "pepper", "olive oil" where quantity isn't specified
+  return ingredient;
 }
 
 /**

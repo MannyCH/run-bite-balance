@@ -50,7 +50,8 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
     }
     
     console.log("Generating shopping list from recipes:", recipesInPlan);
-    await generateShoppingList(recipesInPlan);
+    console.log("Using meal plan items:", mealPlanItems);
+    await generateShoppingList(recipesInPlan, mealPlanItems);
     toast.success("Shopping list generated successfully");
     navigate("/shopping-list");
   };

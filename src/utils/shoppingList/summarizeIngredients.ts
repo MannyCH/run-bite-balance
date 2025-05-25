@@ -1,17 +1,19 @@
+
 import { ShoppingListItem } from "@/types/shoppingList";
 import { supabase } from "@/integrations/supabase/client";
-import { extractRawIngredients, convertCategorizedToShoppingList } from "./extractIngredients";
+import { extractRawIngredientsWithFrequency, convertCategorizedToShoppingList } from "./extractIngredients";
 import { Recipe } from "@/context/types";
+import { MealPlanItem } from "@/types/profile";
 
 /**
  * Use OpenAI via Supabase Edge Function to create a categorized shopping list
  */
-export async function summarizeWithAI(recipes: Recipe[]): Promise<ShoppingListItem[]> {
+export async function summarizeWithAI(recipes: Recipe[], mealPlanItems: MealPlanItem[]): Promise<ShoppingListItem[]> {
   if (recipes.length === 0) return [];
   
   try {
-    // Extract raw ingredients from all recipes
-    const rawIngredients = extractRawIngredients(recipes);
+    // Extract raw ingredients from all recipes with frequency multipliers
+    const rawIngredients = extractRawIngredientsWithFrequency(recipes, mealPlanItems);
     
     if (rawIngredients.length === 0) {
       console.log("No ingredients found in recipes");
@@ -27,7 +29,7 @@ export async function summarizeWithAI(recipes: Recipe[]): Promise<ShoppingListIt
     if (error) {
       console.error("Error calling summarize-shopping-list function:", error);
       // Fall back to simple aggregation if the edge function fails
-      return groupBasicIngredients(convertRecipesToItems(recipes));
+      return groupBasicIngredients(convertRecipesToItems(recipes, mealPlanItems));
     }
     
     if (data && data.categories) {
@@ -39,25 +41,36 @@ export async function summarizeWithAI(recipes: Recipe[]): Promise<ShoppingListIt
   } catch (err) {
     console.error("Error summarizing shopping list with AI:", err);
     // Fall back to simple aggregation
-    return groupBasicIngredients(convertRecipesToItems(recipes));
+    return groupBasicIngredients(convertRecipesToItems(recipes, mealPlanItems));
   }
 }
 
 /**
  * Convert recipes to basic shopping list items for fallback processing
  */
-function convertRecipesToItems(recipes: Recipe[]): ShoppingListItem[] {
+function convertRecipesToItems(recipes: Recipe[], mealPlanItems: MealPlanItem[]): ShoppingListItem[] {
   const items: ShoppingListItem[] = [];
   
+  // Count recipe frequency
+  const recipeFrequency = new Map<string, number>();
+  mealPlanItems.forEach(item => {
+    if (item.recipe_id) {
+      const currentCount = recipeFrequency.get(item.recipe_id) || 0;
+      recipeFrequency.set(item.recipe_id, currentCount + 1);
+    }
+  });
+  
   recipes.forEach(recipe => {
-    if (!recipe.ingredients) return;
+    if (!recipe.ingredients || !recipe.id) return;
+    
+    const frequency = recipeFrequency.get(recipe.id) || 1;
     
     recipe.ingredients.forEach(ingredient => {
       if (ingredient && ingredient.trim()) {
         items.push({
           id: `${ingredient.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`,
           name: ingredient.trim(),
-          quantity: "",
+          quantity: frequency > 1 ? `x${frequency}` : "",
           isBought: false
         });
       }

@@ -2,12 +2,13 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { ShoppingList, ShoppingListItem } from "@/types/shoppingList";
 import { Recipe } from "@/context/types";
+import { MealPlanItem } from "@/types/profile";
 import { summarizeWithAI } from "@/utils/shoppingList/summarizeIngredients";
 
 interface ShoppingListContextType {
   shoppingList: ShoppingList;
   setShoppingList: React.Dispatch<React.SetStateAction<ShoppingList>>;
-  generateShoppingList: (recipes: Recipe[]) => void;
+  generateShoppingList: (recipes: Recipe[], mealPlanItems: MealPlanItem[]) => void;
   toggleItemBought: (id: string) => void;
   clearShoppingList: () => void;
 }
@@ -44,9 +45,9 @@ export const ShoppingListProvider: React.FC<{ children: React.ReactNode }> = ({ 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(shoppingList));
   }, [shoppingList]);
 
-  const generateShoppingList = async (recipes: Recipe[]) => {
-    console.log("Generating shopping list from recipes:", recipes.length);
-    const newList = await summarizeWithAI(recipes);
+  const generateShoppingList = async (recipes: Recipe[], mealPlanItems: MealPlanItem[]) => {
+    console.log("Generating shopping list from recipes:", recipes.length, "with meal plan items:", mealPlanItems.length);
+    const newList = await summarizeWithAI(recipes, mealPlanItems);
     console.log("Generated shopping list:", newList);
     setShoppingList(newList);
   };
