@@ -1,4 +1,3 @@
-
 import { ShoppingListItem } from "@/types/shoppingList";
 import { supabase } from "@/integrations/supabase/client";
 import { extractRawIngredientsWithFrequency, convertCategorizedToShoppingList } from "./extractIngredients";
@@ -80,7 +79,7 @@ function convertRecipesToItems(recipes: Recipe[], mealPlanItems: MealPlanItem[])
   return items;
 }
 
-// Basic ingredients that should be treated as single items without quantities
+// Basic ingredients that should be treated as single items without quantities and marked as bought
 const BASIC_INGREDIENTS = [
   "olive oil", "olivenöl", "olivenoel", "vegetable oil", "sunflower oil", "canola oil", "coconut oil",
   "salt", "salz", "pepper", "pfeffer", "black pepper", "white pepper", 
@@ -137,7 +136,7 @@ export function groupBasicIngredients(items: ShoppingListItem[]): ShoppingListIt
       quantity: cleanQuantity(item.quantity)
     };
     
-    // Check if it's a basic ingredient (no quantity needed)
+    // Check if it's a basic ingredient (no quantity needed and mark as bought)
     const isBasic = BASIC_INGREDIENTS.some(basic => cleanedItem.name.includes(basic.toLowerCase()));
     if (isBasic) {
       const basicKey = normalizeBasicIngredient(cleanedItem.name);
@@ -166,13 +165,14 @@ export function groupBasicIngredients(items: ShoppingListItem[]): ShoppingListIt
     result.push(cleanedItem);
   });
   
-  // Process basic ingredients (without quantities)
+  // Process basic ingredients (without quantities and mark as bought)
   Object.entries(basicIngredientGroups).forEach(([basicName, groupItems]) => {
     result.push({
       id: groupItems[0].id,
       name: basicName.charAt(0).toUpperCase() + basicName.slice(1),
       quantity: "", // No quantity for basic ingredients
-      isBought: groupItems.every(i => i.isBought)
+      isBought: true, // Mark basic ingredients as already bought
+      category: "Spices & Condiments"
     });
   });
   

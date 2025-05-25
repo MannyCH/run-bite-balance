@@ -40,7 +40,8 @@ Please:
 3. Ignore quantities for basic items like olive oil, salt, and pepper
 4. Mark optional ingredients with "(optional)"
 5. Normalize ingredient names (e.g., "Zwiebel" and "onion" count as the same)
-6. Categorize all ingredients into:
+6. Mark basic pantry ingredients as already bought (isBought: true) - these include: olive oil, salt, pepper, flour, sugar, butter, garlic, spices, herbs, water, vinegar, and other common pantry staples
+7. Categorize all ingredients into:
    • Fruits
    • Vegetables
    • Dairy Products
@@ -64,7 +65,10 @@ Output the final shopping list grouped by category in this JSON format:
     "Grains & Legumes": [...],
     "Meat & Fish": [...],
     "Canned & Dry Goods": [...],
-    "Spices & Condiments": [...],
+    "Spices & Condiments": [
+      {"id": "unique-id", "name": "Olive Oil", "quantity": "", "isBought": true},
+      {"id": "unique-id", "name": "Salt", "quantity": "", "isBought": true}
+    ],
     "Other": [...]
   }
 }
@@ -84,7 +88,7 @@ IMPORTANT: Return only the valid JSON object. Do NOT include explanations, markd
           {
             role: "system",
             content:
-              "You are a helpful shopping list organizer. Return only clean JSON output with categorized ingredients.",
+              "You are a helpful shopping list organizer. Return only clean JSON output with categorized ingredients. Mark basic pantry ingredients as already bought (isBought: true).",
           },
           { role: "user", content: prompt },
         ],
