@@ -12,7 +12,8 @@ interface NutritionData {
 export const useNutritionAnalysis = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const analyzeRecipeNutrition = async (
+  const analyzeAndSaveRecipeNutrition = async (
+    recipeId: string,
     ingredients: string[],
     servings?: string | number
   ): Promise<NutritionData | null> => {
@@ -23,6 +24,7 @@ export const useNutritionAnalysis = () => {
 
     setIsAnalyzing(true);
     try {
+      // First, call the nutrition analysis function
       const { data, error } = await supabase.functions.invoke('analyze-nutrition', {
         body: { 
           ingredients: ingredients.filter(ing => ing && ing.trim()),
@@ -36,12 +38,32 @@ export const useNutritionAnalysis = () => {
       }
 
       if (data && typeof data.calories === 'number') {
-        return {
+        const nutritionData = {
           calories: Math.round(data.calories),
           protein: Math.round(data.protein),
           carbs: Math.round(data.carbs),
           fat: Math.round(data.fat)
         };
+
+        // Save the nutrition data to the recipe in the database
+        const { error: updateError } = await supabase
+          .from('recipes')
+          .update({
+            calories: nutritionData.calories,
+            protein: nutritionData.protein,
+            carbs: nutritionData.carbs,
+            fat: nutritionData.fat
+          })
+          .eq('id', recipeId);
+
+        if (updateError) {
+          console.error('Error saving nutrition data to recipe:', updateError);
+          // Still return the data even if saving failed
+        } else {
+          console.log('Successfully saved nutrition data to recipe:', recipeId);
+        }
+
+        return nutritionData;
       }
 
       console.error('Invalid nutrition data received:', data);
@@ -55,7 +77,7 @@ export const useNutritionAnalysis = () => {
   };
 
   return {
-    analyzeRecipeNutrition,
+    analyzeAndSaveRecipeNutrition,
     isAnalyzing
   };
 };

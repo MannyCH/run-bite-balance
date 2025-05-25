@@ -15,74 +15,50 @@ interface MealPlanItemProps {
 
 export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
   const navigate = useNavigate();
-  const { analyzeRecipeNutrition, isAnalyzing } = useNutritionAnalysis();
-  const [nutritionData, setNutritionData] = useState<{
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  } | null>(null);
+  const { analyzeAndSaveRecipeNutrition, isAnalyzing } = useNutritionAnalysis();
+  const [hasAnalyzed, setHasAnalyzed] = useState(false);
 
   // Format meal type for display
   const formatMealType = (type: string) => {
     return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
-  // Check if we need to analyze nutrition (when values are 0 or missing)
+  // Check if recipe needs nutrition analysis
   const needsNutritionAnalysis = () => {
-    const hasStoredValues = item.calories && item.protein && item.carbs && item.fat;
-    const hasRecipeIngredients = recipe?.ingredients && recipe.ingredients.length > 0;
-    return !hasStoredValues && hasRecipeIngredients && !nutritionData;
+    if (!recipe?.ingredients || recipe.ingredients.length === 0) return false;
+    
+    // Check if recipe has nutrition data (any non-zero value indicates it has been analyzed)
+    const hasNutritionData = recipe.calories > 0 || recipe.protein > 0 || recipe.carbs > 0 || recipe.fat > 0;
+    return !hasNutritionData && !hasAnalyzed;
   };
 
   // Analyze nutrition when component mounts if needed
   useEffect(() => {
-    if (needsNutritionAnalysis()) {
+    if (needsNutritionAnalysis() && recipe?.id) {
       const analyzeNutrition = async () => {
-        const result = await analyzeRecipeNutrition(
+        const result = await analyzeAndSaveRecipeNutrition(
+          recipe.id,
           recipe.ingredients,
           recipe.servings
         );
         if (result) {
-          setNutritionData(result);
+          setHasAnalyzed(true);
+          // Update the recipe object with the new nutrition data
+          Object.assign(recipe, result);
         }
       };
       
       analyzeNutrition();
     }
-  }, [recipe, item]);
+  }, [recipe]);
 
-  // Get display values (prioritize stored values, then analyzed values, then show analyzing state)
+  // Get display values from recipe data
   const getDisplayValues = () => {
-    // If we have stored values from the meal plan item, use those
-    if (item.calories || item.protein || item.carbs || item.fat) {
-      return {
-        calories: item.calories || 0,
-        protein: item.protein || 0,
-        carbs: item.carbs || 0,
-        fat: item.fat || 0,
-        isAnalyzed: false
-      };
-    }
-
-    // If we have analyzed values, use those
-    if (nutritionData) {
-      return {
-        calories: nutritionData.calories,
-        protein: nutritionData.protein,
-        carbs: nutritionData.carbs,
-        fat: nutritionData.fat,
-        isAnalyzed: true
-      };
-    }
-
-    // Show analyzing state or zeros
     return {
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      isAnalyzed: false
+      calories: recipe?.calories || 0,
+      protein: recipe?.protein || 0,
+      carbs: recipe?.carbs || 0,
+      fat: recipe?.fat || 0
     };
   };
 
@@ -128,28 +104,23 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
                 ) : (
                   <>
                     {displayValues.calories > 0 && (
-                      <Badge variant="secondary" className={displayValues.isAnalyzed ? "bg-green-100 text-green-800" : ""}>
+                      <Badge variant="secondary">
                         {displayValues.calories} cal
                       </Badge>
                     )}
                     {displayValues.protein > 0 && (
-                      <Badge variant="secondary" className={displayValues.isAnalyzed ? "bg-green-100 text-green-800" : ""}>
+                      <Badge variant="secondary">
                         P: {displayValues.protein}g
                       </Badge>
                     )}
                     {displayValues.carbs > 0 && (
-                      <Badge variant="secondary" className={displayValues.isAnalyzed ? "bg-green-100 text-green-800" : ""}>
+                      <Badge variant="secondary">
                         C: {displayValues.carbs}g
                       </Badge>
                     )}
                     {displayValues.fat > 0 && (
-                      <Badge variant="secondary" className={displayValues.isAnalyzed ? "bg-green-100 text-green-800" : ""}>
+                      <Badge variant="secondary">
                         F: {displayValues.fat}g
-                      </Badge>
-                    )}
-                    {displayValues.isAnalyzed && (
-                      <Badge variant="outline" className="text-xs">
-                        AI Estimated
                       </Badge>
                     )}
                   </>
