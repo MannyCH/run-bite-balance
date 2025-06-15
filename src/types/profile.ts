@@ -42,7 +42,7 @@ export interface MealPlanItem {
   meal_plan_id: string;
   recipe_id?: string | null;
   date: string;
-  meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  meal_type: 'breakfast' | 'lunch' | 'dinner' | 'pre_run_snack' | 'post_run_snack';
   nutritional_context?: string | null;
   custom_title?: string | null;
   calories?: number;

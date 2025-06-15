@@ -1,4 +1,3 @@
-
 // Utility for processing AI-generated meal plans
 import { UserProfile, MealPlan, MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
@@ -30,67 +29,90 @@ interface AIMealPlanResponse {
  */
 export async function processAIMealPlan(
   userId: string,
-  aiResponse: AIMealPlanResponse,
+  aiResponse: any,
   startDate: string,
   endDate: string,
-  recipes: Record<string, Recipe>
+  recipesMap: Record<string, Recipe>
 ): Promise<MealPlanItem[] | null> {
   try {
-    // Create a new meal plan record
+    console.log('Processing AI meal plan response');
+    
+    if (!aiResponse?.mealPlan?.days) {
+      console.error('Invalid AI meal plan structure');
+      return null;
+    }
+
+    // Create or update the meal plan record
     const mealPlan = await createOrUpdateMealPlan(userId, startDate, endDate);
     if (!mealPlan) {
       console.error('Failed to create meal plan record');
       return null;
     }
-    
-    // Delete any existing meal plan items
+
+    // Delete existing meal plan items
     const deleteSuccess = await deleteExistingMealPlanItems(mealPlan.id);
     if (!deleteSuccess) {
       console.error('Failed to delete existing meal plan items');
       return null;
     }
-    
-    // Convert AI meal plan to database format
+
     const mealPlanItems: Partial<MealPlanItem>[] = [];
-    
-    if (!aiResponse.mealPlan || !Array.isArray(aiResponse.mealPlan.days)) {
-      console.error('Invalid AI meal plan structure', aiResponse);
-      return null;
-    }
-    
-    aiResponse.mealPlan.days.forEach(day => {
-      if (!day.date || !Array.isArray(day.meals)) return;
+
+    // Process each day from the AI response
+    for (const day of aiResponse.mealPlan.days) {
+      const { date, meals } = day;
       
-      day.meals.forEach(meal => {
-        // Verify the recipe exists
-        const recipe = recipes[meal.recipe_id];
-        if (!recipe) {
-          console.warn(`Recipe not found: ${meal.recipe_id}`);
-          return;
-        }
+      for (const meal of meals) {
+        const { meal_type, recipe_id, explanation } = meal;
         
+        // Validate meal type to include new snack types
+        const validMealType = validateMealType(meal_type);
+        
+        // Handle simple snacks vs recipe-based meals
+        let recipeData = null;
+        let customTitle = null;
+        
+        if (recipe_id === 'simple-snack' || (validMealType === 'pre_run_snack' || validMealType === 'post_run_snack')) {
+          // For snacks, use explanation as custom title and set basic nutrition
+          customTitle = explanation || 'Healthy snack';
+          recipeData = {
+            calories: validMealType === 'pre_run_snack' ? 150 : 200, // Default calories for snacks
+            protein: validMealType === 'pre_run_snack' ? 3 : 10,
+            carbs: validMealType === 'pre_run_snack' ? 30 : 25,
+            fat: validMealType === 'pre_run_snack' ? 2 : 8
+          };
+        } else if (recipesMap[recipe_id]) {
+          // For main meals, use the actual recipe data
+          recipeData = recipesMap[recipe_id];
+        } else {
+          console.warn(`Recipe not found: ${recipe_id}, skipping meal`);
+          continue;
+        }
+
         mealPlanItems.push({
           id: crypto.randomUUID(),
           meal_plan_id: mealPlan.id,
-          recipe_id: meal.recipe_id,
-          date: day.date,
-          meal_type: validateMealType(meal.meal_type), // Validate meal type to ensure it's one of the allowed types
-          nutritional_context: meal.explanation,
-          calories: recipe.calories,
-          protein: recipe.protein,
-          carbs: recipe.carbs,
-          fat: recipe.fat
+          recipe_id: (validMealType === 'pre_run_snack' || validMealType === 'post_run_snack') ? null : recipe_id,
+          date,
+          meal_type: validMealType,
+          nutritional_context: explanation,
+          custom_title: customTitle,
+          calories: recipeData.calories,
+          protein: recipeData.protein,
+          carbs: recipeData.carbs,
+          fat: recipeData.fat
         });
-      });
-    });
-    
-    // Insert the new meal plan items
+      }
+    }
+
+    // Insert the processed meal plan items
     const savedItems = await insertMealPlanItems(mealPlanItems);
     if (!savedItems) {
-      console.error('Failed to save meal plan items');
+      console.error('Failed to insert meal plan items');
       return null;
     }
-    
+
+    console.log(`Successfully processed ${savedItems.length} meal plan items`);
     return savedItems;
   } catch (error) {
     console.error('Error processing AI meal plan:', error);

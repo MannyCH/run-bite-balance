@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
@@ -299,24 +298,34 @@ DIETARY RESTRICTIONS & PREFERENCES:
 
 Your task is to create a meal plan that:
 1. Meets the specific caloric targets for each day and meal
-2. Adjusts portions appropriately on high-activity/run days
+2. On run days, adds strategic pre-run and post-run snacks for optimal performance and recovery
 3. Follows the user's nutritional approach (${profile.nutritional_theory || 'balanced'})
 4. Respects all dietary restrictions and preferences
 5. Provides appropriate portion guidance to meet caloric goals
 6. Ensures variety and nutritional balance across the week
 
-IMPORTANT MEAL SELECTION RULES:
-- Focus on THREE main meals only (breakfast, lunch, dinner) - NO SNACKS
-- Breakfast: Energizing foods appropriate for morning, higher carbs on run days
-- Lunch: Balanced meals, larger portions on high-activity days
-- Dinner: Satisfying meals with good protein for recovery on run days
+MEAL PLANNING RULES:
 
-PORTION GUIDANCE:
-- Adjust recipe serving sizes to meet meal caloric targets
-- On run days, increase portions proportionally across all meals
-- Consider timing: if runs are planned, optimize pre/post-run nutrition in regular meals
+**REGULAR DAYS (No Runs):**
+- THREE main meals only: breakfast, lunch, dinner
+- No snacks needed
 
-IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", or "dinner". Do not include snacks.
+**RUN DAYS (Planned Runs):**
+- THREE main meals: breakfast, lunch, dinner (normal portions)
+- PRE-RUN SNACK: Light, easily digestible carbs 30-60 minutes before run
+  - Examples: banana, small yogurt, toast with honey, dates, small smoothie
+  - 100-200 calories, focus on quick energy
+- POST-RUN SNACK: Protein + carbs for recovery within 30 minutes after run  
+  - Examples: Greek yogurt with berries, protein smoothie, nuts with fruit, chocolate milk
+  - 150-250 calories, focus on recovery
+
+**SNACK SELECTION GUIDELINES:**
+- Use simple, real foods rather than complex recipes when possible
+- Consider run timing to optimize pre/post-run nutrition
+- Match snack complexity to user's dietary preferences
+- If using recipe ingredients, suggest simple preparations
+
+IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", "dinner", "pre_run_snack", or "post_run_snack".
 
 The response should be a JSON object following this exact structure:
 {
@@ -325,16 +334,18 @@ The response should be a JSON object following this exact structure:
       "date": "YYYY-MM-DD",
       "meals": [
         {
-          "meal_type": "breakfast", // MUST be "breakfast", "lunch", or "dinner"
+          "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", "pre_run_snack", or "post_run_snack"
           "recipe_id": "the-recipe-id", 
-          "explanation": "Why this recipe fits the nutritional approach, caloric target, and activity level for this day. Include portion guidance if needed."
+          "explanation": "Why this recipe/snack fits the nutritional approach, timing, and activity level for this day. Include preparation/timing guidance for snacks."
         }
       ]
     }
   ]
 }
 
-Only include recipes from the provided list. Ensure every meal has a valid recipe_id from the list.`
+For snacks, you may use "simple-snack" as recipe_id and provide the snack suggestion in the explanation field.
+
+Only include recipes from the provided list for main meals. For snacks, prioritize simple whole foods over complex recipes.`
     };
 
     console.log(`Making request to OpenAI API with model: gpt-4o`);

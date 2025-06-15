@@ -1,13 +1,13 @@
-
 // Utility functions for validating meal plan data
 import { MealPlanItem } from '@/types/profile';
 
 // Helper function to validate meal type
-export function validateMealType(mealType: string): "breakfast" | "lunch" | "dinner" | "snack" {
-  if (["breakfast", "lunch", "dinner", "snack"].includes(mealType.toLowerCase())) {
-    return mealType.toLowerCase() as "breakfast" | "lunch" | "dinner" | "snack";
+export function validateMealType(mealType: string): 'breakfast' | 'lunch' | 'dinner' | 'pre_run_snack' | 'post_run_snack' {
+  const validMealTypes = ['breakfast', 'lunch', 'dinner', 'pre_run_snack', 'post_run_snack'] as const;
+  if (validMealTypes.includes(mealType as any)) {
+    return mealType as 'breakfast' | 'lunch' | 'dinner' | 'pre_run_snack' | 'post_run_snack';
   }
-  return "snack"; // Default fallback
+  return 'breakfast'; // default fallback
 }
 
 // Helper function to validate status
