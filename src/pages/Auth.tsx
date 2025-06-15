@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -10,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader } from "lucide-react";
 import MainLayout from "@/components/Layout/MainLayout";
 import { useToast } from "@/hooks/use-toast";
+import ForgotPasswordDialog from "@/components/Auth/ForgotPasswordDialog";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -157,6 +157,13 @@ const Auth = () => {
                         required
                       />
                     </div>
+                    <div className="flex justify-end">
+                      <ForgotPasswordDialog>
+                        <Button variant="link" type="button" className="px-0 h-auto text-sm">
+                          Forgot password?
+                        </Button>
+                      </ForgotPasswordDialog>
+                    </div>
                   </CardContent>
                   <CardFooter>
                     <Button className="w-full" type="submit" disabled={isLoading}>
@@ -207,7 +214,7 @@ const Auth = () => {
                       />
                     </div>
                   </CardContent>
-                  <CardFooter>
+                  <CardFooter className="flex-col space-y-2">
                     <Button className="w-full" type="submit" disabled={isLoading}>
                       {isLoading ? (
                         <>
@@ -218,6 +225,13 @@ const Auth = () => {
                         "Create Account"
                       )}
                     </Button>
+                    <div className="text-center">
+                      <ForgotPasswordDialog>
+                        <Button variant="link" type="button" className="px-0 h-auto text-sm">
+                          Forgot password?
+                        </Button>
+                      </ForgotPasswordDialog>
+                    </div>
                   </CardFooter>
                 </form>
               </Card>
