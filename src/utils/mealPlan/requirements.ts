@@ -1,10 +1,10 @@
 
 // Functions for calculating nutritional requirements
 import { UserProfile } from '@/types/profile';
-import { MealRequirements } from './types';
+import { DailyRequirements } from './types';
 
 // Calculate daily requirements based on user profile
-export function calculateDailyRequirements(profile: UserProfile): MealRequirements | null {
+export function calculateDailyRequirements(profile: UserProfile): DailyRequirements | null {
   if (!profile.bmr) return null;
 
   // Activity level multipliers
@@ -52,37 +52,32 @@ export function calculateDailyRequirements(profile: UserProfile): MealRequiremen
   const carbsGrams = (dailyCalories * carbsPct) / 4;
   const fatGrams = (dailyCalories * fatPct) / 9;
 
-  // Distribute calories throughout the day (no snacks)
-  const breakfastCal = dailyCalories * 0.25;  // 25%
-  const lunchCal = dailyCalories * 0.40;      // 40%
-  const dinnerCal = dailyCalories * 0.35;     // 35%
-  
-  // Distribute protein throughout the day
-  const breakfastProtein = proteinGrams * 0.25;
-  const lunchProtein = proteinGrams * 0.40;
-  const dinnerProtein = proteinGrams * 0.35;
-
   return {
-    dailyCalories,
+    targetCalories: dailyCalories,
+    maintenanceCalories: profile.bmr * multiplier,
     proteinGrams,
-    carbsGrams,
+    carbGrams: carbsGrams,
     fatGrams,
-    meals: {
-      breakfast: { calories: breakfastCal, protein: breakfastProtein },
-      lunch: { calories: lunchCal, protein: lunchProtein },
-      dinner: { calories: dinnerCal, protein: dinnerProtein }
+    mealDistribution: {
+      breakfast: dailyCalories * 0.25,  // 25%
+      lunch: dailyCalories * 0.40,      // 40%
+      dinner: dailyCalories * 0.35      // 35%
     }
   };
 }
 
 // Generate generic requirements when profile data is incomplete
-export function getGenericRequirements(): MealRequirements {
+export function getGenericRequirements(): DailyRequirements {
   return {
-    dailyCalories: 2000,
-    meals: {
-      breakfast: { calories: 500, protein: 25 },  // 25%
-      lunch: { calories: 800, protein: 40 },      // 40%
-      dinner: { calories: 700, protein: 35 }      // 35%
+    targetCalories: 2000,
+    maintenanceCalories: 2000,
+    proteinGrams: 100,
+    carbGrams: 200,
+    fatGrams: 67,
+    mealDistribution: {
+      breakfast: 500,  // 25%
+      lunch: 800,      // 40%
+      dinner: 700      // 35%
     }
   };
 }
