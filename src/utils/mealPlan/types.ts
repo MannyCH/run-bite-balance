@@ -25,6 +25,5 @@ export interface MealRequirements {
     breakfast: { calories: number; protein: number };
     lunch: { calories: number; protein: number };
     dinner: { calories: number; protein: number };
-    snack: { calories: number; protein: number };
   };
 }
