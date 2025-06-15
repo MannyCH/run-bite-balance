@@ -5,14 +5,26 @@ import MainLayout from "../components/Layout/MainLayout";
 import { useApp } from "@/context/AppContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { format, addDays } from "date-fns";
+import { format, addDays, isSameDay } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import RecipeImporter from "@/components/Recipe/RecipeImporter";
-import { Archive, Loader } from "lucide-react";
+import { Archive, Loader, Flame, Clock, MapPin } from "lucide-react";
+import { useRunCalories } from "@/hooks/useRunCalories";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SuggestedMeals: React.FC = () => {
-  const { recipes, selectedDate, planRecipeAsMeal, isLoadingRecipes } = useApp();
+  const { recipes, selectedDate, planRecipeAsMeal, isLoadingRecipes, runs } = useApp();
   const { toast } = useToast();
+
+  // Find planned imported runs for the selected date
+  const plannedRunsForDate = runs.filter(run => 
+    run.isImported && 
+    run.isPlanned && 
+    isSameDay(new Date(run.date), selectedDate)
+  );
+
+  const primaryRun = plannedRunsForDate.length > 0 ? plannedRunsForDate[0] : null;
+  const { calorieEstimate, isLoading: isLoadingCalories } = useRunCalories(primaryRun);
 
   useEffect(() => {
     // Scroll to top when component mounts
@@ -71,9 +83,48 @@ const SuggestedMeals: React.FC = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Suggested Meals</h1>
         <p className="text-gray-600">
-          Discover recipes from your Supabase database
+          Discover recipes from your Supabase database for {format(selectedDate, "MMMM d, yyyy")}
         </p>
       </div>
+
+      {/* Run Calorie Information */}
+      {primaryRun && (
+        <div className="mb-6">
+          <Alert className="border-orange-200 bg-orange-50">
+            <Flame className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  <span className="font-medium">{primaryRun.title}</span>
+                </div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {Math.round(primaryRun.duration / 60)} min
+                  </span>
+                  <span>{primaryRun.distance} km</span>
+                  {isLoadingCalories ? (
+                    <span className="flex items-center gap-1">
+                      <Loader className="h-3 w-3 animate-spin" />
+                      Calculating calories...
+                    </span>
+                  ) : calorieEstimate ? (
+                    <span className="font-medium">
+                      ~{calorieEstimate.recommendedIntake} calories recommended for fueling & recovery
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              {calorieEstimate && !isLoadingCalories && (
+                <div className="mt-2 text-sm text-orange-700">
+                  {calorieEstimate.explanation}
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       <RecipeImporter />
 
