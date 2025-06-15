@@ -1,14 +1,17 @@
 
 import React from "react";
-import { Calendar, ShoppingCart } from "lucide-react";
+import { Calendar, ShoppingCart, Flame, Clock, MapPin, Loader } from "lucide-react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MealPlanItem } from "./MealPlanItem";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 import { useShoppingList } from "@/context/ShoppingListContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useApp } from "@/context/AppContext";
+import { useRunCalories } from "@/hooks/useRunCalories";
 
 interface MealPlanContentProps {
   selectedDate: Date;
@@ -23,6 +26,17 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
 }) => {
   const { generateShoppingList } = useShoppingList();
   const navigate = useNavigate();
+  const { runs } = useApp();
+
+  // Find planned imported runs for the selected date
+  const plannedRunsForDate = runs.filter(run => 
+    run.isImported && 
+    run.isPlanned && 
+    isSameDay(new Date(run.date), selectedDate)
+  );
+
+  const primaryRun = plannedRunsForDate.length > 0 ? plannedRunsForDate[0] : null;
+  const { calorieEstimate, isLoading: isLoadingCalories } = useRunCalories(primaryRun);
 
   // Get meals for the selected date
   const getSelectedDateMeals = () => {
@@ -72,6 +86,45 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
         </div>
       </CardHeader>
       <CardContent>
+        {/* Run Calorie Information */}
+        {primaryRun && (
+          <div className="mb-6">
+            <Alert className="border-orange-200 bg-orange-50">
+              <Flame className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    <span className="font-medium">{primaryRun.title}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {Math.round(primaryRun.duration / 60)} min
+                    </span>
+                    <span>{primaryRun.distance} km</span>
+                    {isLoadingCalories ? (
+                      <span className="flex items-center gap-1">
+                        <Loader className="h-3 w-3 animate-spin" />
+                        Calculating calories...
+                      </span>
+                    ) : calorieEstimate ? (
+                      <span className="font-medium">
+                        ~{calorieEstimate.recommendedIntake} calories recommended for fueling & recovery
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                {calorieEstimate && !isLoadingCalories && (
+                  <div className="mt-2 text-sm text-orange-700">
+                    {calorieEstimate.explanation}
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         {getSelectedDateMeals().length === 0 ? (
           <div className="text-center py-10">
             <p className="text-muted-foreground">No meals planned for this day</p>
