@@ -10,6 +10,110 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Calculate daily caloric and macronutrient requirements
+function calculateDailyRequirements(profile: UserProfile) {
+  if (!profile.bmr || !profile.activity_level || !profile.fitness_goal) {
+    return null;
+  }
+
+  const activityMultipliers = {
+    sedentary: 1.2,
+    light: 1.375,
+    moderate: 1.55,
+    active: 1.725,
+    very_active: 1.9
+  };
+
+  const maintenanceCalories = profile.bmr * activityMultipliers[profile.activity_level];
+  
+  let targetCalories;
+  switch (profile.fitness_goal) {
+    case 'lose':
+      targetCalories = maintenanceCalories - 500; // 500 calorie deficit
+      break;
+    case 'gain':
+      targetCalories = maintenanceCalories + 300; // 300 calorie surplus
+      break;
+    default:
+      targetCalories = maintenanceCalories;
+  }
+
+  // Calculate macronutrient targets (in grams)
+  const proteinGrams = Math.round((profile.weight || 70) * 1.6); // 1.6g per kg body weight
+  const fatGrams = Math.round((targetCalories * 0.25) / 9); // 25% of calories from fat
+  const carbGrams = Math.round((targetCalories - (proteinGrams * 4) - (fatGrams * 9)) / 4);
+
+  return {
+    targetCalories: Math.round(targetCalories),
+    maintenanceCalories: Math.round(maintenanceCalories),
+    proteinGrams,
+    fatGrams,
+    carbGrams,
+    mealDistribution: {
+      breakfast: Math.round(targetCalories * 0.25),
+      lunch: Math.round(targetCalories * 0.35),
+      dinner: Math.round(targetCalories * 0.30),
+      snack: Math.round(targetCalories * 0.10)
+    }
+  };
+}
+
+// Get nutritional theory guidance
+function getNutritionalTheoryGuidance(theory: string | null) {
+  const guidance = {
+    tim_spector: {
+      focus: "Prioritize gut microbiome diversity with 30+ different plants per week",
+      guidelines: [
+        "Include fermented foods (yogurt, kefir, sauerkraut, kimchi)",
+        "Emphasize fiber-rich foods and diverse vegetables",
+        "Include nuts, seeds, and legumes for microbiome health",
+        "Limit ultra-processed foods",
+        "Focus on polyphenol-rich foods (berries, dark leafy greens, herbs, spices)"
+      ]
+    },
+    mediterranean: {
+      focus: "Mediterranean diet emphasizing whole foods, healthy fats, and moderate portions",
+      guidelines: [
+        "Use olive oil as primary fat source",
+        "Include fish and seafood regularly",
+        "Emphasize vegetables, fruits, whole grains, and legumes",
+        "Include moderate amounts of dairy (especially yogurt and cheese)",
+        "Limit red meat and processed foods"
+      ]
+    },
+    keto: {
+      focus: "Very low carbohydrate, high fat diet for ketosis",
+      guidelines: [
+        "Keep carbs under 20-25g net carbs per day",
+        "High fat content (70-80% of calories)",
+        "Moderate protein (20-25% of calories)",
+        "Focus on meat, fish, eggs, low-carb vegetables, nuts, and healthy fats",
+        "Avoid grains, sugar, most fruits, and starchy vegetables"
+      ]
+    },
+    paleo: {
+      focus: "Whole foods diet based on presumed ancient human diet",
+      guidelines: [
+        "Focus on meat, fish, eggs, vegetables, fruits, nuts, and seeds",
+        "Avoid grains, legumes, dairy, and processed foods",
+        "Emphasize grass-fed and organic when possible",
+        "Include healthy fats from avocados, nuts, and olive oil"
+      ]
+    },
+    balanced: {
+      focus: "Traditional balanced approach with all major food groups",
+      guidelines: [
+        "Include all major food groups in moderation",
+        "Balance proteins, carbohydrates, and fats",
+        "Focus on whole, minimally processed foods",
+        "Include variety to ensure nutrient adequacy"
+      ]
+    }
+  };
+
+  return guidance[theory as keyof typeof guidance] || guidance.balanced;
+}
+
 /**
  * Generate meal plan using OpenAI
  */
@@ -35,8 +139,16 @@ async function generateAIMealPlan(
       apiKey: openaiApiKey,
     });
     
+    // Calculate daily requirements
+    const requirements = calculateDailyRequirements(profile);
+    if (!requirements) {
+      throw new Error("Unable to calculate daily requirements - missing profile data");
+    }
+
+    // Get nutritional theory guidance
+    const nutritionalGuidance = getNutritionalTheoryGuidance(profile.nutritional_theory);
+    
     // Create a summarized version of the recipes to send to OpenAI
-    // This keeps the token count down while providing enough information
     const recipeSummaries = recipes.map(recipe => ({
       id: recipe.id,
       title: recipe.title,
@@ -48,12 +160,14 @@ async function generateAIMealPlan(
       categories: recipe.categories || [],
     }));
     
-    // Format the user's dietary preferences and restrictions
-    const dietaryPreferences = {
+    // Format dietary preferences and restrictions
+    const dietaryInfo = {
       fitness_goal: profile.fitness_goal || "maintain",
+      nutritional_theory: profile.nutritional_theory || "balanced",
       allergies: profile.food_allergies || [],
       preferred_cuisines: profile.preferred_cuisines || [],
       foods_to_avoid: profile.foods_to_avoid || [],
+      dietary_preferences: profile.dietary_preferences || [],
     };
     
     // Calculate dates for the meal plan
@@ -62,48 +176,80 @@ async function generateAIMealPlan(
     const dayCount = Math.ceil((endDateObj.getTime() - today.getTime()) / (1000 * 3600 * 24)) + 1;
     
     console.log(`Creating meal plan for ${dayCount} days`);
-    console.log(`User preferences: ${JSON.stringify(dietaryPreferences)}`);
+    console.log(`User preferences: ${JSON.stringify(dietaryInfo)}`);
+    console.log(`Daily requirements: ${JSON.stringify(requirements)}`);
     
-    // Prepare the prompt for OpenAI
+    // Prepare the enhanced prompt for OpenAI
     const prompt = {
       role: "system",
-      content: `You are a professional nutritionist creating a meal plan for ${dayCount} days. 
-      The user has the following dietary preferences: ${JSON.stringify(dietaryPreferences)}.
-      
-      Your task is to create a meal plan with breakfast, lunch, dinner, and potentially snacks for each day.
-      For each meal, select the most appropriate recipe from the provided list.
-      
-      Guidelines:
-      1. Breakfast should be light, morning-appropriate foods (cereal, eggs, toast, fruit, yogurt, etc.)
-      2. Lunch should be moderate meals (sandwiches, salads, soups, etc.)
-      3. Dinner should be more substantial meals (proteins with sides, pasta dishes, etc.)
-      4. Add a snack if the total daily calories are below the user's requirements
-      5. Ensure variety across the week
-      6. Avoid any foods the user is allergic to or wants to avoid
-      7. Prefer the user's preferred cuisines when possible
-      8. For each meal, explain why it fits that time of day and the user's goals
-      
-      IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", "dinner", or "snack". Do not use any other values.
-      
-      The response should be a JSON object following this exact structure:
-      {
-        "days": [
-          {
-            "date": "YYYY-MM-DD",
-            "meals": [
-              {
-                "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", or "snack" - no other values
-                "recipe_id": "the-recipe-id", 
-                "explanation": "Why this recipe is appropriate for this meal"
-              },
-              // more meals for this day
-            ]
-          },
-          // more days
-        ]
-      }
-      
-      Only include recipes from the provided list. Ensure every meal has a valid recipe_id from the list.`
+      content: `You are a professional nutritionist creating a personalized meal plan for ${dayCount} days.
+
+USER PROFILE & GOALS:
+- Fitness Goal: ${profile.fitness_goal} weight
+- Current Weight: ${profile.weight || 'unknown'}kg
+- BMR: ${profile.bmr || 'unknown'} calories
+- Activity Level: ${profile.activity_level || 'moderate'}
+
+DAILY CALORIC & MACRO TARGETS:
+- Target Daily Calories: ${requirements.targetCalories} calories
+- Maintenance Calories: ${requirements.maintenanceCalories} calories
+- Daily Protein Target: ${requirements.proteinGrams}g
+- Daily Carbohydrate Target: ${requirements.carbGrams}g  
+- Daily Fat Target: ${requirements.fatGrams}g
+
+MEAL CALORIC DISTRIBUTION:
+- Breakfast: ~${requirements.mealDistribution.breakfast} calories (25%)
+- Lunch: ~${requirements.mealDistribution.lunch} calories (35%)
+- Dinner: ~${requirements.mealDistribution.dinner} calories (30%)
+- Snack: ~${requirements.mealDistribution.snack} calories (10%)
+
+NUTRITIONAL APPROACH: ${nutritionalGuidance.focus}
+Key Guidelines:
+${nutritionalGuidance.guidelines.map(g => `- ${g}`).join('\n')}
+
+DIETARY RESTRICTIONS & PREFERENCES:
+- Food Allergies: ${dietaryInfo.allergies.join(', ') || 'None'}
+- Foods to Avoid: ${dietaryInfo.foods_to_avoid.join(', ') || 'None'}
+- Dietary Preferences: ${dietaryInfo.dietary_preferences.join(', ') || 'None'}
+- Preferred Cuisines: ${dietaryInfo.preferred_cuisines.join(', ') || 'Any'}
+
+Your task is to create a meal plan that:
+1. Meets the specific caloric targets for each meal
+2. Follows the user's nutritional approach (${profile.nutritional_theory || 'balanced'})
+3. Respects all dietary restrictions and preferences
+4. Provides appropriate portion guidance to meet caloric goals
+5. Ensures variety and nutritional balance across the week
+
+IMPORTANT MEAL SELECTION RULES:
+- Breakfast: Light, energizing foods appropriate for morning (eggs, yogurt, oats, fruits)
+- Lunch: Moderate, balanced meals (salads, soups, sandwiches, grain bowls)
+- Dinner: More substantial, satisfying meals (proteins with vegetables and grains)
+- Snacks: Only include if needed to meet daily caloric targets
+
+PORTION GUIDANCE:
+- Adjust recipe serving sizes to meet meal caloric targets
+- If a recipe is too high/low in calories, suggest appropriate portion adjustments
+- Consider the user's fitness goal when recommending portions
+
+IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", "dinner", or "snack". Do not use any other values.
+
+The response should be a JSON object following this exact structure:
+{
+  "days": [
+    {
+      "date": "YYYY-MM-DD",
+      "meals": [
+        {
+          "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", or "snack"
+          "recipe_id": "the-recipe-id", 
+          "explanation": "Why this recipe fits the nutritional approach, caloric target, and user goals. Include portion guidance if needed."
+        }
+      ]
+    }
+  ]
+}
+
+Only include recipes from the provided list. Ensure every meal has a valid recipe_id from the list.`
     };
 
     console.log(`Making request to OpenAI API with model: gpt-4o`);
@@ -121,7 +267,7 @@ async function generateAIMealPlan(
           }
         ],
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 3000,
         response_format: { type: "json_object" }
       });
       
