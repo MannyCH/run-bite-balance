@@ -2,12 +2,14 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import { useApp } from "@/context/AppContext";
 import { MealPlan, MealPlanItem } from "@/types/profile";
-import { format, addDays, parseISO } from "date-fns";
+import { format, addDays, parseISO, isWithinInterval } from "date-fns";
 import { validateMealType, validateStatus } from "@/utils/mealPlan";
 
 export const useMealPlan = () => {
   const { user } = useAuth();
+  const { runs } = useApp();
   const [isLoading, setIsLoading] = useState(true);
   const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
   const [mealPlanItems, setMealPlanItems] = useState<MealPlanItem[]>([]);
@@ -30,6 +32,19 @@ export const useMealPlan = () => {
       setSelectedDate(today);
     }
   }, [mealPlan]);
+
+  // Get runs for the current meal plan date range
+  const getRunsForMealPlan = () => {
+    if (!mealPlan) return [];
+    
+    const startDate = parseISO(mealPlan.week_start_date);
+    const endDate = parseISO(mealPlan.week_end_date);
+    
+    return runs.filter(run => {
+      const runDate = new Date(run.date);
+      return isWithinInterval(runDate, { start: startDate, end: endDate }) && run.isPlanned;
+    });
+  };
 
   // Fetch the latest meal plan
   const fetchLatestMealPlan = async () => {
@@ -146,5 +161,6 @@ export const useMealPlan = () => {
     setSelectedDate,
     daysOfWeek,
     fetchLatestMealPlan,
+    runsForMealPlan: getRunsForMealPlan(),
   };
 };

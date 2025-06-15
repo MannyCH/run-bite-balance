@@ -21,7 +21,8 @@ export async function generateMealPlan({
   profile,
   recipes,
   startDate,
-  endDate
+  endDate,
+  runs = []
 }: GenerateMealPlanParams): Promise<MealPlanResult | null> {
   try {
     // Check if we have the necessary data
@@ -37,11 +38,9 @@ export async function generateMealPlan({
         recipesMap[recipe.id] = recipe;
       });
       
-      // Get run data from context/localStorage/wherever it's stored
-      // For now, we'll pass an empty array - this should be enhanced to get actual run data
-      const runs: any[] = []; // TODO: Get actual run data from the app context
+      console.log(`Sending ${runs.length} runs to AI meal planner for date range ${startDate} to ${endDate}`);
       
-      // Call the Supabase Edge Function with run data
+      // Call the Supabase Edge Function with actual run data
       const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
         body: { userId, startDate, endDate, runs }
       });
@@ -129,7 +128,8 @@ export async function generateMealPlan({
 
 // Add a new simplified function that returns a meal plan based on user's profile data
 export async function generateMealPlanForUser(
-  userId: string
+  userId: string,
+  runs: any[] = []
 ): Promise<MealPlanResult | null> {
   try {
     // Get the user's profile
@@ -151,13 +151,16 @@ export async function generateMealPlanForUser(
     endDate.setDate(today.getDate() + 6); // 7 days total including today
     const endDateStr = endDate.toISOString().split('T')[0];
 
-    // Generate the meal plan using the existing function
+    console.log(`Generating meal plan with ${runs.length} runs for date range ${startDate} to ${endDateStr}`);
+
+    // Generate the meal plan using the existing function with runs
     return generateMealPlan({
       userId,
       profile: profile as UserProfile,
       recipes,
       startDate,
-      endDate: endDateStr
+      endDate: endDateStr,
+      runs
     });
   } catch (error) {
     console.error('Error generating meal plan:', error);

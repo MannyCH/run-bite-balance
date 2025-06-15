@@ -38,7 +38,7 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
   const primaryRun = plannedRunsForDate.length > 0 ? plannedRunsForDate[0] : null;
   const { calorieEstimate, isLoading: isLoadingCalories } = useRunCalories(primaryRun);
 
-  // Get meals for the selected date
+  // Get meals for the selected date with proper sorting
   const getSelectedDateMeals = () => {
     if (!mealPlanItems.length) return [];
 
@@ -46,9 +46,15 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
       const itemDate = parseISO(item.date);
       return isSameDay(itemDate, selectedDate);
     }).sort((a, b) => {
-      // Sort by meal type: breakfast, lunch, dinner, snack
-      const order = { breakfast: 1, lunch: 2, dinner: 3, snack: 4 };
-      return order[a.meal_type] - order[b.meal_type];
+      // Sort by meal type: breakfast, pre_run_snack, lunch, dinner, post_run_snack
+      const order = { 
+        breakfast: 1, 
+        pre_run_snack: 2, 
+        lunch: 3, 
+        dinner: 4, 
+        post_run_snack: 5 
+      };
+      return (order[a.meal_type] || 6) - (order[b.meal_type] || 6);
     });
   };
 

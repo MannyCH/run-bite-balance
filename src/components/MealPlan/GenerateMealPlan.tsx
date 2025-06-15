@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
+import { useApp } from "@/context/AppContext";
 import { generateMealPlanForUser } from "@/utils/mealPlan";
 
 interface GenerateMealPlanProps {
@@ -14,6 +15,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
   onMealPlanGenerated
 }) => {
   const { user } = useAuth();
+  const { runs } = useApp();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -30,7 +32,19 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
 
     setIsGenerating(true);
     try {
-      const result = await generateMealPlanForUser(user.id);
+      // Filter runs to only include planned runs for the next week
+      const today = new Date();
+      const nextWeek = new Date(today);
+      nextWeek.setDate(today.getDate() + 7);
+      
+      const plannedRuns = runs.filter(run => {
+        const runDate = new Date(run.date);
+        return run.isPlanned && runDate >= today && runDate <= nextWeek;
+      });
+
+      console.log(`Generating meal plan with ${plannedRuns.length} planned runs`);
+
+      const result = await generateMealPlanForUser(user.id, plannedRuns);
 
       if (result) {
         toast({
@@ -64,7 +78,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
         <div>
           <h3 className="text-lg font-medium">Need a new meal plan?</h3>
           <p className="text-muted-foreground">
-            Generate a personalized plan based on your profile and dietary preferences
+            Generate a personalized plan based on your profile and planned runs
           </p>
         </div>
         <Button 
