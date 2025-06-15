@@ -1,3 +1,4 @@
+
 // Utility for processing AI-generated meal plans
 import { UserProfile, MealPlan, MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
@@ -7,6 +8,7 @@ import {
   insertMealPlanItems
 } from './mealPlanDb';
 import { validateMealType } from './validators';
+import { isSameDay, parseISO } from 'date-fns';
 
 interface AIMealPlanDay {
   date: string;
@@ -32,10 +34,12 @@ export async function processAIMealPlan(
   aiResponse: any,
   startDate: string,
   endDate: string,
-  recipesMap: Record<string, Recipe>
+  recipesMap: Record<string, Recipe>,
+  runs: any[] = []
 ): Promise<MealPlanItem[] | null> {
   try {
     console.log('Processing AI meal plan response');
+    console.log(`Runs provided for processing: ${runs.length}`);
     
     if (!aiResponse?.mealPlan?.days) {
       console.error('Invalid AI meal plan structure');
@@ -61,7 +65,18 @@ export async function processAIMealPlan(
     // Process each day from the AI response
     for (const day of aiResponse.mealPlan.days) {
       const { date, meals } = day;
+      console.log(`Processing day ${date} with ${meals.length} meals`);
       
+      // Check if this day has any runs
+      const dayRuns = runs.filter(run => {
+        const runDate = new Date(run.date);
+        const dayDate = parseISO(date);
+        return isSameDay(runDate, dayDate);
+      });
+      
+      console.log(`Day ${date} has ${dayRuns.length} runs`);
+      
+      // Process AI-generated meals
       for (const meal of meals) {
         const { meal_type, recipe_id, explanation } = meal;
         
@@ -102,6 +117,47 @@ export async function processAIMealPlan(
           carbs: recipeData.carbs,
           fat: recipeData.fat
         });
+      }
+      
+      // FALLBACK: If AI didn't generate snacks but there are runs on this day, add them
+      if (dayRuns.length > 0) {
+        const existingSnackTypes = meals.map(m => validateMealType(m.meal_type));
+        
+        // Add pre-run snack if missing
+        if (!existingSnackTypes.includes('pre_run_snack')) {
+          console.log(`Adding fallback pre-run snack for ${date}`);
+          mealPlanItems.push({
+            id: crypto.randomUUID(),
+            meal_plan_id: mealPlan.id,
+            recipe_id: null,
+            date,
+            meal_type: 'pre_run_snack',
+            nutritional_context: `Pre-run fuel for ${dayRuns[0].title}`,
+            custom_title: 'Pre-run snack (banana + dates)',
+            calories: 150,
+            protein: 3,
+            carbs: 30,
+            fat: 2
+          });
+        }
+        
+        // Add post-run snack if missing
+        if (!existingSnackTypes.includes('post_run_snack')) {
+          console.log(`Adding fallback post-run snack for ${date}`);
+          mealPlanItems.push({
+            id: crypto.randomUUID(),
+            meal_plan_id: mealPlan.id,
+            recipe_id: null,
+            date,
+            meal_type: 'post_run_snack',
+            nutritional_context: `Recovery nutrition after ${dayRuns[0].title}`,
+            custom_title: 'Post-run recovery (protein shake + fruit)',
+            calories: 200,
+            protein: 15,
+            carbs: 25,
+            fat: 5
+          });
+        }
       }
     }
 

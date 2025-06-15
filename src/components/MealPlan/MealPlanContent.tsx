@@ -42,10 +42,14 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
   const getSelectedDateMeals = () => {
     if (!mealPlanItems.length) return [];
 
-    return mealPlanItems.filter(item => {
+    const mealsForDay = mealPlanItems.filter(item => {
       const itemDate = parseISO(item.date);
       return isSameDay(itemDate, selectedDate);
-    }).sort((a, b) => {
+    });
+
+    console.log(`Meals for ${format(selectedDate, 'yyyy-MM-dd')}:`, mealsForDay.map(m => `${m.meal_type}: ${m.custom_title || 'Recipe meal'}`));
+
+    return mealsForDay.sort((a, b) => {
       // Sort by meal type: breakfast, pre_run_snack, lunch, dinner, post_run_snack
       const order = { 
         breakfast: 1, 
@@ -76,6 +80,8 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
     navigate("/shopping-list");
   };
 
+  const selectedDateMeals = getSelectedDateMeals();
+
   return (
     <Card>
       <CardHeader>
@@ -87,6 +93,7 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
             </CardTitle>
             <CardDescription>
               Your personalized meal plan for this day
+              {primaryRun && ` • Run day: ${primaryRun.title}`}
             </CardDescription>
           </div>
         </div>
@@ -131,13 +138,13 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
           </div>
         )}
 
-        {getSelectedDateMeals().length === 0 ? (
+        {selectedDateMeals.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-muted-foreground">No meals planned for this day</p>
           </div>
         ) : (
           <div className="space-y-6">
-            {getSelectedDateMeals().map((item) => {
+            {selectedDateMeals.map((item) => {
               const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
               return <MealPlanItem key={item.id} item={item} recipe={recipe} />;
             })}

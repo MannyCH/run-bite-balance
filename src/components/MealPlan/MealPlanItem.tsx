@@ -6,7 +6,7 @@ import { CardFooter } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { MealPlanItem as MealPlanItemType } from "@/types/profile";
 import { useNutritionAnalysis } from "@/hooks/useNutritionAnalysis";
-import { Loader2 } from "lucide-react";
+import { Loader2, Utensils } from "lucide-react";
 
 interface MealPlanItemProps {
   item: MealPlanItemType;
@@ -20,8 +20,24 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
 
   // Format meal type for display
   const formatMealType = (type: string) => {
-    return type.charAt(0).toUpperCase() + type.slice(1);
+    const formatted = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return formatted;
   };
+
+  // Get meal type color
+  const getMealTypeColor = (type: string) => {
+    switch (type) {
+      case 'breakfast': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'pre_run_snack': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'lunch': return 'bg-green-100 text-green-800 border-green-300';
+      case 'dinner': return 'bg-purple-100 text-purple-800 border-purple-300';
+      case 'post_run_snack': return 'bg-orange-100 text-orange-800 border-orange-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
+  // Check if this is a custom snack (no recipe)
+  const isCustomSnack = !item.recipe_id && (item.meal_type === 'pre_run_snack' || item.meal_type === 'post_run_snack');
 
   // Check if recipe needs nutrition analysis
   const needsNutritionAnalysis = () => {
@@ -52,8 +68,19 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
     }
   }, [recipe]);
 
-  // Get display values from recipe data
+  // Get display values from item or recipe data
   const getDisplayValues = () => {
+    if (isCustomSnack) {
+      // Use item nutrition data for custom snacks
+      return {
+        calories: item.calories || 0,
+        protein: item.protein || 0,
+        carbs: item.carbs || 0,
+        fat: item.fat || 0
+      };
+    }
+    
+    // Use recipe data for regular meals
     return {
       calories: recipe?.calories || 0,
       protein: recipe?.protein || 0,
@@ -63,12 +90,13 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
   };
 
   const displayValues = getDisplayValues();
+  const displayTitle = item.custom_title || recipe?.title || 'Meal';
 
   return (
     <div key={item.id} className="border rounded-lg overflow-hidden">
       <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
         <div className="flex items-center">
-          <Badge variant="outline" className="font-medium">
+          <Badge variant="outline" className={`font-medium ${getMealTypeColor(item.meal_type)}`}>
             {formatMealType(item.meal_type)}
           </Badge>
         </div>
@@ -79,7 +107,43 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
         )}
       </div>
       <div className="p-4">
-        {recipe ? (
+        {isCustomSnack ? (
+          // Custom snack display
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 bg-blue-100 rounded-md flex items-center justify-center">
+              <Utensils className="h-8 w-8 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-medium">{displayTitle}</h3>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {displayValues.calories > 0 && (
+                  <Badge variant="secondary">
+                    {displayValues.calories} cal
+                  </Badge>
+                )}
+                {displayValues.protein > 0 && (
+                  <Badge variant="secondary">
+                    P: {displayValues.protein}g
+                  </Badge>
+                )}
+                {displayValues.carbs > 0 && (
+                  <Badge variant="secondary">
+                    C: {displayValues.carbs}g
+                  </Badge>
+                )}
+                {displayValues.fat > 0 && (
+                  <Badge variant="secondary">
+                    F: {displayValues.fat}g
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                Quick and convenient nutrition for your run
+              </p>
+            </div>
+          </div>
+        ) : recipe ? (
+          // Regular recipe display
           <div className="flex flex-col md:flex-row gap-4">
             {recipe.imgurl && (
               <div className="md:w-1/4 h-40 overflow-hidden rounded-md">
@@ -145,16 +209,18 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
           <p>Recipe information not available</p>
         )}
       </div>
-      <CardFooter className="bg-gray-50 border-t">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => recipe && navigate(`/recipe/${recipe.id}`)}
-          disabled={!recipe}
-        >
-          View Recipe Details
-        </Button>
-      </CardFooter>
+      {!isCustomSnack && (
+        <CardFooter className="bg-gray-50 border-t">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => recipe && navigate(`/recipe/${recipe.id}`)}
+            disabled={!recipe}
+          >
+            View Recipe Details
+          </Button>
+        </CardFooter>
+      )}
     </div>
   );
 };

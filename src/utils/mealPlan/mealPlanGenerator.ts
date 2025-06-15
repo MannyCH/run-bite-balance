@@ -31,6 +31,8 @@ export async function generateMealPlan({
       return null;
     }
 
+    console.log(`Generating meal plan with ${runs.length} runs for date range ${startDate} to ${endDate}`);
+
     // Try to use the AI meal planner first (if available)
     try {
       const recipesMap: Record<string, Recipe> = {};
@@ -50,13 +52,14 @@ export async function generateMealPlan({
         // Fall back to algorithm-based meal planning
       } else if (data && data.mealPlan) {
         console.log('Using AI-generated meal plan');
-        // Process the AI-generated meal plan
+        // Process the AI-generated meal plan with runs data
         const mealPlanItems = await processAIMealPlan(
           userId, 
           data, 
           startDate, 
           endDate,
-          recipesMap
+          recipesMap,
+          runs // Pass runs to the processor
         );
         
         if (mealPlanItems) {

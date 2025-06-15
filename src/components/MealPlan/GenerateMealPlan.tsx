@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
 import { generateMealPlanForUser } from "@/utils/mealPlan";
+import { format, addDays, isSameDay, isWithinInterval } from "date-fns";
 
 interface GenerateMealPlanProps {
   onMealPlanGenerated: () => Promise<void>;
@@ -32,19 +33,33 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
 
     setIsGenerating(true);
     try {
-      // Filter runs to only include planned runs for the next week
+      // Calculate the meal plan date range (7 days starting from today)
       const today = new Date();
-      const nextWeek = new Date(today);
-      nextWeek.setDate(today.getDate() + 7);
+      const startDate = today;
+      const endDate = addDays(today, 6); // 7 days total including today
       
-      const plannedRuns = runs.filter(run => {
+      console.log(`Meal plan date range: ${format(startDate, 'yyyy-MM-dd')} to ${format(endDate, 'yyyy-MM-dd')}`);
+      console.log(`Total runs available: ${runs.length}`);
+      
+      // Filter runs to only include planned runs within the meal plan date range
+      const plannedRunsInRange = runs.filter(run => {
         const runDate = new Date(run.date);
-        return run.isPlanned && runDate >= today && runDate <= nextWeek;
+        const isPlanned = run.isPlanned;
+        const isInRange = isWithinInterval(runDate, { start: startDate, end: endDate });
+        
+        console.log(`Run "${run.title}" on ${format(runDate, 'yyyy-MM-dd')}: planned=${isPlanned}, inRange=${isInRange}`);
+        
+        return isPlanned && isInRange;
       });
 
-      console.log(`Generating meal plan with ${plannedRuns.length} planned runs`);
+      console.log(`Generating meal plan with ${plannedRunsInRange.length} planned runs in date range`);
+      
+      // Log details of each run being passed
+      plannedRunsInRange.forEach(run => {
+        console.log(`- Run: ${run.title}, Date: ${format(new Date(run.date), 'yyyy-MM-dd')}, Distance: ${run.distance}km, Duration: ${Math.round(run.duration / 60)}min`);
+      });
 
-      const result = await generateMealPlanForUser(user.id, plannedRuns);
+      const result = await generateMealPlanForUser(user.id, plannedRunsInRange);
 
       if (result) {
         toast({
