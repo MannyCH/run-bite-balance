@@ -52,17 +52,15 @@ export function calculateDailyRequirements(profile: UserProfile): MealRequiremen
   const carbsGrams = (dailyCalories * carbsPct) / 4;
   const fatGrams = (dailyCalories * fatPct) / 9;
 
-  // Distribute calories throughout the day
-  const breakfastCal = dailyCalories * 0.25;
-  const lunchCal = dailyCalories * 0.35;
-  const dinnerCal = dailyCalories * 0.3;
-  const snackCal = dailyCalories * 0.1;
+  // Distribute calories throughout the day (no snacks)
+  const breakfastCal = dailyCalories * 0.25;  // 25%
+  const lunchCal = dailyCalories * 0.40;      // 40%
+  const dinnerCal = dailyCalories * 0.35;     // 35%
   
   // Distribute protein throughout the day
   const breakfastProtein = proteinGrams * 0.25;
-  const lunchProtein = proteinGrams * 0.35;
-  const dinnerProtein = proteinGrams * 0.3;
-  const snackProtein = proteinGrams * 0.1;
+  const lunchProtein = proteinGrams * 0.40;
+  const dinnerProtein = proteinGrams * 0.35;
 
   return {
     dailyCalories,
@@ -72,8 +70,7 @@ export function calculateDailyRequirements(profile: UserProfile): MealRequiremen
     meals: {
       breakfast: { calories: breakfastCal, protein: breakfastProtein },
       lunch: { calories: lunchCal, protein: lunchProtein },
-      dinner: { calories: dinnerCal, protein: dinnerProtein },
-      snack: { calories: snackCal, protein: snackProtein }
+      dinner: { calories: dinnerCal, protein: dinnerProtein }
     }
   };
 }
@@ -83,10 +80,9 @@ export function getGenericRequirements(): MealRequirements {
   return {
     dailyCalories: 2000,
     meals: {
-      breakfast: { calories: 500, protein: 25 },
-      lunch: { calories: 700, protein: 35 },
-      dinner: { calories: 600, protein: 30 },
-      snack: { calories: 200, protein: 10 }
+      breakfast: { calories: 500, protein: 25 },  // 25%
+      lunch: { calories: 800, protein: 40 },      // 40%
+      dinner: { calories: 700, protein: 35 }      // 35%
     }
   };
 }

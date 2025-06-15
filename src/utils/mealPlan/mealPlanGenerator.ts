@@ -37,9 +37,13 @@ export async function generateMealPlan({
         recipesMap[recipe.id] = recipe;
       });
       
-      // Call the Supabase Edge Function
+      // Get run data from context/localStorage/wherever it's stored
+      // For now, we'll pass an empty array - this should be enhanced to get actual run data
+      const runs: any[] = []; // TODO: Get actual run data from the app context
+      
+      // Call the Supabase Edge Function with run data
       const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
-        body: { userId, startDate, endDate }
+        body: { userId, startDate, endDate, runs }
       });
       
       if (error) {

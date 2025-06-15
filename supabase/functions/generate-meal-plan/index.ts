@@ -51,9 +51,41 @@ function calculateDailyRequirements(profile: UserProfile) {
     carbGrams,
     mealDistribution: {
       breakfast: Math.round(targetCalories * 0.25),
-      lunch: Math.round(targetCalories * 0.35),
-      dinner: Math.round(targetCalories * 0.30),
-      snack: Math.round(targetCalories * 0.10)
+      lunch: Math.round(targetCalories * 0.40),
+      dinner: Math.round(targetCalories * 0.35)
+    }
+  };
+}
+
+// Estimate calories burned during a run
+function estimateRunCalories(run: any, userWeight: number = 70): number {
+  // Basic calculation: ~0.75 calories per kg per km
+  const caloriesPerKmPerKg = 0.75;
+  const distance = run.distance || 0;
+  return Math.round(distance * userWeight * caloriesPerKmPerKg);
+}
+
+// Calculate day-specific requirements including run calories
+function calculateDaySpecificRequirements(baseRequirements: any, runs: any[], userWeight: number = 70) {
+  if (!runs || runs.length === 0) {
+    return baseRequirements;
+  }
+
+  // Calculate total calories burned from all runs on this day
+  const runCalories = runs.reduce((total, run) => total + estimateRunCalories(run, userWeight), 0);
+  
+  // Add run calories to base target
+  const adjustedCalories = baseRequirements.targetCalories + runCalories;
+  
+  // Recalculate meal distribution with adjusted calories
+  return {
+    ...baseRequirements,
+    targetCalories: adjustedCalories,
+    runCalories,
+    mealDistribution: {
+      breakfast: Math.round(adjustedCalories * 0.25),
+      lunch: Math.round(adjustedCalories * 0.40),
+      dinner: Math.round(adjustedCalories * 0.35)
     }
   };
 }
@@ -121,6 +153,7 @@ async function generateAIMealPlan(
   userId: string,
   profile: UserProfile,
   recipes: any[],
+  runs: any[],
   startDate: string,
   endDate: string
 ) {
@@ -139,9 +172,9 @@ async function generateAIMealPlan(
       apiKey: openaiApiKey,
     });
     
-    // Calculate daily requirements
-    const requirements = calculateDailyRequirements(profile);
-    if (!requirements) {
+    // Calculate base daily requirements
+    const baseRequirements = calculateDailyRequirements(profile);
+    if (!baseRequirements) {
       throw new Error("Unable to calculate daily requirements - missing profile data");
     }
 
@@ -170,14 +203,61 @@ async function generateAIMealPlan(
       dietary_preferences: profile.dietary_preferences || [],
     };
     
-    // Calculate dates for the meal plan
+    // Calculate dates for the meal plan and group runs by date
     const today = new Date(startDate);
     const endDateObj = new Date(endDate);
     const dayCount = Math.ceil((endDateObj.getTime() - today.getTime()) / (1000 * 3600 * 24)) + 1;
     
+    // Group runs by date
+    const runsByDate: Record<string, any[]> = {};
+    runs.forEach(run => {
+      const runDate = new Date(run.date).toISOString().split('T')[0];
+      if (!runsByDate[runDate]) {
+        runsByDate[runDate] = [];
+      }
+      runsByDate[runDate].push(run);
+    });
+    
+    // Calculate day-specific requirements
+    const dailyRequirements: Record<string, any> = {};
+    for (let day = 0; day < dayCount; day++) {
+      const currentDate = new Date(today);
+      currentDate.setDate(today.getDate() + day);
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      const dayRuns = runsByDate[dateStr] || [];
+      dailyRequirements[dateStr] = calculateDaySpecificRequirements(
+        baseRequirements, 
+        dayRuns, 
+        profile.weight || 70
+      );
+    }
+    
     console.log(`Creating meal plan for ${dayCount} days`);
     console.log(`User preferences: ${JSON.stringify(dietaryInfo)}`);
-    console.log(`Daily requirements: ${JSON.stringify(requirements)}`);
+    console.log(`Base daily requirements: ${JSON.stringify(baseRequirements)}`);
+    console.log(`Runs found: ${runs.length}`);
+    
+    // Create detailed daily breakdown for OpenAI
+    const dailyBreakdown = Object.entries(dailyRequirements).map(([date, reqs]) => {
+      const dayRuns = runsByDate[date] || [];
+      return {
+        date,
+        targetCalories: reqs.targetCalories,
+        runCalories: reqs.runCalories || 0,
+        hasRuns: dayRuns.length > 0,
+        runs: dayRuns.map(run => ({
+          title: run.title,
+          distance: run.distance,
+          duration: Math.round(run.duration / 60)
+        })),
+        meals: {
+          breakfast: reqs.mealDistribution.breakfast,
+          lunch: reqs.mealDistribution.lunch,
+          dinner: reqs.mealDistribution.dinner
+        }
+      };
+    });
     
     // Prepare the enhanced prompt for OpenAI
     const prompt = {
@@ -190,18 +270,22 @@ USER PROFILE & GOALS:
 - BMR: ${profile.bmr || 'unknown'} calories
 - Activity Level: ${profile.activity_level || 'moderate'}
 
-DAILY CALORIC & MACRO TARGETS:
-- Target Daily Calories: ${requirements.targetCalories} calories
-- Maintenance Calories: ${requirements.maintenanceCalories} calories
-- Daily Protein Target: ${requirements.proteinGrams}g
-- Daily Carbohydrate Target: ${requirements.carbGrams}g  
-- Daily Fat Target: ${requirements.fatGrams}g
+BASE DAILY CALORIC & MACRO TARGETS:
+- Base Target Daily Calories: ${baseRequirements.targetCalories} calories
+- Maintenance Calories: ${baseRequirements.maintenanceCalories} calories
+- Daily Protein Target: ${baseRequirements.proteinGrams}g
+- Daily Carbohydrate Target: ${baseRequirements.carbGrams}g  
+- Daily Fat Target: ${baseRequirements.fatGrams}g
 
-MEAL CALORIC DISTRIBUTION:
-- Breakfast: ~${requirements.mealDistribution.breakfast} calories (25%)
-- Lunch: ~${requirements.mealDistribution.lunch} calories (35%)
-- Dinner: ~${requirements.mealDistribution.dinner} calories (30%)
-- Snack: ~${requirements.mealDistribution.snack} calories (10%)
+DAILY ACTIVITY & CALORIE ADJUSTMENTS:
+${dailyBreakdown.map(day => `
+Date ${day.date}:
+- Target Calories: ${day.targetCalories} calories${day.runCalories > 0 ? ` (${baseRequirements.targetCalories} base + ${day.runCalories} run calories)` : ' (base calories)'}
+- Breakfast: ~${day.meals.breakfast} calories
+- Lunch: ~${day.meals.lunch} calories  
+- Dinner: ~${day.meals.dinner} calories
+${day.hasRuns ? `- Planned Runs: ${day.runs.map(run => `${run.title} (${run.distance}km, ${run.duration}min)`).join(', ')}` : '- No planned runs'}
+`).join('')}
 
 NUTRITIONAL APPROACH: ${nutritionalGuidance.focus}
 Key Guidelines:
@@ -214,24 +298,25 @@ DIETARY RESTRICTIONS & PREFERENCES:
 - Preferred Cuisines: ${dietaryInfo.preferred_cuisines.join(', ') || 'Any'}
 
 Your task is to create a meal plan that:
-1. Meets the specific caloric targets for each meal
-2. Follows the user's nutritional approach (${profile.nutritional_theory || 'balanced'})
-3. Respects all dietary restrictions and preferences
-4. Provides appropriate portion guidance to meet caloric goals
-5. Ensures variety and nutritional balance across the week
+1. Meets the specific caloric targets for each day and meal
+2. Adjusts portions appropriately on high-activity/run days
+3. Follows the user's nutritional approach (${profile.nutritional_theory || 'balanced'})
+4. Respects all dietary restrictions and preferences
+5. Provides appropriate portion guidance to meet caloric goals
+6. Ensures variety and nutritional balance across the week
 
 IMPORTANT MEAL SELECTION RULES:
-- Breakfast: Light, energizing foods appropriate for morning (eggs, yogurt, oats, fruits)
-- Lunch: Moderate, balanced meals (salads, soups, sandwiches, grain bowls)
-- Dinner: More substantial, satisfying meals (proteins with vegetables and grains)
-- Snacks: Only include if needed to meet daily caloric targets
+- Focus on THREE main meals only (breakfast, lunch, dinner) - NO SNACKS
+- Breakfast: Energizing foods appropriate for morning, higher carbs on run days
+- Lunch: Balanced meals, larger portions on high-activity days
+- Dinner: Satisfying meals with good protein for recovery on run days
 
 PORTION GUIDANCE:
 - Adjust recipe serving sizes to meet meal caloric targets
-- If a recipe is too high/low in calories, suggest appropriate portion adjustments
-- Consider the user's fitness goal when recommending portions
+- On run days, increase portions proportionally across all meals
+- Consider timing: if runs are planned, optimize pre/post-run nutrition in regular meals
 
-IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", "dinner", or "snack". Do not use any other values.
+IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", or "dinner". Do not include snacks.
 
 The response should be a JSON object following this exact structure:
 {
@@ -240,9 +325,9 @@ The response should be a JSON object following this exact structure:
       "date": "YYYY-MM-DD",
       "meals": [
         {
-          "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", or "snack"
+          "meal_type": "breakfast", // MUST be "breakfast", "lunch", or "dinner"
           "recipe_id": "the-recipe-id", 
-          "explanation": "Why this recipe fits the nutritional approach, caloric target, and user goals. Include portion guidance if needed."
+          "explanation": "Why this recipe fits the nutritional approach, caloric target, and activity level for this day. Include portion guidance if needed."
         }
       ]
     }
@@ -414,12 +499,24 @@ serve(async (req) => {
     
     console.log(`Fetched ${recipes.length} recipes for meal planning`);
     
+    // Get user's planned runs for the date range - using a simple approach since there's no runs table
+    // We'll parse the iCal feed data if available
+    let runs: any[] = [];
+    
+    // For now, we'll create a mock implementation that the frontend can populate
+    // The frontend should pass run data in the request body when available
+    if (requestBody.runs && Array.isArray(requestBody.runs)) {
+      runs = requestBody.runs;
+      console.log(`Received ${runs.length} planned runs from frontend`);
+    }
+    
     // Generate AI meal plan
     try {
       const result = await generateAIMealPlan(
         userId, 
         profile as unknown as UserProfile, 
         recipes || [],
+        runs,
         startDate,
         endDate
       );

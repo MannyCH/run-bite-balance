@@ -107,24 +107,6 @@ function generateGenericMealPlanItems(
         fat: dinner.fat
       });
     }
-    
-    // Add snack - specify meal type for better selection
-    const snack = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.snack.calories, 
-      genericRequirements.meals.snack.protein, usedRecipeIds, 'snack');
-    if (snack && Math.random() > 0.3) { // 70% chance of having a snack
-      mealPlanItems.push({
-        id: crypto.randomUUID(), // Generate a temporary id
-        meal_plan_id: mealPlanId,
-        recipe_id: snack.id,
-        date: dateStr,
-        meal_type: "snack",
-        nutritional_context: "A light snack to keep you going",
-        calories: snack.calories,
-        protein: snack.protein,
-        carbs: snack.carbs,
-        fat: snack.fat
-      });
-    }
   }
   
   return mealPlanItems;
@@ -203,26 +185,6 @@ function generatePersonalizedMealPlanItems(
         carbs: dinner.carbs,
         fat: dinner.fat
       });
-    }
-    
-    // Add snack (only some days) - pass meal type for better selection
-    if (Math.random() > 0.3) { // 70% chance of having a snack
-      const snack = getRandomRecipe(prioritizedRecipes, requirements.meals.snack.calories, 
-        requirements.meals.snack.protein, usedRecipeIds, 'snack');
-      if (snack) {
-        mealPlanItems.push({
-          id: crypto.randomUUID(), // Add required id field
-          meal_plan_id: mealPlanId,
-          recipe_id: snack.id,
-          date: dateStr,
-          meal_type: "snack",
-          nutritional_context: getContextForMeal('snack', snack, profile),
-          calories: snack.calories,
-          protein: snack.protein,
-          carbs: snack.carbs,
-          fat: snack.fat
-        });
-      }
     }
   }
   
