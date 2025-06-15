@@ -80,59 +80,47 @@ export async function processAIMealPlan(
       for (const meal of meals) {
         const { meal_type, recipe_id, explanation } = meal;
         
-        // Validate meal type to include new snack types
+        // Validate meal type
         const validMealType = validateMealType(meal_type);
         
-        // Handle simple snacks vs recipe-based meals
-        let recipeData = null;
-        let customTitle = null;
-        
-        if (recipe_id === 'simple-snack' || (validMealType === 'pre_run_snack' || validMealType === 'post_run_snack')) {
-          // For snacks, use explanation as custom title and set basic nutrition
-          customTitle = explanation || 'Healthy snack';
-          recipeData = {
-            calories: validMealType === 'pre_run_snack' ? 150 : 200, // Default calories for snacks
-            protein: validMealType === 'pre_run_snack' ? 3 : 10,
-            carbs: validMealType === 'pre_run_snack' ? 30 : 25,
-            fat: validMealType === 'pre_run_snack' ? 2 : 8
-          };
-        } else if (recipesMap[recipe_id]) {
-          // For main meals, use the actual recipe data
-          recipeData = recipesMap[recipe_id];
-        } else {
+        // Check if recipe exists in our recipes map
+        const recipe = recipesMap[recipe_id];
+        if (!recipe) {
           console.warn(`Recipe not found: ${recipe_id}, skipping meal`);
           continue;
         }
 
+        console.log(`Adding ${validMealType}: ${recipe.title} (${recipe.calories} cal)`);
+
         mealPlanItems.push({
           id: crypto.randomUUID(),
           meal_plan_id: mealPlan.id,
-          recipe_id: (validMealType === 'pre_run_snack' || validMealType === 'post_run_snack') ? null : recipe_id,
+          recipe_id: recipe_id,
           date,
           meal_type: validMealType,
           nutritional_context: explanation,
-          custom_title: customTitle,
-          calories: recipeData.calories,
-          protein: recipeData.protein,
-          carbs: recipeData.carbs,
-          fat: recipeData.fat
+          custom_title: null, // Using actual recipe, no custom title needed
+          calories: recipe.calories,
+          protein: recipe.protein,
+          carbs: recipe.carbs,
+          fat: recipe.fat
         });
       }
       
-      // FALLBACK: If AI didn't generate snacks but there are runs on this day, add them
+      // FALLBACK: Only add simple snacks if AI didn't generate ANY snacks for a run day
       if (dayRuns.length > 0) {
         const existingSnackTypes = meals.map(m => validateMealType(m.meal_type));
         
-        // Add pre-run snack if missing
+        // Add pre-run snack if missing and no suitable recipe was selected
         if (!existingSnackTypes.includes('pre_run_snack')) {
-          console.log(`Adding fallback pre-run snack for ${date}`);
+          console.log(`Adding fallback pre-run snack for ${date} (AI didn't select a recipe)`);
           mealPlanItems.push({
             id: crypto.randomUUID(),
             meal_plan_id: mealPlan.id,
             recipe_id: null,
             date,
             meal_type: 'pre_run_snack',
-            nutritional_context: `Pre-run fuel for ${dayRuns[0].title}`,
+            nutritional_context: `Pre-run fuel for ${dayRuns[0].title} - AI couldn't find suitable recipe`,
             custom_title: 'Pre-run snack (banana + dates)',
             calories: 150,
             protein: 3,
@@ -141,16 +129,16 @@ export async function processAIMealPlan(
           });
         }
         
-        // Add post-run snack if missing
+        // Add post-run snack if missing and no suitable recipe was selected
         if (!existingSnackTypes.includes('post_run_snack')) {
-          console.log(`Adding fallback post-run snack for ${date}`);
+          console.log(`Adding fallback post-run snack for ${date} (AI didn't select a recipe)`);
           mealPlanItems.push({
             id: crypto.randomUUID(),
             meal_plan_id: mealPlan.id,
             recipe_id: null,
             date,
             meal_type: 'post_run_snack',
-            nutritional_context: `Recovery nutrition after ${dayRuns[0].title}`,
+            nutritional_context: `Recovery nutrition after ${dayRuns[0].title} - AI couldn't find suitable recipe`,
             custom_title: 'Post-run recovery (protein shake + fruit)',
             calories: 200,
             protein: 15,

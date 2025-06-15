@@ -173,18 +173,27 @@ MEAL PLANNING RULES:
 
 **RUN DAYS (Planned Runs):**
 - THREE main meals: breakfast, lunch, dinner (normal portions)
-- PRE-RUN SNACK: Light, easily digestible carbs 30-60 minutes before run
-  - Examples: banana, small yogurt, toast with honey, dates, small smoothie
-  - 100-200 calories, focus on quick energy
-- POST-RUN SNACK: Protein + carbs for recovery within 30 minutes after run  
-  - Examples: Greek yogurt with berries, protein smoothie, nuts with fruit, chocolate milk
-  - 150-250 calories, focus on recovery
+- PRE-RUN SNACK: Select a recipe from the database that is:
+  - 100-200 calories
+  - High in easily digestible carbohydrates (>20g carbs)
+  - Low in fiber and fat to avoid digestive issues
+  - Simple preparation/minimal ingredients
+  - Examples from recipes: smoothies, fruit-based dishes, yogurt parfaits, oatmeal variations
+- POST-RUN SNACK: Select a recipe from the database that is:
+  - 150-250 calories
+  - Contains both protein (>10g) and carbs (>15g) for recovery
+  - Can include healthy fats
+  - Examples from recipes: protein smoothies, Greek yogurt dishes, nuts/seeds combinations, recovery bowls
 
-**SNACK SELECTION GUIDELINES:**
-- Use simple, real foods rather than complex recipes when possible
-- Consider run timing to optimize pre/post-run nutrition
-- Match snack complexity to user's dietary preferences
-- If using recipe ingredients, suggest simple preparations
+**SNACK SELECTION STRATEGY:**
+You MUST analyze the provided recipes and intelligently select the most appropriate ones for snacks based on:
+- Caloric content matching the target ranges
+- Macronutrient profile (carbs for pre-run, protein+carbs for post-run)
+- Ingredient complexity (simpler is better for snacks)
+- Digestibility (avoid high-fiber/high-fat for pre-run)
+- Preparation time and convenience
+
+**CRITICAL INSTRUCTION:** Always use actual recipe IDs from the provided recipe list for ALL meals and snacks. Do NOT use "simple-snack" or generic placeholders. If no suitable snack recipe exists in the database, select the closest appropriate recipe and explain the timing/portion adjustment needed.
 
 IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", "dinner", "pre_run_snack", or "post_run_snack".
 
@@ -196,17 +205,15 @@ The response should be a JSON object following this exact structure:
       "meals": [
         {
           "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", "pre_run_snack", or "post_run_snack"
-          "recipe_id": "the-recipe-id", 
-          "explanation": "Why this recipe/snack fits the nutritional approach, timing, and activity level for this day. Include preparation/timing guidance for snacks."
+          "recipe_id": "actual-recipe-id-from-database", 
+          "explanation": "Why this recipe fits the nutritional approach, timing, and activity level for this day. For snacks, include specific guidance on timing (e.g., '30 minutes before run') and any portion adjustments needed."
         }
       ]
     }
   ]
 }
 
-For snacks, you may use "simple-snack" as recipe_id and provide the snack suggestion in the explanation field.
-
-Only include recipes from the provided list for main meals. For snacks, prioritize simple whole foods over complex recipes.`
+NEVER use "simple-snack" as a recipe_id. Always select actual recipes from the provided database that best match the snack requirements.`
     };
 
     console.log(`Making request to OpenAI API with model: gpt-4o`);
