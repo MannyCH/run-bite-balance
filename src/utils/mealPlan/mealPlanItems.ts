@@ -52,8 +52,8 @@ function generateGenericMealPlanItems(
     const usedRecipeIds: string[] = [];
     
     // Add breakfast - specify meal type for better selection
-    const breakfast = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.breakfast.calories, 
-      genericRequirements.meals.breakfast.protein, usedRecipeIds, 'breakfast');
+    const breakfast = getRandomRecipe(prioritizedRecipes, genericRequirements.mealDistribution.breakfast, 
+      genericRequirements.proteinGrams * 0.25, usedRecipeIds, 'breakfast');
     if (breakfast) {
       usedRecipeIds.push(breakfast.id);
       mealPlanItems.push({
@@ -71,8 +71,8 @@ function generateGenericMealPlanItems(
     }
     
     // Add lunch - specify meal type for better selection
-    const lunch = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.lunch.calories, 
-      genericRequirements.meals.lunch.protein, usedRecipeIds, 'lunch');
+    const lunch = getRandomRecipe(prioritizedRecipes, genericRequirements.mealDistribution.lunch, 
+      genericRequirements.proteinGrams * 0.40, usedRecipeIds, 'lunch');
     if (lunch) {
       usedRecipeIds.push(lunch.id);
       mealPlanItems.push({
@@ -90,8 +90,8 @@ function generateGenericMealPlanItems(
     }
     
     // Add dinner - specify meal type for better selection
-    const dinner = getRandomRecipe(prioritizedRecipes, genericRequirements.meals.dinner.calories, 
-      genericRequirements.meals.dinner.protein, usedRecipeIds, 'dinner');
+    const dinner = getRandomRecipe(prioritizedRecipes, genericRequirements.mealDistribution.dinner, 
+      genericRequirements.proteinGrams * 0.35, usedRecipeIds, 'dinner');
     if (dinner) {
       usedRecipeIds.push(dinner.id);
       mealPlanItems.push({
@@ -131,8 +131,8 @@ function generatePersonalizedMealPlanItems(
     const usedRecipeIds: string[] = [];
     
     // Add breakfast - pass meal type for better selection
-    const breakfast = getRandomRecipe(prioritizedRecipes, requirements.meals.breakfast.calories, 
-      requirements.meals.breakfast.protein, usedRecipeIds, 'breakfast');
+    const breakfast = getRandomRecipe(prioritizedRecipes, requirements.mealDistribution.breakfast, 
+      requirements.proteinGrams * 0.25, usedRecipeIds, 'breakfast');
     if (breakfast) {
       usedRecipeIds.push(breakfast.id);
       mealPlanItems.push({
@@ -150,8 +150,8 @@ function generatePersonalizedMealPlanItems(
     }
     
     // Add lunch - pass meal type for better selection
-    const lunch = getRandomRecipe(prioritizedRecipes, requirements.meals.lunch.calories, 
-      requirements.meals.lunch.protein, usedRecipeIds, 'lunch');
+    const lunch = getRandomRecipe(prioritizedRecipes, requirements.mealDistribution.lunch, 
+      requirements.proteinGrams * 0.40, usedRecipeIds, 'lunch');
     if (lunch) {
       usedRecipeIds.push(lunch.id);
       mealPlanItems.push({
@@ -169,8 +169,8 @@ function generatePersonalizedMealPlanItems(
     }
     
     // Add dinner - pass meal type for better selection
-    const dinner = getRandomRecipe(prioritizedRecipes, requirements.meals.dinner.calories, 
-      requirements.meals.dinner.protein, usedRecipeIds, 'dinner');
+    const dinner = getRandomRecipe(prioritizedRecipes, requirements.mealDistribution.dinner, 
+      requirements.proteinGrams * 0.35, usedRecipeIds, 'dinner');
     if (dinner) {
       usedRecipeIds.push(dinner.id);
       mealPlanItems.push({
