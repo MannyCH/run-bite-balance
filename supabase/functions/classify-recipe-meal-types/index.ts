@@ -89,7 +89,7 @@ Categories: ${(r.categories || []).join(', ')}`).join('\n---\n')}`;
       messages: [
         { 
           role: "system", 
-          content: "You are an expert meal classification system. Always return valid JSON arrays with meal type classifications. Do not wrap the array in any object structure." 
+          content: "You are an expert meal classification system. Always return valid JSON arrays with meal type classifications. Return ONLY the JSON array, no markdown formatting, no explanations." 
         },
         { role: "user", content: prompt }
       ],
@@ -106,11 +106,20 @@ Categories: ${(r.categories || []).join(', ')}`).join('\n---\n')}`;
       
       console.log('Raw OpenAI response:', content);
       
-      // Clean the response - remove any markdown code blocks
-      const cleanedContent = content
-        .replace(/```json\s*/g, '')
-        .replace(/```\s*/g, '')
-        .trim();
+      // Clean the response more aggressively
+      let cleanedContent = content.trim();
+      
+      // Remove markdown code blocks
+      cleanedContent = cleanedContent.replace(/```json\s*/g, '');
+      cleanedContent = cleanedContent.replace(/```\s*/g, '');
+      
+      // Remove any extra text before or after the JSON array
+      const arrayStart = cleanedContent.indexOf('[');
+      const arrayEnd = cleanedContent.lastIndexOf(']');
+      
+      if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
+        cleanedContent = cleanedContent.substring(arrayStart, arrayEnd + 1);
+      }
       
       console.log('Cleaned response:', cleanedContent);
       
