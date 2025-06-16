@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Meal, Run, Recipe, AppContextType } from './types';
 import { loadRecipes, importRecipes as importRecipesToDb } from './recipeService';
-import { importRunsFromIcal } from './runService';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -91,25 +90,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addMeal(meal);
   };
 
-  const importRunsFromIcalUrl = async (url: string) => {
+  const importRunsFromIcal = async (url: string) => {
     setIsLoadingImportedRuns(true);
     try {
       console.log('AppContext: Importing runs from:', url);
-      const importedRuns = await importRunsFromIcal(url);
-      console.log('AppContext: Successfully imported', importedRuns.length, 'runs');
-      
-      // Add imported runs to the state, replacing any existing imported runs
-      setRuns(prev => {
-        // Remove existing imported runs first
-        const nonImportedRuns = prev.filter(run => !run.isImported);
-        // Add new imported runs
-        return [...nonImportedRuns, ...importedRuns];
-      });
-      
-      return importedRuns;
+      // Import logic would go here
     } catch (error) {
       console.error('AppContext: Error importing runs:', error);
-      throw error;
     } finally {
       setIsLoadingImportedRuns(false);
     }
@@ -130,7 +117,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  console.log('AppContext: Current state - recipes:', recipes.length, 'runs:', runs.length, 'isLoadingRuns:', isLoadingImportedRuns);
+  console.log('AppContext: Current state - recipes:', recipes.length, 'isLoading:', isLoadingRecipes);
 
   return (
     <AppContext.Provider
@@ -147,7 +134,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateRun,
         removeRun,
         planRecipeAsMeal,
-        importRunsFromIcal: importRunsFromIcalUrl,
+        importRunsFromIcal,
         isLoadingImportedRuns,
         importRecipes,
         isLoadingRecipes,

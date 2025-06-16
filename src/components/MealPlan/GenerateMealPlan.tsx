@@ -9,7 +9,6 @@ import { useApp } from "@/context/AppContext";
 import { generateMealPlanForUser } from "@/utils/mealPlan";
 import { format, addDays, isSameDay, isWithinInterval } from "date-fns";
 import { Cloud, Thermometer, Calendar, Info } from "lucide-react";
-import { useAutoLoadRuns } from "@/hooks/useAutoLoadRuns";
 
 interface GenerateMealPlanProps {
   onMealPlanGenerated: () => Promise<void>;
@@ -23,9 +22,6 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [weatherInfo, setWeatherInfo] = useState<string | null>(null);
-
-  // Auto-load runs from user profile
-  useAutoLoadRuns();
 
   // Get current season for display
   const getCurrentSeason = () => {
@@ -65,7 +61,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
         const isPlanned = run.isPlanned;
         const isInRange = isWithinInterval(runDate, { start: startDate, end: endDate });
         
-        console.log(`Run "${run.title}" on ${format(runDate, 'yyyy-MM-dd')}: planned=${isPlanned}, inRange=${isInRange}, imported=${run.isImported || false}`);
+        console.log(`Run "${run.title}" on ${format(runDate, 'yyyy-MM-dd')}: planned=${isPlanned}, inRange=${isInRange}`);
         
         return isPlanned && isInRange;
       });
@@ -75,7 +71,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
       
       // Log details of each run being passed
       plannedRunsInRange.forEach(run => {
-        console.log(`- Run: ${run.title}, Date: ${format(new Date(run.date), 'yyyy-MM-dd')}, Distance: ${run.distance}km, Duration: ${Math.round(run.duration / 60)}min, Imported: ${run.isImported || false}`);
+        console.log(`- Run: ${run.title}, Date: ${format(new Date(run.date), 'yyyy-MM-dd')}, Distance: ${run.distance}km, Duration: ${Math.round(run.duration / 60)}min`);
       });
 
       const result = await generateMealPlanForUser(user.id, plannedRunsInRange);
@@ -129,10 +125,6 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
                 <div className="flex items-center gap-1">
                   <Cloud className="h-4 w-4" />
                   <span>Location: Bern, Switzerland</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>Runs loaded: {runs.filter(r => r.isPlanned).length}</span>
                 </div>
               </div>
             </div>

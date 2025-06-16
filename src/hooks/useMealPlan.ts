@@ -40,7 +40,6 @@ export const useMealPlan = () => {
     const startDate = parseISO(mealPlan.week_start_date);
     const endDate = parseISO(mealPlan.week_end_date);
     
-    // Include both regular runs and imported runs that are planned
     return runs.filter(run => {
       const runDate = new Date(run.date);
       return isWithinInterval(runDate, { start: startDate, end: endDate }) && run.isPlanned;
@@ -89,9 +88,7 @@ export const useMealPlan = () => {
       const { data: itemsData, error: itemsError } = await supabase
         .from('meal_plan_items')
         .select('*')
-        .eq('meal_plan_id', plan.id)
-        .order('date', { ascending: true })
-        .order('meal_type', { ascending: true });
+        .eq('meal_plan_id', plan.id);
 
       if (itemsError) {
         console.error('Error fetching meal plan items:', itemsError);
