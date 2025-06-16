@@ -1,6 +1,5 @@
-
 // Helper utility functions for the app context
-import { Recipe } from "@/types/profile";
+import { Recipe } from "@/context/types";
 
 /**
  * Validates if a string is a valid UUID
