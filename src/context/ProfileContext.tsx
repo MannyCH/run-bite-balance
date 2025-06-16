@@ -141,3 +141,6 @@ export const useProfile = () => {
   }
   return context;
 };
+
+// Export OnboardingCheck component for convenience
+export { default as OnboardingCheck } from '../components/Auth/OnboardingCheck';

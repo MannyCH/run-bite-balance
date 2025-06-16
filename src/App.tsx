@@ -1,16 +1,18 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from 'react-query';
-import { AuthProvider, AuthGuard } from './context/AuthContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from './context/AuthContext';
+import AuthGuard from './components/Auth/AuthGuard';
 import { AppProvider } from './context/AppContext';
-import { ProfileProvider, OnboardingCheck } from './context/ProfileContext';
+import { ProfileProvider } from './context/ProfileContext';
+import OnboardingCheck from './components/Auth/OnboardingCheck';
 import { ShoppingListProvider } from './context/ShoppingListContext';
-import Home from './pages/Home';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import MealPlanner from './pages/MealPlanner';
+import Index from './pages/Index';
+import Account from './pages/Account';
+import WeeklyMealPlanner from './pages/WeeklyMealPlanner';
 import ShoppingList from './pages/ShoppingList';
-import Onboarding from './pages/Onboarding';
+import ProfileSetup from './pages/ProfileSetup';
 import RecipeImporterPage from './pages/RecipeImporter';
 import { Toaster } from 'sonner';
 
@@ -31,7 +33,7 @@ function App() {
                       element={
                         <AuthGuard>
                           <OnboardingCheck>
-                            <Home />
+                            <Index />
                           </OnboardingCheck>
                         </AuthGuard>
                       }
@@ -41,7 +43,7 @@ function App() {
                       element={
                         <AuthGuard>
                           <OnboardingCheck>
-                            <Profile />
+                            <Account />
                           </OnboardingCheck>
                         </AuthGuard>
                       }
@@ -51,7 +53,7 @@ function App() {
                       element={
                         <AuthGuard>
                           <OnboardingCheck>
-                            <Settings />
+                            <Account />
                           </OnboardingCheck>
                         </AuthGuard>
                       }
@@ -61,7 +63,7 @@ function App() {
                       element={
                         <AuthGuard>
                           <OnboardingCheck>
-                            <MealPlanner />
+                            <WeeklyMealPlanner />
                           </OnboardingCheck>
                         </AuthGuard>
                       }
@@ -76,7 +78,7 @@ function App() {
                         </AuthGuard>
                       }
                     />
-                    <Route path="/onboarding" element={<AuthGuard><Onboarding /></AuthGuard>} />
+                    <Route path="/onboarding" element={<AuthGuard><ProfileSetup /></AuthGuard>} />
                     <Route
                       path="/recipe-importer"
                       element={

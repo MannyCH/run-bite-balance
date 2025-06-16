@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { RecipeImporter } from '@/components/Recipe/RecipeImporter';
+import RecipeImporter from '@/components/Recipe/RecipeImporter';
 import { RecipeSeasonalClassifier } from '@/components/Recipe/RecipeSeasonalClassifier';
-import { MainLayout } from '@/components/Layout/MainLayout';
+import MainLayout from '@/components/Layout/MainLayout';
 
 const RecipeImporterPage: React.FC = () => {
   return (

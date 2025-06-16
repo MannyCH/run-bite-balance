@@ -325,3 +325,6 @@ export const useAuth = () => {
   }
   return context;
 };
+
+// Export AuthGuard component for convenience
+export { default as AuthGuard } from '../components/Auth/AuthGuard';
