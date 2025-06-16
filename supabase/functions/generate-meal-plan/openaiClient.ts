@@ -1,99 +1,64 @@
-// OpenAI API client and meal plan generation
-import type { UserProfile } from "../../../src/types/profile.ts";
-import { createOpenAIClient, callOpenAIMealPlan } from "./openaiApi.ts";
-import { buildSystemPrompt } from "./promptBuilder.ts";
-import { prepareRecipeSummaries, groupRunsByDate, calculateAllDailyRequirements } from "./dataPreparation.ts";
-import { createDailyBreakdown } from "./mealDistribution.ts";
-import { fetchBernWeather } from "./weatherService.ts";
-import { filterSeasonallyAppropriateRecipes } from "./seasonalFilter.ts";
- import { filterSeasonallyAppropriateRecipesByMealType } from "./seasonalFilter.ts";
 
-/**
- * Generate meal plan using OpenAI
- */
+import { UserProfile } from "../../../src/types/profile.ts";
+import { callOpenAIMealPlan } from "./openaiApi.ts";
+import { calculateAllDailyRequirements, prepareRecipeData } from "./dataPreparation.ts";
+import type { RecipeSummary } from './types.ts';
+
 export async function generateAIMealPlan(
   userId: string,
   profile: UserProfile,
-  recipes: any[],
+  recipes: RecipeSummary[],
   runs: any[],
   startDate: string,
   endDate: string
-) {
+): Promise<any> {
+  console.log(`Generating AI meal plan for user ${userId} from ${startDate} to ${endDate}`);
+  
+  // Filter valid recipes with basic nutritional data
+  const validRecipes = recipes.filter(recipe => 
+    recipe.calories > 0 && 
+    recipe.protein >= 0 && 
+    recipe.carbs >= 0 && 
+    recipe.fat >= 0 &&
+    recipe.meal_type && 
+    recipe.meal_type.length > 0
+  );
+
+  if (validRecipes.length === 0) {
+    throw new Error('No valid recipes available for meal planning');
+  }
+
+  // Calculate nutritional requirements
+  const requirements = calculateAllDailyRequirements(profile);
+  
+  console.log(`Runs found: ${runs.length}`);
+  runs.forEach((run, index) => {
+    console.log(`Run ${index + 1}: ${run.title} on ${run.date}, ${run.distance}km, ${Math.round(run.duration / 60)}min`);
+  });
+
+  // Create run context for the AI prompt
+  const runContext = runs.length > 0 
+    ? `\n\nIMPORTANT RUN SCHEDULE:\n${runs.map(run => 
+        `- ${run.date}: ${run.title} (${run.distance}km, ${Math.round(run.duration / 60)} minutes)`
+      ).join('\n')}\n\nFor run days, include:
+      1. Pre-run snack (light carbs, 150-200 calories, easy to digest)
+      2. Post-run snack for runs 5km+ (protein + carbs for recovery, 200-300 calories)
+      3. Adjust lunch portions for better post-run recovery`
+    : '';
+
   try {
-    console.log(`Generating AI meal plan for user ${userId} from ${startDate} to ${endDate}`);
-    
-    // Initialize OpenAI client
-    const openai = createOpenAIClient();
-    
-    // Fetch weather data for Bern, Switzerland
-    console.log('Fetching weather data for Bern, Switzerland...');
-    const weatherData = await fetchBernWeather(startDate, endDate);
-    
-    if (weatherData) {
-      console.log(`Weather context: ${weatherData.season} season, ${weatherData.averageTemp}°C average, ${weatherData.temperatureCategory} weather`);
-    } else {
-      console.log('Using seasonal fallback without weather data');
-    }
-    
-    // Prepare data
-    const recipeSummaries = prepareRecipeSummaries(recipes);
-    const runsByDate = groupRunsByDate(runs);
-    
-
-// Apply seasonal filtering grouped by meal type
-const seasonallyFilteredRecipes = weatherData 
-  ? filterSeasonallyAppropriateRecipesByMealType(recipeSummaries, {
-      weather: weatherData,
-      location: 'Bern, Switzerland',
-      preferences: {
-        avoidHeavyInHeat: true,
-        preferSeasonalIngredients: true,
-        considerSwissTraditional: true
-      }
-    })
-  : {
-      breakfast: recipeSummaries.filter(r => r.meal_type === 'breakfast'),
-      lunch: recipeSummaries.filter(r => r.meal_type === 'lunch'),
-      dinner: recipeSummaries.filter(r => r.meal_type === 'dinner'),
-      snack: recipeSummaries.filter(r => r.meal_type === 'snack')
-    };
-
-    
-    // Calculate requirements
-    const { baseRequirements, dailyRequirements } = calculateAllDailyRequirements(
+    const result = await callOpenAIMealPlan(
       profile,
+      validRecipes,
+      requirements,
       startDate,
       endDate,
-      runsByDate
+      runContext
     );
     
-    // Create daily breakdown
-    const dailyBreakdown = createDailyBreakdown(dailyRequirements, runsByDate);
-    
-    // Calculate day count for logging
-    const today = new Date(startDate);
-    const endDateObj = new Date(endDate);
-    const dayCount = Math.ceil((endDateObj.getTime() - today.getTime()) / (1000 * 3600 * 24)) + 1;
-    
-    console.log(`Creating meal plan for ${dayCount} days`);
-    console.log(`User preferences: ${JSON.stringify({
-      fitness_goal: profile.fitness_goal || "maintain",
-      nutritional_theory: profile.nutritional_theory || "balanced",
-      allergies: profile.food_allergies || [],
-      preferred_cuisines: profile.preferred_cuisines || [],
-      foods_to_avoid: profile.foods_to_avoid || [],
-      dietary_preferences: profile.dietary_preferences || [],
-    })}`);
-    console.log(`Base daily requirements: ${JSON.stringify(baseRequirements)}`);
-    console.log(`Runs found: ${runs.length}`);
-    
-    // Build system prompt with weather context
-    const systemPrompt = buildSystemPrompt(profile, baseRequirements, dailyBreakdown, dayCount, weatherData);
-    
-    // Call OpenAI API with seasonally filtered recipes
-    return await callOpenAIMealPlan(openai, systemPrompt, seasonallyFilteredRecipes, startDate, endDate);
+    return result;
   } catch (error) {
-    console.error("Error generating AI meal plan:", error);
+    console.error('Error generating AI meal plan:', error);
     throw error;
   }
 }

@@ -9,12 +9,17 @@ import { createSupabaseClient, fetchUserProfile, fetchRecipes } from "./supabase
 import { prepareRecipeData, validateRecipeData } from "./dataPreparation.ts";
 
 serve(async (req) => {
+  console.log('🚀 Generate meal plan function started');
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('✅ Handling CORS preflight request');
     return handleCorsPreflightRequest();
   }
   
   try {
+    console.log('📋 Processing meal plan request...');
+    
     // Get the authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -25,6 +30,7 @@ serve(async (req) => {
     let requestBody;
     try {
       requestBody = await req.json();
+      console.log('📝 Request body received:', JSON.stringify(requestBody, null, 2));
     } catch (e) {
       console.error("Error parsing request body:", e);
       return createCorsResponse(JSON.stringify({ 
@@ -40,15 +46,18 @@ serve(async (req) => {
     }
     
     const { userId, startDate, endDate, runs } = validation.data!;
-    console.log(`Processing meal plan request for user ${userId} from ${startDate} to ${endDate}`);
+    console.log(`✅ Processing meal plan request for user ${userId} from ${startDate} to ${endDate} with ${runs ? runs.length : 0} runs`);
     
     // Create Supabase client
     const supabase = createSupabaseClient(authHeader);
+    console.log('✅ Supabase client created');
     
     // Get user profile
+    console.log('👤 Fetching user profile...');
     let profile;
     try {
       profile = await fetchUserProfile(supabase, userId);
+      console.log('✅ User profile fetched successfully');
     } catch (error) {
       console.error('Error fetching user profile:', error);
       return createCorsResponse(JSON.stringify({ 
@@ -57,10 +66,11 @@ serve(async (req) => {
     }
     
     // Get available recipes with proper meal type handling
+    console.log('🍽️ Fetching recipes...');
     let rawRecipes;
     try {
       rawRecipes = await fetchRecipes(supabase);
-      console.log(`Fetched ${rawRecipes.length} raw recipes for meal planning`);
+      console.log(`✅ Fetched ${rawRecipes.length} raw recipes for meal planning`);
     } catch (error) {
       console.error('Error fetching recipes:', error);
       return createCorsResponse(JSON.stringify({ 
@@ -69,38 +79,58 @@ serve(async (req) => {
     }
     
     // Prepare and validate recipe data
+    console.log('🔄 Preparing recipe data...');
     const recipes = prepareRecipeData(rawRecipes);
+    console.log('✅ Prepared', recipes.length, 'recipes');
+    
+    console.log('🔍 Validating', recipes.length, 'recipes...');
     const isValidData = validateRecipeData(recipes);
     
     if (!isValidData) {
       console.warn('Recipe data validation failed, but continuing with meal plan generation...');
+    } else {
+      console.log('✅ Recipe data validation passed');
     }
     
-    console.log(`Received ${runs.length} planned runs from frontend`);
+    console.log(`📊 Received ${runs ? runs.length : 0} planned runs from frontend`);
     
-    // Generate AI meal plan with properly formatted recipe data
+    // Log run details if provided
+    if (runs && runs.length > 0) {
+      runs.forEach((run, index) => {
+        console.log(`Run ${index + 1}: ${run.title}, Date: ${run.date}, Distance: ${run.distance}km, Duration: ${Math.round(run.duration / 60)}min`);
+      });
+    }
+    
+    // Try AI meal plan generation first
+    console.log('🤖 Attempting AI meal plan generation...');
     try {
       const result = await generateAIMealPlan(
         userId, 
         profile as unknown as UserProfile, 
         recipes,
-        runs,
+        runs || [],
         startDate,
         endDate
       );
       
-      console.log("Meal plan generated successfully");
+      console.log("✅ AI meal plan generated successfully");
       
       return createCorsResponse(JSON.stringify(result));
     } catch (aiError) {
-      console.error("AI meal plan generation failed:", aiError);
-      console.log("Falling back to algorithmic meal planning...");
+      console.error("❌ AI meal plan generation failed:", aiError);
+      console.log("🔄 AI failed, creating simple fallback meal plan...");
       
-      // Return a specific error that the frontend can handle
-      return createCorsResponse(JSON.stringify({ 
-        error: aiError.message || 'Error generating AI meal plan',
-        fallback: true 
-      }));
+      // Create a simple fallback response when AI fails
+      const fallbackResult = {
+        message: "AI meal planning temporarily unavailable, using algorithmic approach",
+        mealPlan: {
+          days: [] // Empty days will trigger algorithmic fallback in the frontend
+        },
+        fallback: true
+      };
+      
+      console.log("✅ Fallback meal plan created");
+      return createCorsResponse(JSON.stringify(fallbackResult));
     }
   } catch (error) {
     console.error('Error in generate-meal-plan function:', error);

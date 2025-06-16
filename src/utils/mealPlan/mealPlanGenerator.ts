@@ -115,9 +115,9 @@ export async function generateMealPlan({
       return null;
     }
 
-    // Generate the meal plan items using the improved algorithmic approach
-    console.log('🍽️ Generating meal plan items algorithmically...');
-    const mealPlanItems = generateMealPlanItems(mealPlan.id, profile, recipes, startDate, endDate);
+    // Generate the meal plan items using the improved algorithmic approach with runs
+    console.log('🍽️ Generating meal plan items algorithmically with run considerations...');
+    const mealPlanItems = generateMealPlanItems(mealPlan.id, profile, recipes, startDate, endDate, runs);
 
     console.log(`Generated ${mealPlanItems.length} meal plan items:`);
     mealPlanItems.forEach(item => {

@@ -1,79 +1,133 @@
-// openaiApi.ts – updated callOpenAIMealPlan with per-meal-type recipe filtering
-import OpenAI from "https://esm.sh/openai@4.20.0";
-import type { RecipeSummary } from "./types.ts";
+import { UserProfile } from "../../../src/types/profile.ts";
+import { RecipeSummary } from "./types.ts";
+import { getWeatherForCity } from "./weatherClient.ts";
 
-/**
- * Initialize OpenAI client
- */
-export function createOpenAIClient(): OpenAI {
-  const openaiApiKey = Deno.env.get("OPENAI_API_KEY_PERSONAL");
-  if (!openaiApiKey) {
-    console.error("OpenAI API key not found in environment variables");
-    throw new Error("OpenAI API key not configured");
-  }
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
-  return new OpenAI({ apiKey: openaiApiKey });
-}
-
-/**
- * Call OpenAI API for meal plan generation using grouped recipes
- */
 export async function callOpenAIMealPlan(
-  openai: OpenAI,
-  systemPrompt: string,
-  groupedRecipes: Record<"breakfast" | "lunch" | "dinner" | "snack", RecipeSummary[]>,
+  profile: UserProfile,
+  recipes: RecipeSummary[],
+  requirements: any,
   startDate: string,
-  endDate: string
-) {
+  endDate: string,
+  runContext: string = ''
+): Promise<any> {
   console.log(`Calling OpenAI GPT-4o for meal plan from ${startDate} to ${endDate}`);
 
-  const userMessage = `Create a meal plan from ${startDate} to ${endDate}. Here are the recipes per meal type:
+  // Get weather context for Bern, Switzerland
+  let weatherContext = 'Weather data unavailable.';
+  try {
+    const weatherData = await getWeatherForCity('Bern, Switzerland');
+    if (weatherData) {
+      weatherContext = `The weather in Bern is ${weatherData.description} with a temperature of ${weatherData.temperature}°C.`;
+    }
+  } catch (weatherError) {
+    console.error('Error fetching weather data:', weatherError);
+  }
 
-BREAKFAST RECIPES:
-${JSON.stringify(groupedRecipes.breakfast)}
+  const systemPrompt = `You are a professional nutritionist and meal planning expert. Create a detailed 7-day meal plan that considers:
 
-LUNCH RECIPES:
-${JSON.stringify(groupedRecipes.lunch)}
+1. **User Profile**: ${profile.fitness_goal || 'maintain'} fitness goal, ${profile.activity_level || 'moderate'} activity level
+2. **Nutritional Requirements**: ${requirements.targetCalories} calories/day, ${requirements.proteinGrams}g protein, ${requirements.carbGrams}g carbs, ${requirements.fatGrams}g fat
+3. **Dietary Preferences**: ${profile.dietary_preferences?.join(', ') || 'none specified'}
+4. **Allergies to Avoid**: ${profile.allergies?.join(', ') || 'none'}
+5. **Foods to Avoid**: ${profile.foods_to_avoid?.join(', ') || 'none'}
+6. **Preferred Cuisines**: ${profile.preferred_cuisines?.join(', ') || 'any'}
+7. **Weather Context**: ${weatherContext}${runContext}
 
-DINNER RECIPES:
-${JSON.stringify(groupedRecipes.dinner)}
+**CRITICAL REQUIREMENTS:**
+- Use ONLY recipes from the provided list
+- Each meal MUST include a valid recipe_id from the available recipes
+- Include breakfast, lunch, and dinner for each day
+- For run days, add appropriate pre-run and post-run snacks with meal_type "pre_run_snack" and "post_run_snack"
+- Provide nutritional context explaining why each meal fits the day's needs
+- Consider seasonal appropriateness and weather conditions
+- Ensure variety across the week
 
-SNACK RECIPES:
-${JSON.stringify(groupedRecipes.snack)}`;
+**Available Recipes:**
+${recipes.map(recipe => `
+ID: ${recipe.id}
+Title: ${recipe.title}
+Meal Types: ${recipe.meal_type?.join(', ') || 'unspecified'}
+Calories: ${recipe.calories}, Protein: ${recipe.protein}g, Carbs: ${recipe.carbs}g, Fat: ${recipe.fat}g
+Seasonal: ${recipe.seasonal_suitability?.join(', ') || 'year-round'}
+Temperature: ${recipe.temperature_preference || 'any'}
+`).join('\n')}
+
+Return a JSON object with this exact structure:
+{
+  "message": "Brief summary of the meal plan approach",
+  "mealPlan": {
+    "days": [
+      {
+        "date": "YYYY-MM-DD",
+        "meals": [
+          {
+            "meal_type": "breakfast|lunch|dinner|pre_run_snack|post_run_snack",
+            "recipe_id": "exact_recipe_id_from_list",
+            "explanation": "Why this meal fits the day's nutritional and activity needs"
+          }
+        ]
+      }
+    ]
+  }
+}`;
+
+  const data = {
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+    ],
+    temperature: 0.7,
+    max_tokens: 2048,
+    top_p: 1,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+  };
+
+  const headers = {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${OPENAI_API_KEY}`,
+  };
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage }
-      ],
-      temperature: 0.7,
-      max_tokens: 3000,
-      response_format: { type: "json_object" }
+    const response = await fetch(OPENAI_API_URL, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(data),
     });
 
-    const content = response.choices[0].message.content;
-    if (!content) {
-      throw new Error("OpenAI returned empty content");
+    if (!response.ok) {
+      console.error(`HTTP error! status: ${response.status}`);
+      console.error(await response.text());
+      throw new Error(`OpenAI API call failed with status ${response.status}`);
     }
 
-    try {
-      const parsed = JSON.parse(content);
-      console.log("Successfully parsed AI response");
-      return {
-        message: "Meal plan generated",
-        mealPlan: parsed
-      };
-    } catch (err) {
-      console.error("Parsing error:", err);
-      console.log("Raw content:", content);
-      throw new Error("Could not parse OpenAI meal plan JSON");
+    const result = await response.json();
+
+    if (result.error) {
+      console.error("OpenAI API error:", result.error);
+      throw new Error(`OpenAI API returned an error: ${result.error.message}`);
     }
-  } catch (err: any) {
-    console.error("OpenAI API error:", JSON.stringify(err, null, 2));
-    if (err.status === 401) throw new Error("Unauthorized – check API key");
-    if (err.status === 429) throw new Error("Rate limit exceeded or quota used up");
-    throw new Error(err.message || "Unknown OpenAI API error");
+
+    const content = result.choices[0].message.content;
+    console.log("Raw Content from OpenAI:", content);
+
+    try {
+      const parsedContent = JSON.parse(content);
+      console.log("Parsed Content:", JSON.stringify(parsedContent, null, 2));
+      return parsedContent;
+    } catch (parseError) {
+      console.error("Failed to parse OpenAI response:", parseError);
+      console.error("Content that failed to parse:", content);
+      throw new Error("Failed to parse OpenAI response as JSON");
+    }
+  } catch (error) {
+    console.error("Error calling OpenAI API:", error);
+    throw error;
   }
 }

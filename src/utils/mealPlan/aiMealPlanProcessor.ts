@@ -27,6 +27,46 @@ interface AIMealPlanResponse {
 }
 
 /**
+ * Generates a fallback snack item for run days
+ */
+function createRunSnack(
+  mealPlanId: string,
+  date: string,
+  snackType: 'pre_run_snack' | 'post_run_snack',
+  isRunDay: boolean
+): Partial<MealPlanItem> {
+  if (snackType === 'pre_run_snack') {
+    return {
+      id: crypto.randomUUID(),
+      meal_plan_id: mealPlanId,
+      recipe_id: null,
+      date,
+      meal_type: 'pre_run_snack',
+      nutritional_context: 'Pre-run fuel: Easy to digest carbohydrates for energy',
+      custom_title: 'Banana with honey or oatmeal',
+      calories: 180,
+      protein: 3,
+      carbs: 40,
+      fat: 2
+    };
+  } else {
+    return {
+      id: crypto.randomUUID(),
+      meal_plan_id: mealPlanId,
+      recipe_id: null,
+      date,
+      meal_type: 'post_run_snack',
+      nutritional_context: 'Post-run recovery: Protein and carbs for muscle recovery',
+      custom_title: 'Greek yogurt with berries and granola',
+      calories: 250,
+      protein: 15,
+      carbs: 35,
+      fat: 8
+    };
+  }
+}
+
+/**
  * Processes the AI-generated meal plan response and saves it to the database
  */
 export async function processAIMealPlan(
@@ -114,7 +154,7 @@ export async function processAIMealPlan(
         });
       }
       
-      // Validate meal structure for the day
+      // Validate meal structure for the day and add missing run-based meals
       const mealTypes = meals.map(m => validateMealType(m.meal_type));
       const expectedMeals = isRunDay 
         ? ['breakfast', 'pre_run_snack', 'lunch', 'dinner']
@@ -131,7 +171,21 @@ export async function processAIMealPlan(
         );
         console.warn(`Day ${date} missing expected meals: ${missingMeals.join(', ')}`);
         
-        // Only add fallback for missing dinner as it's essential
+        // Add missing run-based snacks
+        if (isRunDay) {
+          if (missingMeals.includes('pre_run_snack')) {
+            console.log(`Adding fallback pre-run snack for ${date}`);
+            mealPlanItems.push(createRunSnack(mealPlan.id, date, 'pre_run_snack', isRunDay));
+          }
+          
+          // Add post-run snack if we detect it might be needed (optional)
+          if (!mealTypes.includes('post_run_snack') && dayRuns.some(run => run.distance > 5)) {
+            console.log(`Adding post-run recovery snack for long run on ${date}`);
+            mealPlanItems.push(createRunSnack(mealPlan.id, date, 'post_run_snack', isRunDay));
+          }
+        }
+        
+        // Add fallback dinner if missing (essential meal)
         if (missingMeals.includes('dinner')) {
           console.log(`Adding fallback dinner for ${date}`);
           mealPlanItems.push({
