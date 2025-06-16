@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Meal, Run, Recipe, AppContextType } from './types';
 import { loadRecipes, importRecipes as importRecipesToDb } from './recipeService';
@@ -18,12 +17,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const loadInitialRecipes = async () => {
       setIsLoadingRecipes(true);
       try {
-        console.log('Loading recipes from Supabase...');
+        console.log('AppContext: Loading recipes from Supabase...');
         const loadedRecipes = await loadRecipes();
-        console.log('Loaded recipes:', loadedRecipes.length);
+        console.log('AppContext: Loaded recipes:', loadedRecipes.length);
         setRecipes(loadedRecipes);
       } catch (error) {
-        console.error('Error loading recipes:', error);
+        console.error('AppContext: Error loading recipes:', error);
       } finally {
         setIsLoadingRecipes(false);
       }
