@@ -5,10 +5,12 @@ import type { DailyRequirements } from "./types.ts";
 import { calculateDailyRequirements, calculateDaySpecificRequirements } from "./nutritionCalculator.ts";
 
 /**
- * Prepare recipe data for AI processing (renamed from prepareRecipeSummaries)
+ * Prepare recipe data for AI processing
  */
 export function prepareRecipeData(recipes: any[]): any[] {
-  return recipes.map(recipe => ({
+  console.log(`📊 Preparing ${recipes.length} recipes for processing`);
+  
+  const preparedRecipes = recipes.map(recipe => ({
     id: recipe.id,
     title: recipe.title,
     calories: recipe.calories || 0,
@@ -22,6 +24,9 @@ export function prepareRecipeData(recipes: any[]): any[] {
     temperature_preference: recipe.temperature_preference || 'any',
     dish_type: recipe.dish_type || 'neutral'
   }));
+  
+  console.log(`✅ Prepared ${preparedRecipes.length} recipes`);
+  return preparedRecipes;
 }
 
 /**
@@ -117,11 +122,19 @@ export function calculateAllDailyRequirements(
  * Validate recipe data quality
  */
 export function validateRecipeData(recipes: any[]): boolean {
+  console.log(`🔍 Validating ${recipes.length} recipes...`);
+  
   const hasValidRecipes = recipes.length > 0;
   const hasNutritionData = recipes.some(r => r.calories > 0 && r.protein > 0);
   const hasMealTypes = recipes.some(r => r.meal_type && r.meal_type !== 'any');
   
-  console.log(`Recipe validation: ${recipes.length} recipes, nutrition: ${hasNutritionData}, meal types: ${hasMealTypes}`);
+  console.log(`📊 Recipe validation results:`);
+  console.log(`  - Valid recipes: ${hasValidRecipes} (${recipes.length} total)`);
+  console.log(`  - Has nutrition data: ${hasNutritionData}`);
+  console.log(`  - Has meal types: ${hasMealTypes}`);
   
-  return hasValidRecipes && hasNutritionData;
+  const isValid = hasValidRecipes && hasNutritionData;
+  console.log(`✅ Overall validation: ${isValid ? 'PASSED' : 'FAILED'}`);
+  
+  return isValid;
 }
