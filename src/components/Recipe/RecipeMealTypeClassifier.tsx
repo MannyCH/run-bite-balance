@@ -25,25 +25,16 @@ export const RecipeMealTypeClassifier: React.FC = () => {
     setResult(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('You must be logged in to classify recipes');
-      }
-
-      const response = await fetch('/api/classify-recipe-meal-types', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
+      console.log('Starting meal type classification...');
+      
+      const { data, error: functionError } = await supabase.functions.invoke('classify-recipe-meal-types', {
+        body: {}
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Classification failed: ${errorText}`);
+      if (functionError) {
+        throw new Error(functionError.message || 'Failed to classify recipes');
       }
 
-      const data = await response.json();
       setResult(data);
       
       if (data.processed > 0) {
