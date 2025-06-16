@@ -8,7 +8,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
 import { generateMealPlanForUser } from "@/utils/mealPlan";
 import { format, addDays, isSameDay, isWithinInterval } from "date-fns";
-import { Cloud, Thermometer, Calendar, Info } from "lucide-react";
+import { Cloud, Thermometer, Calendar, Info, Activity } from "lucide-react";
+import { useRunDebug } from "@/hooks/useRunDebug";
 
 interface GenerateMealPlanProps {
   onMealPlanGenerated: () => Promise<void>;
@@ -22,6 +23,9 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [weatherInfo, setWeatherInfo] = useState<string | null>(null);
+  
+  // Debug hook to monitor runs
+  const runDebug = useRunDebug();
 
   // Get current season for display
   const getCurrentSeason = () => {
@@ -67,7 +71,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
       });
 
       console.log(`Generating meal plan with ${plannedRunsInRange.length} planned runs in date range`);
-      setWeatherInfo(`Found ${plannedRunsInRange.length} planned runs. Generating seasonal meal plan...`);
+      setWeatherInfo(`Found ${plannedRunsInRange.length} planned runs. Generating seasonal meal plan with pre/post-run snacks...`);
       
       // Log details of each run being passed
       plannedRunsInRange.forEach(run => {
@@ -77,10 +81,10 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
       const result = await generateMealPlanForUser(user.id, plannedRunsInRange);
 
       if (result) {
-        setWeatherInfo("Meal plan generated successfully with seasonal and weather considerations!");
+        setWeatherInfo("Meal plan generated successfully with seasonal considerations and run-specific snacks!");
         toast({
           title: "Success",
-          description: "Your seasonal meal plan has been generated successfully!",
+          description: `Your seasonal meal plan has been generated with ${plannedRunsInRange.length} run days included!`,
         });
         // Refresh data
         await onMealPlanGenerated();
@@ -126,6 +130,10 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
                   <Cloud className="h-4 w-4" />
                   <span>Location: Bern, Switzerland</span>
                 </div>
+                <div className="flex items-center gap-1">
+                  <Activity className="h-4 w-4" />
+                  <span>{runDebug.runsThisWeek} runs this week</span>
+                </div>
               </div>
             </div>
             <Button 
@@ -152,11 +160,11 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
         <Info className="h-4 w-4 text-orange-600" />
         <AlertDescription className="text-orange-800">
           <div className="space-y-1">
-            <div className="font-medium">Seasonal Meal Planning</div>
+            <div className="font-medium">Run-Aware Meal Planning</div>
             <div className="text-sm">
-              Your meal plan will automatically consider current weather conditions and seasonal appropriateness. 
-              If you're seeing winter dishes in summer, make sure to classify your recipes first using the 
-              Recipe Seasonal Classifier in the Recipe Management page.
+              Found {runDebug.runsThisWeek} runs planned for this week. Your meal plan will include 
+              pre-run snacks (light carbs) and post-run snacks (protein + carbs) for optimal performance 
+              and recovery. Make sure your runs are marked as "planned" in the Planned Runs page.
             </div>
           </div>
         </AlertDescription>

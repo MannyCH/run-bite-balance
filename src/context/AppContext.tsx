@@ -2,6 +2,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Meal, Run, Recipe, AppContextType } from './types';
 import { loadRecipes, importRecipes as importRecipesToDb } from './recipeService';
+import { importRunsFromIcal } from './runService';
+import { useAuth } from './AuthContext';
+import { useProfile } from './ProfileContext';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -12,6 +15,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoadingImportedRuns, setIsLoadingImportedRuns] = useState(false);
   const [isLoadingRecipes, setIsLoadingRecipes] = useState(false);
+  
+  const { user } = useAuth();
+  const { profile } = useProfile();
 
   // Load recipes from Supabase when the component mounts
   useEffect(() => {
@@ -21,11 +27,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         console.log('AppContext: Starting to load recipes from Supabase...');
         const loadedRecipes = await loadRecipes();
         console.log('AppContext: Successfully loaded recipes:', loadedRecipes.length);
-        console.log('AppContext: Sample recipe data:', loadedRecipes[0] || 'No recipes found');
         setRecipes(loadedRecipes);
       } catch (error) {
         console.error('AppContext: Error loading recipes:', error);
-        // Set empty array on error to prevent undefined state
         setRecipes([]);
       } finally {
         setIsLoadingRecipes(false);
@@ -35,6 +39,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     loadInitialRecipes();
   }, []);
+
+  // Auto-import runs from profile iCal URL when user and profile are available
+  useEffect(() => {
+    const autoImportRuns = async () => {
+      if (!user || !profile?.ical_feed_url || runs.length > 0) {
+        return; // Don't auto-import if already have runs or no URL
+      }
+
+      console.log('AppContext: Auto-importing runs from profile iCal URL:', profile.ical_feed_url);
+      try {
+        await handleImportRunsFromIcal(profile.ical_feed_url);
+      } catch (error) {
+        console.error('AppContext: Error auto-importing runs:', error);
+      }
+    };
+
+    autoImportRuns();
+  }, [user, profile?.ical_feed_url]);
 
   const addMeal = (meal: Omit<Meal, "id">) => {
     const newMeal: Meal = {
@@ -90,13 +112,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addMeal(meal);
   };
 
-  const importRunsFromIcal = async (url: string) => {
+  const handleImportRunsFromIcal = async (url: string) => {
     setIsLoadingImportedRuns(true);
     try {
       console.log('AppContext: Importing runs from:', url);
-      // Import logic would go here
+      const importedRuns = await importRunsFromIcal(url);
+      console.log('AppContext: Successfully imported', importedRuns.length, 'runs');
+      
+      // Add imported runs to state, replacing any existing imported runs
+      setRuns(prev => {
+        const nonImportedRuns = prev.filter(run => !run.isImported);
+        return [...nonImportedRuns, ...importedRuns];
+      });
     } catch (error) {
       console.error('AppContext: Error importing runs:', error);
+      throw error; // Re-throw to let UI handle the error
     } finally {
       setIsLoadingImportedRuns(false);
     }
@@ -111,13 +141,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setRecipes(updatedRecipes);
     } catch (error) {
       console.error('AppContext: Error importing recipes:', error);
-      // Don't clear existing recipes on import error
     } finally {
       setIsLoadingRecipes(false);
     }
   };
 
-  console.log('AppContext: Current state - recipes:', recipes.length, 'isLoading:', isLoadingRecipes);
+  console.log('AppContext: Current state - recipes:', recipes.length, 'runs:', runs.length, 'isLoading:', isLoadingRecipes);
 
   return (
     <AppContext.Provider
@@ -134,7 +163,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateRun,
         removeRun,
         planRecipeAsMeal,
-        importRunsFromIcal,
+        importRunsFromIcal: handleImportRunsFromIcal,
         isLoadingImportedRuns,
         importRecipes,
         isLoadingRecipes,

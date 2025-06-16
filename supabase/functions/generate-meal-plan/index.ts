@@ -67,7 +67,24 @@ serve(async (req) => {
     }
     
     const { userId, startDate, endDate, runs } = validation.data!;
-    console.log(`✅ Processing meal plan request for user ${userId} from ${startDate} to ${endDate} with ${runs ? runs.length : 0} runs`);
+    console.log(`✅ Processing meal plan request for user ${userId} from ${startDate} to ${endDate}`);
+    console.log(`🏃 Received ${runs ? runs.length : 0} runs in request:`, runs);
+    
+    // Log each run in detail
+    if (runs && runs.length > 0) {
+      runs.forEach((run, index) => {
+        console.log(`🏃‍♂️ Run ${index + 1}:`, {
+          title: run.title,
+          date: run.date,
+          distance: run.distance,
+          duration: run.duration,
+          isPlanned: run.isPlanned,
+          isImported: run.isImported
+        });
+      });
+    } else {
+      console.log('⚠️ No runs provided in request body');
+    }
     
     // Create Supabase client
     const supabase = createSupabaseClient(authHeader);
@@ -113,17 +130,9 @@ serve(async (req) => {
       console.log('✅ Recipe data validation passed');
     }
     
-    console.log(`📊 Received ${runs ? runs.length : 0} planned runs from frontend`);
-    
-    // Log run details if provided
-    if (runs && runs.length > 0) {
-      runs.forEach((run, index) => {
-        console.log(`Run ${index + 1}: ${run.title}, Date: ${run.date}, Distance: ${run.distance}km, Duration: ${Math.round(run.duration / 60)}min`);
-      });
-    }
-    
     // Try AI meal plan generation first
     console.log('🤖 Attempting AI meal plan generation...');
+    console.log(`🏃 Passing ${runs ? runs.length : 0} runs to AI meal planner`);
     try {
       const result = await generateAIMealPlan(
         userId, 
@@ -135,6 +144,11 @@ serve(async (req) => {
       );
       
       console.log("✅ AI meal plan generated successfully");
+      console.log("📊 AI result overview:", {
+        hasMealPlan: !!result?.mealPlan,
+        messageLength: result?.message?.length || 0,
+        totalDays: result?.mealPlan?.days?.length || 0
+      });
       
       return createCorsResponse(JSON.stringify(result));
     } catch (aiError) {
