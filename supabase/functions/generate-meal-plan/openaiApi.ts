@@ -1,6 +1,6 @@
 
 import { RecipeSummary } from "./types.ts";
-import { getWeatherForCity } from "./weatherClient.ts";
+import { fetchBernWeather } from "./weatherService.ts";
 
 // Define UserProfile interface directly in edge function context
 interface UserProfile {
@@ -35,14 +35,14 @@ export async function callOpenAIMealPlan(
   endDate: string,
   runContext: string = ''
 ): Promise<any> {
-  console.log(`Calling OpenAI GPT-4o for meal plan from ${startDate} to ${endDate}`);
+  console.log(`Calling OpenAI GPT-4.1 for meal plan from ${startDate} to ${endDate}`);
 
   // Get weather context for Bern, Switzerland
   let weatherContext = 'Weather data unavailable.';
   try {
-    const weatherData = await getWeatherForCity('Bern, Switzerland');
+    const weatherData = await fetchBernWeather(startDate, endDate);
     if (weatherData) {
-      weatherContext = `The weather in Bern is ${weatherData.description} with a temperature of ${weatherData.temperature}°C.`;
+      weatherContext = `The weather in Bern is ${weatherData.season} season with an average temperature of ${weatherData.averageTemp}°C (${weatherData.temperatureCategory} conditions).`;
     }
   } catch (weatherError) {
     console.error('Error fetching weather data:', weatherError);
