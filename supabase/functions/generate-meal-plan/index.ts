@@ -1,12 +1,33 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import type { UserProfile } from "../../../src/types/profile.ts";
 import { generateAIMealPlan } from "./openaiClient.ts";
 import { corsHeaders, handleCorsPreflightRequest, createCorsResponse } from "./corsHandler.ts";
 import { validateRequestBody } from "./requestValidator.ts";
 import { createSupabaseClient, fetchUserProfile, fetchRecipes } from "./supabaseClient.ts";
 import { prepareRecipeData, validateRecipeData } from "./dataPreparation.ts";
+
+// Define UserProfile interface directly in edge function context
+interface UserProfile {
+  id: string;
+  username?: string | null;
+  weight?: number | null;
+  target_weight?: number | null;
+  height?: number | null;
+  age?: number | null;
+  gender?: 'male' | 'female' | 'other' | null;
+  fitness_goal?: 'lose' | 'maintain' | 'gain' | null;
+  activity_level?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' | null;
+  bmr?: number | null;
+  dietary_preferences?: string[] | null;
+  nutritional_theory?: string | null;
+  food_allergies?: string[] | null;
+  preferred_cuisines?: string[] | null;
+  foods_to_avoid?: string[] | null;
+  meal_complexity?: 'simple' | 'moderate' | 'complex' | null;
+  ical_feed_url?: string | null;
+  avatar_url?: string | null;
+}
 
 serve(async (req) => {
   console.log('🚀 Generate meal plan function started');
@@ -106,7 +127,7 @@ serve(async (req) => {
     try {
       const result = await generateAIMealPlan(
         userId, 
-        profile as unknown as UserProfile, 
+        profile as UserProfile, 
         recipes,
         runs || [],
         startDate,

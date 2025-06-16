@@ -16,3 +16,18 @@ export interface MealPlanResult {
   mealPlan: MealPlan;
   mealPlanItems: MealPlanItem[];
 }
+
+// Export DailyRequirements interface that was missing
+export interface DailyRequirements {
+  targetCalories: number;
+  maintenanceCalories: number;
+  proteinGrams: number;
+  fatGrams: number;
+  carbGrams: number;
+  runCalories?: number;
+  mealDistribution: {
+    breakfast: number;
+    lunch: number;
+    dinner: number;
+  };
+}

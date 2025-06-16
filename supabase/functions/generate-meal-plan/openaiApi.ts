@@ -1,6 +1,28 @@
-import { UserProfile } from "../../../src/types/profile.ts";
+
 import { RecipeSummary } from "./types.ts";
 import { getWeatherForCity } from "./weatherClient.ts";
+
+// Define UserProfile interface directly in edge function context
+interface UserProfile {
+  id: string;
+  username?: string | null;
+  weight?: number | null;
+  target_weight?: number | null;
+  height?: number | null;
+  age?: number | null;
+  gender?: 'male' | 'female' | 'other' | null;
+  fitness_goal?: 'lose' | 'maintain' | 'gain' | null;
+  activity_level?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' | null;
+  bmr?: number | null;
+  dietary_preferences?: string[] | null;
+  nutritional_theory?: string | null;
+  food_allergies?: string[] | null;
+  preferred_cuisines?: string[] | null;
+  foods_to_avoid?: string[] | null;
+  meal_complexity?: 'simple' | 'moderate' | 'complex' | null;
+  ical_feed_url?: string | null;
+  avatar_url?: string | null;
+}
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
@@ -31,7 +53,7 @@ export async function callOpenAIMealPlan(
 1. **User Profile**: ${profile.fitness_goal || 'maintain'} fitness goal, ${profile.activity_level || 'moderate'} activity level
 2. **Nutritional Requirements**: ${requirements.targetCalories} calories/day, ${requirements.proteinGrams}g protein, ${requirements.carbGrams}g carbs, ${requirements.fatGrams}g fat
 3. **Dietary Preferences**: ${profile.dietary_preferences?.join(', ') || 'none specified'}
-4. **Allergies to Avoid**: ${profile.allergies?.join(', ') || 'none'}
+4. **Allergies to Avoid**: ${profile.food_allergies?.join(', ') || 'none'}
 5. **Foods to Avoid**: ${profile.foods_to_avoid?.join(', ') || 'none'}
 6. **Preferred Cuisines**: ${profile.preferred_cuisines?.join(', ') || 'any'}
 7. **Weather Context**: ${weatherContext}${runContext}
@@ -75,7 +97,7 @@ Return a JSON object with this exact structure:
 }`;
 
   const data = {
-    model: "gpt-4o",
+    model: "gpt-4.1-2025-04-14",
     messages: [
       {
         role: "system",

@@ -1,8 +1,29 @@
 
-import { UserProfile } from "../../../src/types/profile.ts";
 import { callOpenAIMealPlan } from "./openaiApi.ts";
 import { calculateAllDailyRequirements, prepareRecipeData } from "./dataPreparation.ts";
 import type { RecipeSummary } from './types.ts';
+
+// Define UserProfile interface directly in edge function context
+interface UserProfile {
+  id: string;
+  username?: string | null;
+  weight?: number | null;
+  target_weight?: number | null;
+  height?: number | null;
+  age?: number | null;
+  gender?: 'male' | 'female' | 'other' | null;
+  fitness_goal?: 'lose' | 'maintain' | 'gain' | null;
+  activity_level?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' | null;
+  bmr?: number | null;
+  dietary_preferences?: string[] | null;
+  nutritional_theory?: string | null;
+  food_allergies?: string[] | null;
+  preferred_cuisines?: string[] | null;
+  foods_to_avoid?: string[] | null;
+  meal_complexity?: 'simple' | 'moderate' | 'complex' | null;
+  ical_feed_url?: string | null;
+  avatar_url?: string | null;
+}
 
 export async function generateAIMealPlan(
   userId: string,
