@@ -17,6 +17,9 @@ export function prepareRecipeSummaries(recipes: any[]): RecipeSummary[] {
     fat: recipe.fat,
     ingredients: recipe.ingredients || [],
     categories: recipe.categories || [],
+    seasonal_suitability: recipe.seasonal_suitability || ['year_round'],
+    temperature_preference: recipe.temperature_preference || 'any',
+    dish_type: recipe.dish_type || 'neutral',
   }));
 }
 

@@ -1,113 +1,107 @@
-
-// Prompt building utilities for OpenAI meal plan generation
+// Build the system prompt for OpenAI meal plan generation
 import type { UserProfile } from "../../../src/types/profile.ts";
-import type { DailyRequirements, DailyBreakdown, RecipeSummary } from "./types.ts";
-import { getNutritionalTheoryGuidance } from "./nutritionalTheories.ts";
+import type { DailyRequirements, DailyBreakdown } from "./types.ts";
+import { generateWeatherContext } from "./seasonalFilter.ts";
+import type { WeeklyWeather } from "./weatherService.ts";
 
 /**
- * Build the detailed system prompt for OpenAI meal planning
+ * Build the system prompt for OpenAI meal plan generation
  */
 export function buildSystemPrompt(
   profile: UserProfile,
   baseRequirements: DailyRequirements,
   dailyBreakdown: DailyBreakdown[],
-  dayCount: number
+  dayCount: number,
+  weatherContext?: WeeklyWeather
 ): string {
-  const nutritionalGuidance = getNutritionalTheoryGuidance(profile.nutritional_theory);
-  
-  // Format dietary preferences and restrictions
-  const dietaryInfo = {
-    fitness_goal: profile.fitness_goal || "maintain",
-    nutritional_theory: profile.nutritional_theory || "balanced",
-    allergies: profile.food_allergies || [],
-    preferred_cuisines: profile.preferred_cuisines || [],
-    foods_to_avoid: profile.foods_to_avoid || [],
-    dietary_preferences: profile.dietary_preferences || [],
-  };
+  const nutritionalTheorySection = `NUTRITIONAL THEORY:
+- The meal plan should align with the user's nutritional theory: ${profile.nutritional_theory || "balanced"}.
+- Consider these aspects of the ${profile.nutritional_theory || "balanced"} approach: [Describe key aspects of the theory]`;
 
-  return `You are a professional nutritionist creating a personalized meal plan for ${dayCount} days.
+  const preferencesSection = `USER PREFERENCES:
+- The meal plan should adhere to the user's dietary preferences: ${(profile.dietary_preferences || []).join(", ") || "none"}.
+- The user prefers these cuisines: ${(profile.preferred_cuisines || []).join(", ") || "varied"}.
+- The user has these food allergies: ${(profile.food_allergies || []).join(", ") || "none"}.
+- The user wants to avoid these foods: ${(profile.foods_to_avoid || []).join(", ") || "none"}.`;
 
-USER PROFILE & GOALS:
-- Fitness Goal: ${profile.fitness_goal} weight
-- Current Weight: ${profile.weight || 'unknown'}kg
-- BMR: ${profile.bmr || 'unknown'} calories
-- Activity Level: ${profile.activity_level || 'moderate'}
+  const weatherSection = weatherContext 
+    ? generateWeatherContext(weatherContext)
+    : `
+LOCATION CONTEXT:
+- Location: Bern, Switzerland
+- Season: Based on current date
+- Weather data unavailable - use seasonal defaults`;
 
-BASE DAILY CALORIC & MACRO TARGETS:
-- Base Target Daily Calories: ${baseRequirements.targetCalories} calories
-- Maintenance Calories: ${baseRequirements.maintenanceCalories} calories
-- Daily Protein Target: ${baseRequirements.proteinGrams}g
-- Daily Carbohydrate Target: ${baseRequirements.carbGrams}g  
-- Daily Fat Target: ${baseRequirements.fatGrams}g
+  return `You are a nutrition and meal planning expert creating personalized meal plans for runners and fitness enthusiasts in Switzerland.
 
-DAILY ACTIVITY & CALORIE ADJUSTMENTS:
+${weatherSection}
+
+USER PROFILE:
+- Fitness Goal: ${profile.fitness_goal || "general fitness"}
+- Nutritional Theory: ${profile.nutritional_theory || "balanced"}
+- Activity Level: ${profile.activity_level || "moderate"}
+- Age: ${profile.age || "not specified"}
+- Gender: ${profile.gender || "not specified"}
+- Weight: ${profile.weight || "not specified"}kg
+- Dietary Preferences: ${(profile.dietary_preferences || []).join(", ") || "none"}
+- Food Allergies: ${(profile.food_allergies || []).join(", ") || "none"}
+- Foods to Avoid: ${(profile.foods_to_avoid || []).join(", ") || "none"}
+- Preferred Cuisines: ${(profile.preferred_cuisines || []).join(", ") || "varied"}
+- Meal Complexity: ${profile.meal_complexity || "moderate"}
+
+DAILY NUTRITIONAL TARGETS:
+- Base Calories: ${baseRequirements.calories}
+- Protein: ${baseRequirements.protein}g
+- Carbohydrates: ${baseRequirements.carbs}g
+- Fat: ${baseRequirements.fat}g
+
+MEAL PLAN REQUIREMENTS:
+You need to create a ${dayCount}-day meal plan. Here's the daily breakdown with run-specific adjustments:
+
 ${dailyBreakdown.map(day => `
-Date ${day.date}:
-- Target Calories: ${day.targetCalories} calories${day.runCalories > 0 ? ` (${baseRequirements.targetCalories} base + ${day.runCalories} run calories)` : ' (base calories)'}
-${day.hasRuns ? `
-- Breakfast: ~${day.meals.breakfast} calories
-- Pre-run snack: ~${day.meals.pre_run_snack} calories (before lunchtime run)
-- Lunch: ~${day.meals.lunch} calories (POST-RUN RECOVERY MEAL - high protein + carbs)
-- Dinner: ~${day.meals.dinner} calories
-- Planned Runs: ${day.runs.map(run => `${run.title} (${run.distance}km, ${run.duration}min)`).join(', ')}` : `
-- Breakfast: ~${day.meals.breakfast} calories
-- Lunch: ~${day.meals.lunch} calories
-- Dinner: ~${day.meals.dinner} calories
-- No planned runs (REST DAY)`}
-`).join('')}
+DATE: ${day.date}
+- Target Calories: ${day.targetCalories}
+- ${day.hasRuns ? `RUN DAY: Additional ${day.runCalories} calories needed` : 'REST DAY'}
+${day.runs.length > 0 ? `- Planned Runs: ${day.runs.map(r => `${r.title} (${r.distance}km, ${r.duration}min)`).join(', ')}` : ''}
+- Meal Distribution:
+${Object.entries(day.meals).map(([mealType, calories]) => `  * ${mealType}: ${calories} calories`).join('\n')}
+`).join('\n')}
 
-NUTRITIONAL APPROACH: ${nutritionalGuidance.focus}
-Key Guidelines:
-${nutritionalGuidance.guidelines.map(g => `- ${g}`).join('\n')}
+SEASONAL & WEATHER CONSIDERATIONS:
+- Consider current weather conditions and seasonal appropriateness
+- Prioritize recipes marked as suitable for current season/temperature
+- For hot weather (>25°C): Avoid heavy, warming dishes; prefer cooling, light meals
+- For cold weather (<10°C): Include warming, comforting dishes
+- For mild weather: Balanced selection appropriate for the season
+- Consider Swiss seasonal eating patterns and local ingredient availability
 
-DIETARY RESTRICTIONS & PREFERENCES:
-- Food Allergies: ${dietaryInfo.allergies.join(', ') || 'None'}
-- Foods to Avoid: ${dietaryInfo.foods_to_avoid.join(', ') || 'None'}
-- Dietary Preferences: ${dietaryInfo.dietary_preferences.join(', ') || 'None'}
-- Preferred Cuisines: ${dietaryInfo.preferred_cuisines.join(', ') || 'Any'}
+RECIPE SELECTION GUIDELINES:
+1. Choose recipes that match the seasonal and temperature preferences
+2. Prioritize recipes with appropriate seasonal_suitability tags
+3. Consider dish_type (warming/cooling/neutral) based on weather
+4. Include traditional Swiss seasonal specialties when appropriate
+5. Ensure nutritional targets are met despite weather considerations
 
-IMPORTANT MEAL PLANNING RULES:
+RECIPE FORMAT:
+Present each meal as follows:
+- Meal Type: [breakfast, lunch, dinner, snack]
+- Recipe Title: [Recipe Title]
+- Ingredients: [List of ingredients]
+- Instructions: [Step-by-step instructions]
+- Calories: [Total calories for the meal]
+- Protein: [Grams of protein]
+- Carbs: [Grams of carbohydrates]
+- Fat: [Grams of fat]
 
-**REST DAYS (No Runs):**
-- Generate exactly THREE meals: breakfast, lunch, dinner
-- Standard nutritional distribution
-- No snacks needed
-
-**RUN DAYS (Planned Runs - User runs during lunchtime):**
-- Generate exactly FOUR meals: breakfast, pre_run_snack, lunch, dinner
-- **PRE-RUN SNACK**: Select a recipe that is:
-  - 100-200 calories (light fuel before run)
-  - High in easily digestible carbohydrates (>15g carbs)
-  - Low in fiber and fat to avoid digestive issues
-  - Simple preparation/minimal ingredients
-- **LUNCH (POST-RUN RECOVERY)**: This is the main recovery meal, select a recipe that is:
-  - Higher calories (matching lunch target ~40% of daily calories)
-  - Rich in protein (>25g) and carbohydrates (>30g) for recovery
-  - Can include healthy fats
-  - Focus on recovery and refueling after the lunchtime run
-- **BREAKFAST & DINNER**: Normal meals as usual
-
-**CRITICAL INSTRUCTION:** Always use actual recipe IDs from the provided recipe list for ALL meals. Do NOT use generic placeholders. If no suitable recipe exists, select the closest appropriate recipe and explain portion adjustments.
-
-**MEAL TYPE VALUES:** Each meal_type MUST be exactly: "breakfast", "lunch", "dinner", or "pre_run_snack".
-
-**LUNCH ON RUN DAYS:** Remember that lunch on run days serves as the post-run recovery meal and should be nutritionally dense with adequate protein and carbs.
-
-The response should be a JSON object following this exact structure:
-{
-  "days": [
-    {
-      "date": "YYYY-MM-DD",
-      "meals": [
-        {
-          "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", or "pre_run_snack"
-          "recipe_id": "actual-recipe-id-from-database", 
-          "explanation": "Why this recipe fits the nutritional approach, timing, and activity level for this day. For lunch on run days, emphasize recovery nutrition. For pre-run snacks, focus on quick energy."
-        }
-      ]
-    }
-  ]
-}
-
-NEVER use "simple-snack" as a recipe_id. Always select actual recipes from the provided database.`;
+ADDITIONAL NOTES:
+- The meal plan should be creative, varied, and appealing.
+- Ensure that the recipes are easy to follow and prepare.
+- Consider the user's fitness goal when selecting recipes.
+- Provide a variety of cuisines to keep the meal plan interesting.
+- Adjust portion sizes to meet the daily calorie requirements.
+- If a recipe is not available, suggest a similar alternative.
+- Be concise and avoid unnecessary details.
+- Do not include disclaimers or warnings.
+- Do not include any additional text or information other than the meal plan.
+`;
 }

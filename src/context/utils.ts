@@ -1,4 +1,3 @@
-
 // Helper utility functions for the app context
 
 /**
@@ -20,7 +19,7 @@ export const generateId = (): string => {
 /**
  * Maps a recipe from application format to database format
  */
-export const recipeToDbFormat = async (recipe: any) => {
+export const recipeToDbFormat = async (recipe: Recipe) => {
   // Check if the recipe has a valid UUID, if not generate one
   let recipeId: string;
   
@@ -43,6 +42,8 @@ export const recipeToDbFormat = async (recipe: any) => {
     imageUrl = null;
   }
   
+  const finalImageUrl = imageUrl || recipe.imgUrl;
+  
   return {
     id: recipeId,
     title: recipe.title,
@@ -50,34 +51,36 @@ export const recipeToDbFormat = async (recipe: any) => {
     protein: recipe.protein,
     carbs: recipe.carbs,
     fat: recipe.fat,
-    imgurl: imageUrl, // Map from camelCase to lowercase for database
+    imgurl: finalImageUrl, // Map from camelCase to lowercase for database
     is_blob_url: isBlobUrl, // Store whether this was originally a blob URL
-    ingredients: recipe.ingredients,
-    instructions: recipe.instructions,
-    categories: recipe.categories,
-    website: recipe.website,
-    servings: recipe.servings,
-    created_at: new Date().toISOString()
+    ingredients: recipe.ingredients || [],
+    instructions: recipe.instructions || [],
+    categories: recipe.categories || [],
+    website: recipe.website || null,
+    servings: recipe.servings || null,
+    seasonal_suitability: ['year_round'], // Default for imported recipes
+    temperature_preference: 'any', // Default for imported recipes
+    dish_type: 'neutral', // Default for imported recipes
   };
 };
 
 /**
  * Maps a recipe from database format to application format
  */
-export const dbToRecipeFormat = (recipe: any) => {
+export const dbToRecipeFormat = (dbRecipe: any): Recipe => {
   return {
-    id: recipe.id,
-    title: recipe.title,
-    calories: recipe.calories,
-    protein: recipe.protein,
-    carbs: recipe.carbs,
-    fat: recipe.fat,
-    imgUrl: recipe.imgurl, // Map from lowercase database field to camelCase
-    isBlobUrl: recipe.is_blob_url || false, // Track blob URL status
-    ingredients: recipe.ingredients,
-    instructions: recipe.instructions,
-    categories: recipe.categories,
-    website: recipe.website,
-    servings: recipe.servings
+    id: dbRecipe.id,
+    title: dbRecipe.title,
+    calories: dbRecipe.calories,
+    protein: dbRecipe.protein,
+    carbs: dbRecipe.carbs,
+    fat: dbRecipe.fat,
+    imgUrl: dbRecipe.imgurl,
+    isBlobUrl: dbRecipe.is_blob_url || false,
+    ingredients: dbRecipe.ingredients || [],
+    instructions: dbRecipe.instructions || [],
+    categories: dbRecipe.categories || [],
+    website: dbRecipe.website,
+    servings: dbRecipe.servings,
   };
 };

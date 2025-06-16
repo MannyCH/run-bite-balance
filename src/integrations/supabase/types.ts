@@ -177,6 +177,7 @@ export type Database = {
           carbs: number
           categories: string[] | null
           created_at: string
+          dish_type: string | null
           fat: number
           id: string
           imgurl: string | null
@@ -186,7 +187,9 @@ export type Database = {
           is_blob_url: boolean | null
           main_ingredient: string | null
           protein: number
+          seasonal_suitability: string[] | null
           servings: string | null
+          temperature_preference: string | null
           title: string
           website: string | null
         }
@@ -195,6 +198,7 @@ export type Database = {
           carbs?: number
           categories?: string[] | null
           created_at?: string
+          dish_type?: string | null
           fat?: number
           id?: string
           imgurl?: string | null
@@ -204,7 +208,9 @@ export type Database = {
           is_blob_url?: boolean | null
           main_ingredient?: string | null
           protein?: number
+          seasonal_suitability?: string[] | null
           servings?: string | null
+          temperature_preference?: string | null
           title: string
           website?: string | null
         }
@@ -213,6 +219,7 @@ export type Database = {
           carbs?: number
           categories?: string[] | null
           created_at?: string
+          dish_type?: string | null
           fat?: number
           id?: string
           imgurl?: string | null
@@ -222,7 +229,9 @@ export type Database = {
           is_blob_url?: boolean | null
           main_ingredient?: string | null
           protein?: number
+          seasonal_suitability?: string[] | null
           servings?: string | null
+          temperature_preference?: string | null
           title?: string
           website?: string | null
         }
