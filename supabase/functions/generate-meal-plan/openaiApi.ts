@@ -27,15 +27,6 @@ interface UserProfile {
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
-/**
- * Helper function to check if a run is during lunch time (11:00-14:00)
- */
-function isLunchTimeRun(run: any): boolean {
-  const runDate = new Date(run.date);
-  const hour = runDate.getHours();
-  return hour >= 11 && hour <= 14;
-}
-
 export async function callOpenAIMealPlan(
   profile: UserProfile,
   recipes: RecipeSummary[],
@@ -77,12 +68,13 @@ export async function callOpenAIMealPlan(
 - Use ONLY recipes from the provided list
 - Each meal MUST include a valid recipe_id from the available recipes
 - Include breakfast, lunch, and dinner for each day
-- For run days, add appropriate pre-run and post-run snacks with meal_type "pre_run_snack" and "post_run_snack"
-- **IMPORTANT SNACK RULES:**
-  * Pre-run snacks: Use light breakfast recipes (≤200 calories) for quick energy
-  * Post-run snacks: Use light lunch recipes (≤300 calories) for recovery, BUT ONLY if the run is NOT during lunch time (11:00-14:00)
-  * If a run is during lunch time (11:00-14:00), SKIP the post-run snack and enhance the lunch meal with "POST-RUN RECOVERY" context instead
+- For run days, add pre-run snacks with meal_type "pre_run_snack" using light breakfast recipes (≤200 calories)
+- **IMPORTANT RUN DAY RULES:**
+  * Pre-run snacks: Use light breakfast recipes (≤200 calories) for quick energy before runs
+  * Lunch on run days: Enhanced with higher protein and recovery-focused nutrition to serve as post-run recovery meal
+  * No separate post-run snacks needed - lunch serves this purpose
 - Provide nutritional context explaining why each meal fits the day's needs
+- For run day lunches, include "POST-RUN RECOVERY" context emphasizing muscle recovery and glycogen replenishment
 - Consider seasonal appropriateness and weather conditions
 - Ensure variety across the week
 
@@ -90,13 +82,13 @@ export async function callOpenAIMealPlan(
 Breakfast Recipes (${breakfastRecipes.length} available): Use for breakfast and pre-run snacks
 ${breakfastRecipes.slice(0, 10).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
 
-Lunch Recipes (${lunchRecipes.length} available): Use for lunch and post-run snacks (when not lunch-time runs)
+Lunch Recipes (${lunchRecipes.length} available): Use for lunch (enhanced for recovery on run days)
 ${lunchRecipes.slice(0, 10).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
 
 Dinner Recipes (${dinnerRecipes.length} available): Use for dinner
 ${dinnerRecipes.slice(0, 10).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
 
-Light Recipes for Snacks (≤300 cal, ${lightRecipes.length} available):
+Light Recipes for Pre-run Snacks (≤300 cal, ${lightRecipes.length} available):
 ${lightRecipes.slice(0, 15).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}, Types: ${recipe.meal_type?.join(', ')}`).join('\n')}
 
 **Complete Recipe List:**
@@ -118,7 +110,7 @@ Return a JSON object with this exact structure:
         "date": "YYYY-MM-DD",
         "meals": [
           {
-            "meal_type": "breakfast|lunch|dinner|pre_run_snack|post_run_snack",
+            "meal_type": "breakfast|lunch|dinner|pre_run_snack",
             "recipe_id": "exact_recipe_id_from_list",
             "explanation": "Why this meal fits the day's nutritional and activity needs"
           }

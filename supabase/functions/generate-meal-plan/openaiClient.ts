@@ -25,15 +25,6 @@ interface UserProfile {
   avatar_url?: string | null;
 }
 
-/**
- * Helper function to check if a run is during lunch time (11:00-14:00)
- */
-function isLunchTimeRun(run: any): boolean {
-  const runDate = new Date(run.date);
-  const hour = runDate.getHours();
-  return hour >= 11 && hour <= 14;
-}
-
 export async function generateAIMealPlan(
   userId: string,
   profile: UserProfile,
@@ -63,22 +54,18 @@ export async function generateAIMealPlan(
   
   console.log(`Runs found: ${runs.length}`);
   runs.forEach((run, index) => {
-    const runDate = new Date(run.date);
-    const isLunchTime = isLunchTimeRun(run);
-    console.log(`Run ${index + 1}: ${run.title} on ${run.date}, ${run.distance}km, ${Math.round(run.duration / 60)}min, lunch-time: ${isLunchTime}`);
+    console.log(`Run ${index + 1}: ${run.title} on ${run.date}, ${run.distance}km, ${Math.round(run.duration / 60)}min`);
   });
 
-  // Create enhanced run context for the AI prompt with timing information
+  // Create simplified run context for the AI prompt
   const runContext = runs.length > 0 
-    ? `\n\n**IMPORTANT RUN SCHEDULE WITH TIMING:**\n${runs.map(run => {
-        const runDate = new Date(run.date);
-        const isLunchTime = isLunchTimeRun(run);
-        return `- ${run.date}: ${run.title} (${run.distance}km, ${Math.round(run.duration / 60)} minutes)${isLunchTime ? ' [LUNCH-TIME RUN]' : ''}`;
-      }).join('\n')}\n\n**RUN-SPECIFIC MEAL RULES:**
-      1. Pre-run snack (light breakfast recipe, ≤200 calories, easy to digest)
-      2. For LUNCH-TIME RUNS (11:00-14:00): Skip post-run snack and enhance lunch with "POST-RUN RECOVERY" context
-      3. For OTHER run times: Add post-run snack (light lunch recipe, ≤300 calories) only for runs 5km+
-      4. Always use existing recipes from the provided list for snacks - never create custom items`
+    ? `\n\n**RUN SCHEDULE:**\n${runs.map(run => {
+        return `- ${run.date}: ${run.title} (${run.distance}km, ${Math.round(run.duration / 60)} minutes)`;
+      }).join('\n')}\n\n**RUN DAY MEAL STRATEGY:**
+      1. Pre-run snack: Light breakfast recipe (≤200 calories) for quick energy
+      2. Enhanced lunch: Higher protein and recovery-focused to serve as post-run recovery meal
+      3. No separate post-run snacks needed - lunch serves this purpose
+      4. Always use existing recipes from the provided list for all meals and snacks`
     : '';
 
   try {

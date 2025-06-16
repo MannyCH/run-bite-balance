@@ -8,7 +8,7 @@ import {
 } from './mealPlanDb';
 import { isSameDay, parseISO } from 'date-fns';
 import { RecipeDiversityManager } from './recipeSelection';
-import { isLunchTimeRun, hasLunchTimeRuns, needsPostRunSnack } from './runTimingUtils';
+import { getRunsForDate } from './runTimingUtils';
 import { selectSnackRecipe, createSnackMealPlanItem } from './snackSelectionUtils';
 import { processAIMealsForDay } from './mealProcessingUtils';
 
@@ -72,31 +72,25 @@ export async function processAIMealPlan(
       const { date, meals } = day;
       console.log(`Processing day ${date} with ${meals.length} meals`);
       
-      // Check if this day has any runs and their timing
-      const dayRuns = runs.filter(run => {
-        const runDate = new Date(run.date);
-        const dayDate = parseISO(date);
-        return isSameDay(runDate, dayDate);
-      });
-      
+      // Check if this day has any runs
+      const dayDate = parseISO(date);
+      const dayRuns = getRunsForDate(runs, dayDate);
       const isRunDay = dayRuns.length > 0;
-      const hasLunchTimeRun = hasLunchTimeRuns(dayRuns);
-      console.log(`Day ${date} has ${dayRuns.length} runs (${isRunDay ? 'RUN DAY' : 'REST DAY'}), lunch-time run: ${hasLunchTimeRun}`);
       
-      // Process AI-generated meals
+      console.log(`Day ${date} has ${dayRuns.length} runs (${isRunDay ? 'RUN DAY' : 'REST DAY'})`);
+      
+      // Process AI-generated meals (lunch will be automatically enhanced for run days)
       const aiMealItems = processAIMealsForDay(
         meals,
         recipesMap,
         mealPlan.id,
         date,
-        isRunDay,
-        hasLunchTimeRun
+        isRunDay
       );
       mealPlanItems.push(...aiMealItems);
       
-      // Add run-specific snacks using existing recipes
+      // Add pre-run snack for run days
       if (isRunDay) {
-        // Always add pre-run snack
         const preRunSnack = selectSnackRecipe(allRecipes, 'pre_run_snack', diversityManager);
         if (preRunSnack) {
           console.log(`Adding pre-run snack recipe: ${preRunSnack.title}`);
@@ -104,15 +98,7 @@ export async function processAIMealPlan(
           mealPlanItems.push(preRunItem);
         }
         
-        // Add post-run snack only if it's NOT a lunch-time run and it's a longer run
-        if (needsPostRunSnack(dayRuns)) {
-          const postRunSnack = selectSnackRecipe(allRecipes, 'post_run_snack', diversityManager);
-          if (postRunSnack) {
-            console.log(`Adding post-run recovery snack recipe: ${postRunSnack.title}`);
-            const postRunItem = createSnackMealPlanItem(postRunSnack, mealPlan.id, date, 'post_run_snack');
-            mealPlanItems.push(postRunItem);
-          }
-        }
+        console.log(`Lunch will serve as post-run recovery meal for this run day`);
       }
       
       // Move to next day for diversity tracking

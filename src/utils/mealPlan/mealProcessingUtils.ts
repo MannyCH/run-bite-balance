@@ -2,7 +2,6 @@
 import { MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
 import { validateMealType } from './validators';
-import { isLunchTimeRun } from './runTimingUtils';
 
 /**
  * Creates a standard meal plan item from AI response
@@ -12,8 +11,7 @@ export function createMealPlanItemFromAI(
   recipe: Recipe,
   mealPlanId: string,
   date: string,
-  isRunDay: boolean,
-  hasLunchTimeRun: boolean
+  isRunDay: boolean
 ): Partial<MealPlanItem> {
   const { meal_type, explanation } = meal;
   const validMealType = validateMealType(meal_type);
@@ -21,11 +19,9 @@ export function createMealPlanItemFromAI(
   // Add contextual information for lunch on run days
   let contextualExplanation = explanation;
   if (isRunDay && validMealType === 'lunch') {
-    if (hasLunchTimeRun) {
-      contextualExplanation = `POST-RUN RECOVERY LUNCH: ${explanation} Enhanced for muscle recovery after your lunch-time run.`;
-    } else {
-      contextualExplanation = `RUN DAY LUNCH: ${explanation}`;
-    }
+    contextualExplanation = `POST-RUN RECOVERY LUNCH: ${explanation} Enhanced for muscle recovery after your run.`;
+  } else if (isRunDay && validMealType !== 'lunch') {
+    contextualExplanation = `RUN DAY ${validMealType.toUpperCase()}: ${explanation}`;
   }
 
   return {
@@ -51,8 +47,7 @@ export function processAIMealsForDay(
   recipesMap: Record<string, Recipe>,
   mealPlanId: string,
   date: string,
-  isRunDay: boolean,
-  hasLunchTimeRun: boolean
+  isRunDay: boolean
 ): Partial<MealPlanItem>[] {
   const mealPlanItems: Partial<MealPlanItem>[] = [];
 
@@ -71,8 +66,7 @@ export function processAIMealsForDay(
       recipe, 
       mealPlanId, 
       date, 
-      isRunDay, 
-      hasLunchTimeRun
+      isRunDay
     );
 
     console.log(`Adding ${mealItem.meal_type}: ${recipe.title} (${recipe.calories} cal)`);

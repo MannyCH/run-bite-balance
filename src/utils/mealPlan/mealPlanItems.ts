@@ -5,61 +5,8 @@ import { Recipe } from '@/context/types';
 import { filterRecipesByPreferences, prioritizeRecipes, getContextForMeal } from './recipeUtils';
 import { calculateDailyRequirements, getGenericRequirements } from './requirements';
 import { RecipeDiversityManager } from './recipeSelection';
-import { isSameDay, parseISO, getHours } from 'date-fns';
-
-/**
- * Checks if a run is scheduled during lunch time (11:00-14:00)
- */
-function isLunchTimeRun(run: any): boolean {
-  const runDate = new Date(run.date);
-  const hour = getHours(runDate);
-  return hour >= 11 && hour <= 14;
-}
-
-/**
- * Selects an appropriate recipe for snacks from existing recipes
- */
-function selectSnackRecipe(
-  recipes: Recipe[],
-  snackType: 'pre_run_snack' | 'post_run_snack',
-  diversityManager: RecipeDiversityManager
-): Recipe | null {
-  // Filter recipes suitable for snacks
-  const snackRecipes = recipes.filter(recipe => {
-    if (snackType === 'pre_run_snack') {
-      // Light breakfast items or low-calorie recipes (100-200 cal)
-      const isLightBreakfast = recipe.meal_type?.includes('breakfast') && recipe.calories <= 200;
-      const isLowCalorie = recipe.calories <= 200 && recipe.calories >= 100;
-      return isLightBreakfast || isLowCalorie;
-    } else {
-      // Light lunch items or medium-calorie recipes (200-300 cal)
-      const isLightLunch = recipe.meal_type?.includes('lunch') && recipe.calories <= 300;
-      const isMediumCalorie = recipe.calories <= 300 && recipe.calories >= 200;
-      return isLightLunch || isMediumCalorie;
-    }
-  });
-
-  if (snackRecipes.length === 0) {
-    console.warn(`No suitable recipes found for ${snackType}`);
-    return null;
-  }
-
-  // Use diversity manager to select appropriate snack
-  const targetCalories = snackType === 'pre_run_snack' ? 150 : 250;
-  const proteinTarget = snackType === 'pre_run_snack' ? 5 : 15;
-
-  return diversityManager.selectRecipeWithDiversity(snackRecipes, targetCalories, proteinTarget);
-}
-
-/**
- * Checks if a specific date has any runs
- */
-function hasRunsOnDate(date: Date, runs: any[]): boolean {
-  return runs.some(run => {
-    const runDate = new Date(run.date);
-    return isSameDay(runDate, date);
-  });
-}
+import { hasRunsOnDate } from './runTimingUtils';
+import { selectSnackRecipe } from './snackSelectionUtils';
 
 // Helper function to generate meal plan items
 export function generateMealPlanItems(
@@ -102,7 +49,7 @@ function generateGenericMealPlanItems(
   dayCount: number,
   runs: any[] = []
 ): Partial<MealPlanItem>[] {
-  console.log('Generating generic meal plan items with seasonal filtering, diversity management, and run-based snacks');
+  console.log('Generating generic meal plan items with seasonal filtering, diversity management, and simplified run logic');
   const mealPlanItems: Partial<MealPlanItem>[] = [];
   const genericRequirements = getGenericRequirements();
   const diversityManager = new RecipeDiversityManager();
@@ -113,15 +60,9 @@ function generateGenericMealPlanItems(
     currentDate.setDate(startDate.getDate() + day);
     const dateStr = currentDate.toISOString().split('T')[0];
     
-    // Check if this day has any runs and their timing
-    const dayRuns = runs.filter(run => {
-      const runDate = new Date(run.date);
-      return isSameDay(runDate, currentDate);
-    });
-    
-    const isRunDay = dayRuns.length > 0;
-    const hasLunchTimeRun = dayRuns.some(run => isLunchTimeRun(run));
-    console.log(`Planning meals for day ${day + 1}: ${dateStr} ${isRunDay ? '(RUN DAY)' : '(REST DAY)'}, lunch-time run: ${hasLunchTimeRun}`);
+    // Check if this day has any runs
+    const isRunDay = hasRunsOnDate(runs, currentDate);
+    console.log(`Planning meals for day ${day + 1}: ${dateStr} ${isRunDay ? '(RUN DAY)' : '(REST DAY)'}`);
     
     // Add pre-run snack if it's a run day
     if (isRunDay) {
@@ -165,7 +106,7 @@ function generateGenericMealPlanItems(
       });
     }
     
-    // Add lunch (with run context if applicable)
+    // Add lunch (enhanced for recovery on run days)
     const lunchRecipes = diversityManager.getRecipesForMealType(prioritizedRecipes, 'lunch');
     const lunch = diversityManager.selectRecipeWithDiversity(
       lunchRecipes,
@@ -175,10 +116,8 @@ function generateGenericMealPlanItems(
     
     if (lunch) {
       let lunchContext = "A satisfying lunch with good protein content";
-      if (hasLunchTimeRun) {
-        lunchContext = "POST-RUN RECOVERY LUNCH: Enhanced nutrition for muscle recovery after your lunch-time run";
-      } else if (isRunDay) {
-        lunchContext = "RUN DAY LUNCH: A satisfying lunch with good protein content for your training day";
+      if (isRunDay) {
+        lunchContext = "POST-RUN RECOVERY LUNCH: Enhanced nutrition for muscle recovery and glycogen replenishment after your run";
       }
         
       mealPlanItems.push({
@@ -193,25 +132,6 @@ function generateGenericMealPlanItems(
         carbs: lunch.carbs,
         fat: lunch.fat
       });
-    }
-    
-    // Add post-run snack only if it's NOT a lunch-time run and it's a longer run
-    if (isRunDay && !hasLunchTimeRun && dayRuns.some(run => run.distance >= 5)) {
-      const postRunSnack = selectSnackRecipe(prioritizedRecipes, 'post_run_snack', diversityManager);
-      if (postRunSnack) {
-        mealPlanItems.push({
-          id: crypto.randomUUID(),
-          meal_plan_id: mealPlanId,
-          recipe_id: postRunSnack.id,
-          date: dateStr,
-          meal_type: 'post_run_snack',
-          nutritional_context: `Post-run recovery: ${postRunSnack.title} helps with muscle recovery after your run`,
-          calories: postRunSnack.calories,
-          protein: postRunSnack.protein,
-          carbs: postRunSnack.carbs,
-          fat: postRunSnack.fat
-        });
-      }
     }
     
     // Add dinner
@@ -241,7 +161,7 @@ function generateGenericMealPlanItems(
     diversityManager.nextDay();
   }
   
-  console.log(`Generated ${mealPlanItems.length} meal plan items with seasonal filtering, diversity, and run-based snacks`);
+  console.log(`Generated ${mealPlanItems.length} meal plan items with seasonal filtering, diversity, and simplified run logic`);
   return mealPlanItems;
 }
 
@@ -255,7 +175,7 @@ function generatePersonalizedMealPlanItems(
   requirements: any,
   runs: any[] = []
 ): Partial<MealPlanItem>[] {
-  console.log('Generating personalized meal plan items with seasonal filtering, diversity management, and run-based snacks');
+  console.log('Generating personalized meal plan items with seasonal filtering, diversity management, and simplified run logic');
   const mealPlanItems: Partial<MealPlanItem>[] = [];
   const diversityManager = new RecipeDiversityManager();
   diversityManager.reset();
@@ -265,15 +185,9 @@ function generatePersonalizedMealPlanItems(
     currentDate.setDate(startDate.getDate() + day);
     const dateStr = currentDate.toISOString().split('T')[0];
     
-    // Check if this day has any runs and their timing
-    const dayRuns = runs.filter(run => {
-      const runDate = new Date(run.date);
-      return isSameDay(runDate, currentDate);
-    });
-    
-    const isRunDay = dayRuns.length > 0;
-    const hasLunchTimeRun = dayRuns.some(run => isLunchTimeRun(run));
-    console.log(`Planning personalized meals for day ${day + 1}: ${dateStr} ${isRunDay ? '(RUN DAY)' : '(REST DAY)'}, lunch-time run: ${hasLunchTimeRun}`);
+    // Check if this day has any runs
+    const isRunDay = hasRunsOnDate(runs, currentDate);
+    console.log(`Planning personalized meals for day ${day + 1}: ${dateStr} ${isRunDay ? '(RUN DAY)' : '(REST DAY)'}`);
     
     // Add pre-run snack if it's a run day
     if (isRunDay) {
@@ -317,7 +231,7 @@ function generatePersonalizedMealPlanItems(
       });
     }
     
-    // Add lunch (with run context if applicable)
+    // Add lunch (enhanced for recovery on run days)
     const lunchRecipes = diversityManager.getRecipesForMealType(prioritizedRecipes, 'lunch');
     const lunch = diversityManager.selectRecipeWithDiversity(
       lunchRecipes,
@@ -327,10 +241,8 @@ function generatePersonalizedMealPlanItems(
     
     if (lunch) {
       let lunchContext = getContextForMeal('lunch', lunch, profile);
-      if (hasLunchTimeRun) {
-        lunchContext = `POST-RUN RECOVERY LUNCH: ${lunchContext} Enhanced for muscle recovery after your lunch-time run.`;
-      } else if (isRunDay) {
-        lunchContext = `RUN DAY LUNCH: ${lunchContext}`;
+      if (isRunDay) {
+        lunchContext = `POST-RUN RECOVERY LUNCH: ${lunchContext} Enhanced for muscle recovery and glycogen replenishment after your run.`;
       }
       
       mealPlanItems.push({
@@ -345,25 +257,6 @@ function generatePersonalizedMealPlanItems(
         carbs: lunch.carbs,
         fat: lunch.fat
       });
-    }
-    
-    // Add post-run snack only if it's NOT a lunch-time run and it's a longer run
-    if (isRunDay && !hasLunchTimeRun && dayRuns.some(run => run.distance >= 5)) {
-      const postRunSnack = selectSnackRecipe(prioritizedRecipes, 'post_run_snack', diversityManager);
-      if (postRunSnack) {
-        mealPlanItems.push({
-          id: crypto.randomUUID(),
-          meal_plan_id: mealPlanId,
-          recipe_id: postRunSnack.id,
-          date: dateStr,
-          meal_type: 'post_run_snack',
-          nutritional_context: `Post-run recovery: ${postRunSnack.title} helps with muscle recovery after your run`,
-          calories: postRunSnack.calories,
-          protein: postRunSnack.protein,
-          carbs: postRunSnack.carbs,
-          fat: postRunSnack.fat
-        });
-      }
     }
     
     // Add dinner
@@ -393,6 +286,6 @@ function generatePersonalizedMealPlanItems(
     diversityManager.nextDay();
   }
   
-  console.log(`Generated ${mealPlanItems.length} personalized meal plan items with seasonal filtering, diversity, and run-based snacks`);
+  console.log(`Generated ${mealPlanItems.length} personalized meal plan items with seasonal filtering, diversity, and simplified run logic`);
   return mealPlanItems;
 }
