@@ -1,3 +1,4 @@
+
 import React from "react";
 import MainLayout from "../components/Layout/MainLayout";
 import { useApp } from "@/context/AppContext";
@@ -7,10 +8,14 @@ import { format, isSameDay } from "date-fns";
 import { MapPin, Route, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { useAutoLoadRuns } from "@/hooks/useAutoLoadRuns";
 
 const PlannedRuns: React.FC = () => {
   const { runs, meals, selectedDate, setSelectedDate, importRunsFromIcal, isLoadingImportedRuns } = useApp();
   const { toast } = useToast();
+
+  // Auto-load runs from user profile
+  useAutoLoadRuns();
 
   // Filter for planned runs only
   const plannedRuns = runs.filter((run) => run.isPlanned);
