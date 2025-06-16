@@ -60,6 +60,8 @@ export const useProfileData = (
               preferredCuisines: profileData.preferred_cuisines || [],
               foodsToAvoid: profileData.foods_to_avoid || [],
               mealComplexity: safeMealComplexityCast(profileData.meal_complexity),
+              batchCookingRepetitions: profileData.batch_cooking_repetitions || 1,
+              batchCookingPeople: profileData.batch_cooking_people || 1,
             },
           });
         }
