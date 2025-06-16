@@ -1,135 +1,10 @@
+
 // Functions for generating meal plan items
 import { UserProfile, MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
 import { filterRecipesByPreferences, prioritizeRecipes, getContextForMeal } from './recipeUtils';
 import { calculateDailyRequirements, getGenericRequirements } from './requirements';
-
-// Helper function to get recipes suitable for a specific meal type using the meal_type field
-function getRecipesForMealType(recipes: Recipe[], mealType: 'breakfast' | 'lunch' | 'dinner'): Recipe[] {
-  console.log(`Filtering ${recipes.length} recipes for meal type: ${mealType}`);
-  
-  // First, try to filter by the actual meal_type field from the database
-  const mealTypeFilteredRecipes = recipes.filter(recipe => {
-    // Check if recipe has meal_type field and it's an array
-    if (recipe.meal_type && Array.isArray(recipe.meal_type)) {
-      const hasMealType = recipe.meal_type.includes(mealType);
-      if (hasMealType) {
-        console.log(`Recipe "${recipe.title}" matches meal type "${mealType}" via meal_type field`);
-      }
-      return hasMealType;
-    }
-    
-    // Check if recipe has meal_type field and it's a string (legacy support)
-    if (recipe.meal_type && typeof recipe.meal_type === 'string') {
-      const hasMealType = recipe.meal_type === mealType;
-      if (hasMealType) {
-        console.log(`Recipe "${recipe.title}" matches meal type "${mealType}" via meal_type string`);
-      }
-      return hasMealType;
-    }
-    
-    return false;
-  });
-  
-  // If we have recipes with proper meal_type classification, use those
-  if (mealTypeFilteredRecipes.length > 0) {
-    console.log(`Found ${mealTypeFilteredRecipes.length} recipes with proper meal_type classification for ${mealType}`);
-    return mealTypeFilteredRecipes;
-  }
-  
-  // Fallback to keyword-based filtering for recipes without meal_type classification
-  console.log(`No recipes found with meal_type field for ${mealType}, falling back to keyword matching`);
-  
-  // Keywords that indicate breakfast foods
-  const breakfastKeywords = [
-    'oatmeal', 'pancake', 'waffle', 'cereal', 'yogurt', 'granola', 'toast', 'egg', 'omelet', 'frittata',
-    'smoothie', 'muesli', 'croissant', 'bagel', 'muffin', 'breakfast', 'porridge', 'bircher'
-  ];
-  
-  // Keywords that indicate lunch foods
-  const lunchKeywords = [
-    'salad', 'sandwich', 'wrap', 'soup', 'bowl', 'quinoa', 'rice bowl', 'lunch', 'light',
-    'gazpacho', 'bruschetta', 'tapas', 'mezze', 'poke', 'grain bowl'
-  ];
-  
-  // Keywords that indicate dinner foods
-  const dinnerKeywords = [
-    'roast', 'stew', 'casserole', 'pasta', 'risotto', 'curry', 'braised', 'grilled', 'baked',
-    'dinner', 'main course', 'hearty', 'paella', 'lasagna', 'tagine', 'schnitzel', 'pot roast'
-  ];
-  
-  const keywordFilteredRecipes = recipes.filter(recipe => {
-    const title = recipe.title.toLowerCase();
-    const ingredients = (recipe.ingredients || []).join(' ').toLowerCase();
-    const categories = (recipe.categories || []).join(' ').toLowerCase();
-    const searchText = `${title} ${ingredients} ${categories}`;
-    
-    switch (mealType) {
-      case 'breakfast':
-        const isBreakfast = breakfastKeywords.some(keyword => searchText.includes(keyword));
-        const notLunchOrDinner = !lunchKeywords.some(keyword => searchText.includes(keyword)) && 
-                                !dinnerKeywords.some(keyword => searchText.includes(keyword));
-        return isBreakfast || (notLunchOrDinner && recipe.calories && recipe.calories < 600);
-        
-      case 'lunch':
-        const isLunch = lunchKeywords.some(keyword => searchText.includes(keyword));
-        const notBreakfastOrDinner = !breakfastKeywords.some(keyword => searchText.includes(keyword)) && 
-                                    !dinnerKeywords.some(keyword => searchText.includes(keyword));
-        return isLunch || (notBreakfastOrDinner && recipe.calories && recipe.calories >= 400 && recipe.calories <= 800);
-        
-      case 'dinner':
-        const isDinner = dinnerKeywords.some(keyword => searchText.includes(keyword));
-        const notBreakfastOrLunch = !breakfastKeywords.some(keyword => searchText.includes(keyword)) && 
-                                   !lunchKeywords.some(keyword => searchText.includes(keyword));
-        return isDinner || (notBreakfastOrLunch && recipe.calories && recipe.calories > 500);
-        
-      default:
-        return true;
-    }
-  });
-  
-  console.log(`Found ${keywordFilteredRecipes.length} recipes using keyword matching for ${mealType}`);
-  return keywordFilteredRecipes;
-}
-
-// Enhanced random recipe selection with meal type awareness
-function getRandomRecipeForMealType(
-  recipes: Recipe[], 
-  mealType: 'breakfast' | 'lunch' | 'dinner',
-  targetCalories: number, 
-  proteinTarget: number, 
-  usedRecipeIds: string[]
-): Recipe | null {
-  // First filter by meal type
-  const mealTypeRecipes = getRecipesForMealType(recipes, mealType);
-  
-  // Filter out already used recipes
-  const availableRecipes = mealTypeRecipes.filter(recipe => !usedRecipeIds.includes(recipe.id));
-  
-  if (availableRecipes.length === 0) {
-    console.warn(`No available recipes for ${mealType}, falling back to all recipes`);
-    // Fallback to all recipes if no meal-type specific recipes available
-    const fallbackRecipes = recipes.filter(recipe => !usedRecipeIds.includes(recipe.id));
-    return fallbackRecipes.length > 0 ? fallbackRecipes[Math.floor(Math.random() * fallbackRecipes.length)] : null;
-  }
-  
-  // Score recipes based on how well they match the targets
-  const scoredRecipes = availableRecipes.map(recipe => {
-    const calorieScore = recipe.calories ? Math.max(0, 100 - Math.abs(recipe.calories - targetCalories) / targetCalories * 100) : 0;
-    const proteinScore = recipe.protein ? Math.max(0, 100 - Math.abs(recipe.protein - proteinTarget) / proteinTarget * 100) : 0;
-    const totalScore = (calorieScore + proteinScore) / 2;
-    
-    return { recipe, score: totalScore };
-  });
-  
-  // Sort by score and pick from top 3 to add some variety
-  scoredRecipes.sort((a, b) => b.score - a.score);
-  const topRecipes = scoredRecipes.slice(0, Math.min(3, scoredRecipes.length));
-  const selectedRecipe = topRecipes[Math.floor(Math.random() * topRecipes.length)];
-  
-  console.log(`Selected ${selectedRecipe.recipe.title} for ${mealType} (score: ${selectedRecipe.score.toFixed(1)})`);
-  return selectedRecipe.recipe;
-}
+import { RecipeDiversityManager } from './recipeSelection';
 
 // Helper function to generate meal plan items
 export function generateMealPlanItems(
@@ -170,27 +45,28 @@ function generateGenericMealPlanItems(
   startDate: Date,
   dayCount: number
 ): Partial<MealPlanItem>[] {
-  console.log('Generating generic meal plan items');
+  console.log('Generating generic meal plan items with seasonal filtering and diversity management');
   const mealPlanItems: Partial<MealPlanItem>[] = [];
   const genericRequirements = getGenericRequirements();
+  const diversityManager = new RecipeDiversityManager();
+  diversityManager.reset();
   
   for (let day = 0; day < dayCount; day++) {
     const currentDate = new Date(startDate);
     currentDate.setDate(startDate.getDate() + day);
     const dateStr = currentDate.toISOString().split('T')[0];
     
-    const usedRecipeIds: string[] = [];
+    console.log(`Planning meals for day ${day + 1}: ${dateStr}`);
     
     // Add breakfast
-    const breakfast = getRandomRecipeForMealType(
-      prioritizedRecipes, 
-      'breakfast',
+    const breakfastRecipes = diversityManager.getRecipesForMealType(prioritizedRecipes, 'breakfast');
+    const breakfast = diversityManager.selectRecipeWithDiversity(
+      breakfastRecipes,
       genericRequirements.mealDistribution.breakfast, 
-      genericRequirements.proteinGrams * 0.25, 
-      usedRecipeIds
+      genericRequirements.proteinGrams * 0.25
     );
+    
     if (breakfast) {
-      usedRecipeIds.push(breakfast.id);
       mealPlanItems.push({
         id: crypto.randomUUID(),
         meal_plan_id: mealPlanId,
@@ -206,15 +82,14 @@ function generateGenericMealPlanItems(
     }
     
     // Add lunch
-    const lunch = getRandomRecipeForMealType(
-      prioritizedRecipes, 
-      'lunch',
+    const lunchRecipes = diversityManager.getRecipesForMealType(prioritizedRecipes, 'lunch');
+    const lunch = diversityManager.selectRecipeWithDiversity(
+      lunchRecipes,
       genericRequirements.mealDistribution.lunch, 
-      genericRequirements.proteinGrams * 0.40, 
-      usedRecipeIds
+      genericRequirements.proteinGrams * 0.40
     );
+    
     if (lunch) {
-      usedRecipeIds.push(lunch.id);
       mealPlanItems.push({
         id: crypto.randomUUID(),
         meal_plan_id: mealPlanId,
@@ -230,15 +105,14 @@ function generateGenericMealPlanItems(
     }
     
     // Add dinner
-    const dinner = getRandomRecipeForMealType(
-      prioritizedRecipes, 
-      'dinner',
+    const dinnerRecipes = diversityManager.getRecipesForMealType(prioritizedRecipes, 'dinner');
+    const dinner = diversityManager.selectRecipeWithDiversity(
+      dinnerRecipes,
       genericRequirements.mealDistribution.dinner, 
-      genericRequirements.proteinGrams * 0.35, 
-      usedRecipeIds
+      genericRequirements.proteinGrams * 0.35
     );
+    
     if (dinner) {
-      usedRecipeIds.push(dinner.id);
       mealPlanItems.push({
         id: crypto.randomUUID(),
         meal_plan_id: mealPlanId,
@@ -252,9 +126,12 @@ function generateGenericMealPlanItems(
         fat: dinner.fat
       });
     }
+    
+    // Move to next day for diversity tracking
+    diversityManager.nextDay();
   }
   
-  console.log(`Generated ${mealPlanItems.length} meal plan items`);
+  console.log(`Generated ${mealPlanItems.length} meal plan items with seasonal filtering and diversity`);
   return mealPlanItems;
 }
 
@@ -267,26 +144,27 @@ function generatePersonalizedMealPlanItems(
   dayCount: number,
   requirements: any
 ): Partial<MealPlanItem>[] {
-  console.log('Generating personalized meal plan items');
+  console.log('Generating personalized meal plan items with seasonal filtering and diversity management');
   const mealPlanItems: Partial<MealPlanItem>[] = [];
+  const diversityManager = new RecipeDiversityManager();
+  diversityManager.reset();
   
   for (let day = 0; day < dayCount; day++) {
     const currentDate = new Date(startDate);
     currentDate.setDate(startDate.getDate() + day);
     const dateStr = currentDate.toISOString().split('T')[0];
     
-    const usedRecipeIds: string[] = [];
+    console.log(`Planning personalized meals for day ${day + 1}: ${dateStr}`);
     
     // Add breakfast
-    const breakfast = getRandomRecipeForMealType(
-      prioritizedRecipes, 
-      'breakfast',
+    const breakfastRecipes = diversityManager.getRecipesForMealType(prioritizedRecipes, 'breakfast');
+    const breakfast = diversityManager.selectRecipeWithDiversity(
+      breakfastRecipes,
       requirements.mealDistribution.breakfast, 
-      requirements.proteinGrams * 0.25, 
-      usedRecipeIds
+      requirements.proteinGrams * 0.25
     );
+    
     if (breakfast) {
-      usedRecipeIds.push(breakfast.id);
       mealPlanItems.push({
         id: crypto.randomUUID(),
         meal_plan_id: mealPlanId,
@@ -302,15 +180,14 @@ function generatePersonalizedMealPlanItems(
     }
     
     // Add lunch
-    const lunch = getRandomRecipeForMealType(
-      prioritizedRecipes, 
-      'lunch',
+    const lunchRecipes = diversityManager.getRecipesForMealType(prioritizedRecipes, 'lunch');
+    const lunch = diversityManager.selectRecipeWithDiversity(
+      lunchRecipes,
       requirements.mealDistribution.lunch, 
-      requirements.proteinGrams * 0.40, 
-      usedRecipeIds
+      requirements.proteinGrams * 0.40
     );
+    
     if (lunch) {
-      usedRecipeIds.push(lunch.id);
       mealPlanItems.push({
         id: crypto.randomUUID(),
         meal_plan_id: mealPlanId,
@@ -326,15 +203,14 @@ function generatePersonalizedMealPlanItems(
     }
     
     // Add dinner
-    const dinner = getRandomRecipeForMealType(
-      prioritizedRecipes, 
-      'dinner',
+    const dinnerRecipes = diversityManager.getRecipesForMealType(prioritizedRecipes, 'dinner');
+    const dinner = diversityManager.selectRecipeWithDiversity(
+      dinnerRecipes,
       requirements.mealDistribution.dinner, 
-      requirements.proteinGrams * 0.35, 
-      usedRecipeIds
+      requirements.proteinGrams * 0.35
     );
+    
     if (dinner) {
-      usedRecipeIds.push(dinner.id);
       mealPlanItems.push({
         id: crypto.randomUUID(),
         meal_plan_id: mealPlanId,
@@ -348,8 +224,11 @@ function generatePersonalizedMealPlanItems(
         fat: dinner.fat
       });
     }
+    
+    // Move to next day for diversity tracking
+    diversityManager.nextDay();
   }
   
-  console.log(`Generated ${mealPlanItems.length} personalized meal plan items`);
+  console.log(`Generated ${mealPlanItems.length} personalized meal plan items with seasonal filtering and diversity`);
   return mealPlanItems;
 }

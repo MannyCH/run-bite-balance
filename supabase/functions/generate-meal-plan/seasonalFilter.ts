@@ -1,4 +1,3 @@
-
 // seasonalFilter.ts — Complete version with correct meal type handling
 import type { RecipeSummary } from "./types.ts";
 import type { WeeklyWeather } from "./weatherService.ts";
@@ -11,6 +10,11 @@ export interface SeasonalContext {
     preferSeasonalIngredients: boolean;
     considerSwissTraditional: boolean;
   };
+}
+
+// Add the missing export that was causing the edge function error
+export function generateWeatherContext(weather: WeeklyWeather): string {
+  return `Current weather in Bern: ${weather.season} season, ${weather.averageTemp}°C average temperature (${weather.temperatureCategory} weather). Consider recipes that are appropriate for ${weather.season} and ${weather.temperatureCategory} conditions.`;
 }
 
 /**
