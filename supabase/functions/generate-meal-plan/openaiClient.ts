@@ -6,6 +6,7 @@ import { prepareRecipeSummaries, groupRunsByDate, calculateAllDailyRequirements 
 import { createDailyBreakdown } from "./mealDistribution.ts";
 import { fetchBernWeather } from "./weatherService.ts";
 import { filterSeasonallyAppropriateRecipes } from "./seasonalFilter.ts";
+ import { filterSeasonallyAppropriateRecipesByMealType } from "./seasonalFilter.ts";
 
 /**
  * Generate meal plan using OpenAI
@@ -38,20 +39,25 @@ export async function generateAIMealPlan(
     const recipeSummaries = prepareRecipeSummaries(recipes);
     const runsByDate = groupRunsByDate(runs);
     
-    // Apply seasonal filtering to recipes
-    const seasonallyFilteredRecipes = weatherData 
-      ? filterSeasonallyAppropriateRecipes(recipeSummaries, {
-          weather: weatherData,
-          location: 'Bern, Switzerland',
-          preferences: {
-            avoidHeavyInHeat: true,
-            preferSeasonalIngredients: true,
-            considerSwissTraditional: true
-          }
-        })
-      : recipeSummaries;
-    
-    console.log(`Filtered to ${seasonallyFilteredRecipes.length} seasonally appropriate recipes`);
+
+// Apply seasonal filtering grouped by meal type
+const seasonallyFilteredRecipes = weatherData 
+  ? filterSeasonallyAppropriateRecipesByMealType(recipeSummaries, {
+      weather: weatherData,
+      location: 'Bern, Switzerland',
+      preferences: {
+        avoidHeavyInHeat: true,
+        preferSeasonalIngredients: true,
+        considerSwissTraditional: true
+      }
+    })
+  : {
+      breakfast: recipeSummaries.filter(r => r.meal_type === 'breakfast'),
+      lunch: recipeSummaries.filter(r => r.meal_type === 'lunch'),
+      dinner: recipeSummaries.filter(r => r.meal_type === 'dinner'),
+      snack: recipeSummaries.filter(r => r.meal_type === 'snack')
+    };
+
     
     // Calculate requirements
     const { baseRequirements, dailyRequirements } = calculateAllDailyRequirements(
