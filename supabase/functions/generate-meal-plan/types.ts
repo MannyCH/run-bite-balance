@@ -1,3 +1,4 @@
+
 // Type definitions for the meal plan generation
 export interface DailyRequirements {
   targetCalories: number;
@@ -44,6 +45,7 @@ export interface RecipeSummary {
   fat: number;
   ingredients: string[];
   categories: string[];
+  meal_type?: string[];  // Updated to be array and optional
   seasonal_suitability?: string[];
   temperature_preference?: string;
   dish_type?: string;

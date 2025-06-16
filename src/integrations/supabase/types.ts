@@ -186,6 +186,7 @@ export type Database = {
           is_ai_generated: boolean | null
           is_blob_url: boolean | null
           main_ingredient: string | null
+          meal_type: string[] | null
           protein: number
           seasonal_suitability: string[] | null
           servings: string | null
@@ -207,6 +208,7 @@ export type Database = {
           is_ai_generated?: boolean | null
           is_blob_url?: boolean | null
           main_ingredient?: string | null
+          meal_type?: string[] | null
           protein?: number
           seasonal_suitability?: string[] | null
           servings?: string | null
@@ -228,6 +230,7 @@ export type Database = {
           is_ai_generated?: boolean | null
           is_blob_url?: boolean | null
           main_ingredient?: string | null
+          meal_type?: string[] | null
           protein?: number
           seasonal_suitability?: string[] | null
           servings?: string | null

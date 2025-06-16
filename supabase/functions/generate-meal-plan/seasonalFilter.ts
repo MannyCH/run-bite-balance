@@ -1,3 +1,4 @@
+
 // seasonalFilter.ts — Complete version with correct meal type handling
 import type { RecipeSummary } from "./types.ts";
 import type { WeeklyWeather } from "./weatherService.ts";
@@ -27,8 +28,16 @@ export function filterSeasonallyAppropriateRecipesByMealType(
   };
 
   for (const mealType of ["breakfast", "lunch", "dinner", "snack"] as const) {
+    // Filter recipes that include this meal type in their meal_type array
     const filtered = recipes
-      .filter(r => r.meal_type === mealType)
+      .filter(r => {
+        // If meal_type is not set, fall back to basic categorization
+        if (!r.meal_type || r.meal_type.length === 0) {
+          return classifyRecipeByTitle(r.title, mealType);
+        }
+        // Check if the recipe's meal_type array includes the current meal type
+        return r.meal_type.includes(mealType);
+      })
       .map(recipe => ({
         ...recipe,
         seasonalScore: calculateSeasonalScore(recipe, context)
@@ -39,6 +48,28 @@ export function filterSeasonallyAppropriateRecipesByMealType(
   }
 
   return result;
+}
+
+/**
+ * Fallback classification based on recipe title for recipes without meal_type
+ */
+function classifyRecipeByTitle(title: string, targetMealType: string): boolean {
+  const lowerTitle = title.toLowerCase();
+  
+  switch (targetMealType) {
+    case 'breakfast':
+      return /\b(breakfast|cereal|oatmeal|pancake|waffle|toast|egg|bacon|sausage|muffin|bagel|smoothie|coffee|tea)\b/.test(lowerTitle);
+    case 'lunch':
+      return /\b(lunch|sandwich|wrap|salad|soup|bowl|burger|pizza|pasta)\b/.test(lowerTitle) ||
+             (!/(breakfast|dinner|dessert|cake|pie|cookie)\b/.test(lowerTitle) && /\b(light|quick|fresh)\b/.test(lowerTitle));
+    case 'dinner':
+      return /\b(dinner|steak|roast|casserole|curry|stew|grilled|baked|main|entree|hearty)\b/.test(lowerTitle) ||
+             (!/(breakfast|lunch|snack|dessert)\b/.test(lowerTitle) && /\b(chicken|beef|pork|fish|lamb)\b/.test(lowerTitle));
+    case 'snack':
+      return /\b(snack|appetizer|dip|chip|cracker|cookie|bar|bite|finger|small)\b/.test(lowerTitle);
+    default:
+      return false;
+  }
 }
 
 /**
