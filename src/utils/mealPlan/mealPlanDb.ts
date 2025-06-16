@@ -1,4 +1,3 @@
-
 // Database operations for meal plans
 import { supabase } from '@/integrations/supabase/client';
 import { MealPlan, MealPlanItem } from '@/types/profile';
@@ -141,7 +140,7 @@ export async function fetchRecipes() {
     
     const { data: recipes, error: recipesError } = await supabase
       .from('recipes')
-      .select('id, title, calories, protein, carbs, fat, ingredients, categories, meal_type, seasonal_suitability, temperature_preference, dish_type');
+      .select('id, title, calories, protein, carbs, fat, ingredients, categories, meal_type, seasonal_suitability, temperature_preference, dish_type, imgurl');
 
     if (recipesError) {
       console.error('Error fetching recipes:', recipesError);
@@ -165,9 +164,17 @@ export async function fetchRecipes() {
       );
       
       console.log(`Frontend: ${recipes.length} total recipes, ${recipesWithMealType.length} have meal_type classifications`);
+      
+      // Map recipes to include imgUrl correctly
+      const mappedRecipes = recipes.map(recipe => ({
+        ...recipe,
+        imgUrl: recipe.imgurl // Map imgurl to imgUrl for compatibility
+      }));
+      
+      return mappedRecipes;
     }
 
-    return recipes || [];
+    return [];
   } catch (error) {
     console.error('Error in fetchRecipes:', error);
     return [];

@@ -1,4 +1,3 @@
-
 // Shared types used across the application
 export interface Meal {
   id: string;
@@ -40,6 +39,10 @@ export interface Recipe {
   categories?: string[];
   website?: string;
   servings?: string;
+  meal_type?: string[] | string; // Add meal_type field that can be array or string
+  seasonal_suitability?: string[];
+  temperature_preference?: string;
+  dish_type?: string;
 }
 
 // Context type definition

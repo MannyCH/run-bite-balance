@@ -1,13 +1,44 @@
-
 // Functions for generating meal plan items
 import { UserProfile, MealPlanItem } from '@/types/profile';
 import { Recipe } from '@/context/types';
 import { filterRecipesByPreferences, prioritizeRecipes, getContextForMeal } from './recipeUtils';
 import { calculateDailyRequirements, getGenericRequirements } from './requirements';
 
-// Helper function to get recipes suitable for a specific meal type
+// Helper function to get recipes suitable for a specific meal type using the meal_type field
 function getRecipesForMealType(recipes: Recipe[], mealType: 'breakfast' | 'lunch' | 'dinner'): Recipe[] {
   console.log(`Filtering ${recipes.length} recipes for meal type: ${mealType}`);
+  
+  // First, try to filter by the actual meal_type field from the database
+  const mealTypeFilteredRecipes = recipes.filter(recipe => {
+    // Check if recipe has meal_type field and it's an array
+    if (recipe.meal_type && Array.isArray(recipe.meal_type)) {
+      const hasMealType = recipe.meal_type.includes(mealType);
+      if (hasMealType) {
+        console.log(`Recipe "${recipe.title}" matches meal type "${mealType}" via meal_type field`);
+      }
+      return hasMealType;
+    }
+    
+    // Check if recipe has meal_type field and it's a string (legacy support)
+    if (recipe.meal_type && typeof recipe.meal_type === 'string') {
+      const hasMealType = recipe.meal_type === mealType;
+      if (hasMealType) {
+        console.log(`Recipe "${recipe.title}" matches meal type "${mealType}" via meal_type string`);
+      }
+      return hasMealType;
+    }
+    
+    return false;
+  });
+  
+  // If we have recipes with proper meal_type classification, use those
+  if (mealTypeFilteredRecipes.length > 0) {
+    console.log(`Found ${mealTypeFilteredRecipes.length} recipes with proper meal_type classification for ${mealType}`);
+    return mealTypeFilteredRecipes;
+  }
+  
+  // Fallback to keyword-based filtering for recipes without meal_type classification
+  console.log(`No recipes found with meal_type field for ${mealType}, falling back to keyword matching`);
   
   // Keywords that indicate breakfast foods
   const breakfastKeywords = [
@@ -27,7 +58,7 @@ function getRecipesForMealType(recipes: Recipe[], mealType: 'breakfast' | 'lunch
     'dinner', 'main course', 'hearty', 'paella', 'lasagna', 'tagine', 'schnitzel', 'pot roast'
   ];
   
-  const filtered = recipes.filter(recipe => {
+  const keywordFilteredRecipes = recipes.filter(recipe => {
     const title = recipe.title.toLowerCase();
     const ingredients = (recipe.ingredients || []).join(' ').toLowerCase();
     const categories = (recipe.categories || []).join(' ').toLowerCase();
@@ -57,10 +88,8 @@ function getRecipesForMealType(recipes: Recipe[], mealType: 'breakfast' | 'lunch
     }
   });
   
-  console.log(`Found ${filtered.length} recipes suitable for ${mealType}:`);
-  filtered.forEach(recipe => console.log(`- ${recipe.title} (${recipe.calories} cal)`));
-  
-  return filtered;
+  console.log(`Found ${keywordFilteredRecipes.length} recipes using keyword matching for ${mealType}`);
+  return keywordFilteredRecipes;
 }
 
 // Enhanced random recipe selection with meal type awareness
