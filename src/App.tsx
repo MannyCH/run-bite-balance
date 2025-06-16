@@ -78,7 +78,14 @@ function App() {
                         </AuthGuard>
                       }
                     />
-                    <Route path="/onboarding" element={<AuthGuard><ProfileSetup /></AuthGuard>} />
+                    <Route 
+                      path="/onboarding" 
+                      element={
+                        <AuthGuard>
+                          <ProfileSetup />
+                        </AuthGuard>
+                      } 
+                    />
                     <Route
                       path="/recipe-importer"
                       element={
