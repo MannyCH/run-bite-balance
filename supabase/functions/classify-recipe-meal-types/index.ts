@@ -9,6 +9,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// UUID validation function
+const isValidUUID = (uuid: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -98,40 +104,89 @@ Categories: ${(r.categories || []).join(', ')}`).join('\n---\n')}`;
         throw new Error('Empty response from OpenAI');
       }
       
-      console.log('OpenAI response:', content);
+      console.log('Raw OpenAI response:', content);
+      
+      // Clean the response - remove any markdown code blocks
+      const cleanedContent = content
+        .replace(/```json\s*/g, '')
+        .replace(/```\s*/g, '')
+        .trim();
+      
+      console.log('Cleaned response:', cleanedContent);
       
       // Parse the JSON directly as an array
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(cleanedContent);
       
       if (!Array.isArray(parsed)) {
+        console.error('OpenAI returned non-array:', typeof parsed, parsed);
         throw new Error('Expected array from OpenAI, got: ' + typeof parsed);
       }
+      
+      console.log('Parsed classifications:', parsed.length, 'items');
     } catch (err) {
       console.error('Failed to parse OpenAI response:', response.choices[0].message.content);
+      console.error('Parse error:', err.message);
       throw new Error(`JSON parsing failed: ${err.message}`);
     }
 
-    // Update recipes in Supabase
+    // Update recipes in Supabase with validation
     let updated = 0;
     const errors = [];
 
     for (const classification of parsed) {
-      if (!classification.id || !classification.meal_type || !Array.isArray(classification.meal_type)) {
-        console.warn('Invalid classification format:', classification);
+      // Validate classification structure
+      if (!classification || typeof classification !== 'object') {
+        console.warn('Invalid classification object:', classification);
+        errors.push({ id: 'unknown', error: 'Invalid classification object structure' });
         continue;
       }
 
-      const { error: updateError } = await supabase
-        .from('recipes')
-        .update({ meal_type: classification.meal_type })
-        .eq('id', classification.id);
+      const { id, meal_type } = classification;
 
-      if (updateError) {
-        console.error(`Failed to update recipe ${classification.id}:`, updateError);
-        errors.push({ id: classification.id, error: updateError.message });
-      } else {
-        console.log(`Updated recipe ${classification.id} with meal types: ${classification.meal_type.join(', ')}`);
-        updated++;
+      // Validate ID is present and is a valid UUID
+      if (!id || typeof id !== 'string') {
+        console.warn('Missing or invalid ID in classification:', classification);
+        errors.push({ id: 'unknown', error: 'Missing or invalid ID' });
+        continue;
+      }
+
+      if (!isValidUUID(id)) {
+        console.warn('Invalid UUID format for ID:', id);
+        errors.push({ id, error: 'Invalid UUID format' });
+        continue;
+      }
+
+      // Validate meal_type is present and is an array
+      if (!meal_type || !Array.isArray(meal_type)) {
+        console.warn('Missing or invalid meal_type for ID:', id, meal_type);
+        errors.push({ id, error: 'Missing or invalid meal_type array' });
+        continue;
+      }
+
+      // Validate that the recipe ID exists in our fetched recipes
+      const recipeExists = recipes.some(recipe => recipe.id === id);
+      if (!recipeExists) {
+        console.warn('Recipe ID not found in batch:', id);
+        errors.push({ id, error: 'Recipe ID not found in current batch' });
+        continue;
+      }
+
+      try {
+        const { error: updateError } = await supabase
+          .from('recipes')
+          .update({ meal_type })
+          .eq('id', id);
+
+        if (updateError) {
+          console.error(`Failed to update recipe ${id}:`, updateError);
+          errors.push({ id, error: updateError.message });
+        } else {
+          console.log(`Successfully updated recipe ${id} with meal types: ${meal_type.join(', ')}`);
+          updated++;
+        }
+      } catch (dbError) {
+        console.error(`Database error for recipe ${id}:`, dbError);
+        errors.push({ id, error: `Database error: ${dbError.message}` });
       }
     }
 
