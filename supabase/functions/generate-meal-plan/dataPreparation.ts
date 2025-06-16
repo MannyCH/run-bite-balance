@@ -5,6 +5,26 @@ import type { DailyRequirements } from "./types.ts";
 import { calculateDailyRequirements, calculateDaySpecificRequirements } from "./nutritionCalculator.ts";
 
 /**
+ * Prepare recipe data for AI processing (renamed from prepareRecipeSummaries)
+ */
+export function prepareRecipeData(recipes: any[]): any[] {
+  return recipes.map(recipe => ({
+    id: recipe.id,
+    title: recipe.title,
+    calories: recipe.calories || 0,
+    protein: recipe.protein || 0,
+    carbs: recipe.carbs || 0,
+    fat: recipe.fat || 0,
+    meal_type: Array.isArray(recipe.meal_type) ? recipe.meal_type : (recipe.meal_type ? [recipe.meal_type] : ['any']),
+    categories: recipe.categories || [],
+    ingredients: recipe.ingredients || [],
+    seasonal_suitability: recipe.seasonal_suitability || ['year_round'],
+    temperature_preference: recipe.temperature_preference || 'any',
+    dish_type: recipe.dish_type || 'neutral'
+  }));
+}
+
+/**
  * Prepare recipe summaries for AI processing
  */
 export function prepareRecipeSummaries(recipes: any[]): any[] {
