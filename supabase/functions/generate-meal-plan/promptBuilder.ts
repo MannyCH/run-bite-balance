@@ -1,3 +1,4 @@
+
 // Build the system prompt for OpenAI meal plan generation
 import type { UserProfile } from "../../../src/types/profile.ts";
 import type { DailyRequirements, DailyBreakdown } from "./types.ts";
@@ -82,26 +83,42 @@ RECIPE SELECTION GUIDELINES:
 4. Include traditional Swiss seasonal specialties when appropriate
 5. Ensure nutritional targets are met despite weather considerations
 
-RECIPE FORMAT:
-Present each meal as follows:
-- Meal Type: [breakfast, lunch, dinner, snack]
-- Recipe Title: [Recipe Title]
-- Ingredients: [List of ingredients]
-- Instructions: [Step-by-step instructions]
-- Calories: [Total calories for the meal]
-- Protein: [Grams of protein]
-- Carbs: [Grams of carbohydrates]
-- Fat: [Grams of fat]
+OUTPUT FORMAT:
+You must respond with a valid JSON object containing the meal plan. The response should be structured as follows:
+
+{
+  "meals": [
+    {
+      "date": "YYYY-MM-DD",
+      "meal_type": "breakfast|lunch|dinner|snack",
+      "recipe_title": "Recipe Name",
+      "ingredients": ["ingredient1", "ingredient2"],
+      "instructions": ["step1", "step2"],
+      "calories": 500,
+      "protein": 25,
+      "carbs": 60,
+      "fat": 15,
+      "nutritional_context": "Brief explanation of why this meal fits the day"
+    }
+  ]
+}
+
+IMPORTANT JSON REQUIREMENTS:
+- meal_type must be exactly one of: "breakfast", "lunch", "dinner", "snack"
+- dates must be in YYYY-MM-DD format
+- all nutritional values must be numbers
+- ingredients and instructions must be arrays of strings
+- ensure breakfast recipes are appropriate for breakfast (eggs, oatmeal, toast, etc.)
+- ensure lunch recipes are appropriate for lunch (salads, sandwiches, light dishes)
+- ensure dinner recipes are appropriate for dinner (hearty meals, proteins with sides)
 
 ADDITIONAL NOTES:
-- The meal plan should be creative, varied, and appealing.
-- Ensure that the recipes are easy to follow and prepare.
-- Consider the user's fitness goal when selecting recipes.
-- Provide a variety of cuisines to keep the meal plan interesting.
-- Adjust portion sizes to meet the daily calorie requirements.
-- If a recipe is not available, suggest a similar alternative.
-- Be concise and avoid unnecessary details.
-- Do not include disclaimers or warnings.
-- Do not include any additional text or information other than the meal plan.
-`;
+- The meal plan should be creative, varied, and appealing
+- Ensure that the recipes are easy to follow and prepare
+- Consider the user's fitness goal when selecting recipes
+- Provide a variety of cuisines to keep the meal plan interesting
+- Adjust portion sizes to meet the daily calorie requirements
+- Be concise and avoid unnecessary details
+- Do not include disclaimers or warnings
+- Return only the JSON object, no additional text`;
 }

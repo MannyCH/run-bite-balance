@@ -48,10 +48,11 @@ export async function generateMealPlan({
       });
       
       if (error) {
-        console.error('Error calling AI meal planner:', error);
+        console.error('AI meal planner failed:', error);
+        console.log('Falling back to algorithmic meal planning due to AI error');
         // Fall back to algorithm-based meal planning
       } else if (data && data.mealPlan) {
-        console.log('Using AI-generated meal plan');
+        console.log('✅ AI meal plan generated successfully');
         // Process the AI-generated meal plan with runs data
         const mealPlanItems = await processAIMealPlan(
           userId, 
@@ -89,42 +90,54 @@ export async function generateMealPlan({
             };
           }
         }
+      } else {
+        console.log('AI meal planner returned no data, falling back to algorithmic approach');
       }
     } catch (aiError) {
-      console.error('Error with AI meal planning, falling back to algorithmic approach:', aiError);
+      console.error('⚠️ AI meal planning failed, using algorithmic fallback:', aiError);
       // Continue with algorithm-based approach
     }
 
     // Fall back to algorithmic meal planning if AI approach fails
-    console.log('Using algorithm-based meal planning');
+    console.log('🔄 Using algorithmic meal planning approach');
     
     // First, create or update a meal plan record
     const mealPlan = await createOrUpdateMealPlan(userId, startDate, endDate);
     if (!mealPlan) {
+      console.error('Failed to create meal plan record');
       return null;
     }
 
     // Delete any existing meal plan items for this plan
     const deleteSuccess = await deleteExistingMealPlanItems(mealPlan.id);
     if (!deleteSuccess) {
+      console.error('Failed to delete existing meal plan items');
       return null;
     }
 
-    // Generate the meal plan items
+    // Generate the meal plan items using the improved algorithmic approach
+    console.log('🍽️ Generating meal plan items algorithmically...');
     const mealPlanItems = generateMealPlanItems(mealPlan.id, profile, recipes, startDate, endDate);
+
+    console.log(`Generated ${mealPlanItems.length} meal plan items:`);
+    mealPlanItems.forEach(item => {
+      console.log(`- ${item.meal_type}: ${item.custom_title || 'Recipe meal'} (${item.calories} cal)`);
+    });
 
     // Insert the meal plan items
     const savedItems = await insertMealPlanItems(mealPlanItems);
     if (!savedItems) {
+      console.error('Failed to save meal plan items');
       return null;
     }
 
+    console.log('✅ Algorithmic meal plan created successfully');
     return {
       mealPlan,
       mealPlanItems: savedItems
     };
   } catch (error) {
-    console.error('Error in generateMealPlan:', error);
+    console.error('❌ Error in generateMealPlan:', error);
     return null;
   }
 }
@@ -138,12 +151,14 @@ export async function generateMealPlanForUser(
     // Get the user's profile
     const profile = await fetchUserProfile(userId);
     if (!profile) {
+      console.error('No user profile found');
       return null;
     }
 
     // Get all available recipes
     const recipes = await fetchRecipes();
     if (!recipes || recipes.length === 0) {
+      console.error('No recipes found for meal planning');
       return null;
     }
 
@@ -154,7 +169,8 @@ export async function generateMealPlanForUser(
     endDate.setDate(today.getDate() + 6); // 7 days total including today
     const endDateStr = endDate.toISOString().split('T')[0];
 
-    console.log(`Generating meal plan with ${runs.length} runs for date range ${startDate} to ${endDateStr}`);
+    console.log(`🎯 Generating meal plan for user ${userId} with ${runs.length} runs`);
+    console.log(`📅 Date range: ${startDate} to ${endDateStr}`);
 
     // Generate the meal plan using the existing function with runs
     return generateMealPlan({
@@ -166,7 +182,7 @@ export async function generateMealPlanForUser(
       runs
     });
   } catch (error) {
-    console.error('Error generating meal plan:', error);
+    console.error('❌ Error generating meal plan for user:', error);
     return null;
   }
 }
