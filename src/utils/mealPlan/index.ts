@@ -5,4 +5,7 @@ export { validateMealType, validateStatus } from './validators';
 export { generateMealPlanItems } from './mealPlanItems';
 export type { MealPlanResult, GenerateMealPlanParams } from './types';
 export { getMealTypeSuitabilityScores, getRecipesForMealType } from './mealTypeClassifier';
-export { processAIMealPlan } from './aiMealPlanProcessor';
+export { processAIMealPlan } from './mealPlanProcessor';
+export { isLunchTimeRun, getRunsForDate, hasLunchTimeRuns, needsPostRunSnack } from './runTimingUtils';
+export { selectSnackRecipe, createSnackMealPlanItem } from './snackSelectionUtils';
+export { createMealPlanItemFromAI, processAIMealsForDay } from './mealProcessingUtils';
