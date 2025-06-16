@@ -15,6 +15,7 @@ import ShoppingList from './pages/ShoppingList';
 import ProfileSetup from './pages/ProfileSetup';
 import RecipeImporterPage from './pages/RecipeImporter';
 import SuggestedMeals from './pages/SuggestedMeals';
+import Auth from './pages/Auth';
 import { Toaster } from 'sonner';
 
 const queryClient = new QueryClient();
@@ -29,6 +30,10 @@ function App() {
               <ShoppingListProvider>
                 <div className="min-h-screen bg-background">
                   <Routes>
+                    {/* Public auth route */}
+                    <Route path="/auth" element={<Auth />} />
+                    
+                    {/* Protected routes */}
                     <Route
                       path="/"
                       element={
@@ -93,9 +98,7 @@ function App() {
                       path="/onboarding" 
                       element={
                         <AuthGuard>
-                          <ProfileProvider>
-                            <ProfileSetup />
-                          </ProfileProvider>
+                          <ProfileSetup />
                         </AuthGuard>
                       } 
                     />
