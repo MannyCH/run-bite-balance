@@ -45,7 +45,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           message: 'No untagged recipes found',
-          processed: 0 
+          processed: 0,
+          total_found: 0
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -56,7 +57,7 @@ serve(async (req) => {
 
     console.log(`Classifying ${recipes.length} recipes...`);
 
-    // Create prompt for OpenAI
+    // Create prompt for OpenAI - request JSON array directly
     const prompt = `You are a culinary AI expert. Classify each recipe as one or more meal types from: breakfast, lunch, dinner, snack.
 
 Consider:
@@ -65,7 +66,7 @@ Consider:
 - Dinner: Main courses, hearty meals, complex dishes, multi-course items
 - Snack: Small portions, finger foods, appetizers, desserts, quick bites
 
-Return ONLY valid JSON array like this:
+Return ONLY a valid JSON array with this exact format:
 [
   { "id": "recipe-id-1", "meal_type": ["breakfast"] },
   { "id": "recipe-id-2", "meal_type": ["lunch", "dinner"] }
@@ -82,12 +83,11 @@ Categories: ${(r.categories || []).join(', ')}`).join('\n---\n')}`;
       messages: [
         { 
           role: "system", 
-          content: "You are an expert meal classification system. Always return valid JSON arrays with meal type classifications." 
+          content: "You are an expert meal classification system. Always return valid JSON arrays with meal type classifications. Do not wrap the array in any object structure." 
         },
         { role: "user", content: prompt }
       ],
       temperature: 0,
-      response_format: { type: "json_object" },
       max_tokens: 2000
     });
 
@@ -98,25 +98,17 @@ Categories: ${(r.categories || []).join(', ')}`).join('\n---\n')}`;
         throw new Error('Empty response from OpenAI');
       }
       
-      // Try to parse as object first, then extract array
-      const result = JSON.parse(content);
-      if (Array.isArray(result)) {
-        parsed = result;
-      } else if (result.recipes && Array.isArray(result.recipes)) {
-        parsed = result.recipes;
-      } else if (result.classifications && Array.isArray(result.classifications)) {
-        parsed = result.classifications;
-      } else {
-        // If it's an object with recipe IDs as keys, convert to array
-        parsed = Object.entries(result).map(([id, meal_type]) => ({ id, meal_type }));
+      console.log('OpenAI response:', content);
+      
+      // Parse the JSON directly as an array
+      parsed = JSON.parse(content);
+      
+      if (!Array.isArray(parsed)) {
+        throw new Error('Expected array from OpenAI, got: ' + typeof parsed);
       }
     } catch (err) {
       console.error('Failed to parse OpenAI response:', response.choices[0].message.content);
       throw new Error(`JSON parsing failed: ${err.message}`);
-    }
-
-    if (!Array.isArray(parsed)) {
-      throw new Error('Expected array of classifications');
     }
 
     // Update recipes in Supabase
