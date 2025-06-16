@@ -6,6 +6,7 @@ import NutritionSummary from "../components/Dashboard/NutritionSummary";
 import RunSummary from "../components/Dashboard/RunSummary";
 import WeeklyCalendar from "../components/Dashboard/WeeklyCalendar";
 import ActivityTimeline from "../components/Dashboard/ActivityTimeline";
+import { RecipeSeasonalClassifier } from "@/components/Recipe/RecipeSeasonalClassifier";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useMealPlan } from "@/hooks/useMealPlan";
@@ -78,6 +79,11 @@ const Index: React.FC = () => {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Recipe Classification Section */}
+      <div className="mb-6">
+        <RecipeSeasonalClassifier />
+      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
         <WeeklyCalendar />
