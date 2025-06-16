@@ -5,45 +5,50 @@ import { Recipe } from '@/context/types';
 import { filterRecipesByPreferences, prioritizeRecipes, getContextForMeal } from './recipeUtils';
 import { calculateDailyRequirements, getGenericRequirements } from './requirements';
 import { RecipeDiversityManager } from './recipeSelection';
-import { isSameDay, parseISO } from 'date-fns';
+import { isSameDay, parseISO, getHours } from 'date-fns';
 
 /**
- * Generates a run-based snack meal plan item
+ * Checks if a run is scheduled during lunch time (11:00-14:00)
  */
-function createRunSnackItem(
-  mealPlanId: string,
-  date: string,
-  snackType: 'pre_run_snack' | 'post_run_snack'
-): Partial<MealPlanItem> {
-  if (snackType === 'pre_run_snack') {
-    return {
-      id: crypto.randomUUID(),
-      meal_plan_id: mealPlanId,
-      recipe_id: null,
-      date,
-      meal_type: 'pre_run_snack',
-      nutritional_context: 'Pre-run fuel: Light carbs for quick energy, consumed 30-60 minutes before running',
-      custom_title: 'Banana with a small amount of honey',
-      calories: 150,
-      protein: 2,
-      carbs: 35,
-      fat: 1
-    };
-  } else {
-    return {
-      id: crypto.randomUUID(),
-      meal_plan_id: mealPlanId,
-      recipe_id: null,
-      date,
-      meal_type: 'post_run_snack',
-      nutritional_context: 'Post-run recovery: Protein and carbs within 30 minutes to aid muscle recovery',
-      custom_title: 'Greek yogurt with berries',
-      calories: 200,
-      protein: 12,
-      carbs: 25,
-      fat: 6
-    };
+function isLunchTimeRun(run: any): boolean {
+  const runDate = new Date(run.date);
+  const hour = getHours(runDate);
+  return hour >= 11 && hour <= 14;
+}
+
+/**
+ * Selects an appropriate recipe for snacks from existing recipes
+ */
+function selectSnackRecipe(
+  recipes: Recipe[],
+  snackType: 'pre_run_snack' | 'post_run_snack',
+  diversityManager: RecipeDiversityManager
+): Recipe | null {
+  // Filter recipes suitable for snacks
+  const snackRecipes = recipes.filter(recipe => {
+    if (snackType === 'pre_run_snack') {
+      // Light breakfast items or low-calorie recipes (100-200 cal)
+      const isLightBreakfast = recipe.meal_type?.includes('breakfast') && recipe.calories <= 200;
+      const isLowCalorie = recipe.calories <= 200 && recipe.calories >= 100;
+      return isLightBreakfast || isLowCalorie;
+    } else {
+      // Light lunch items or medium-calorie recipes (200-300 cal)
+      const isLightLunch = recipe.meal_type?.includes('lunch') && recipe.calories <= 300;
+      const isMediumCalorie = recipe.calories <= 300 && recipe.calories >= 200;
+      return isLightLunch || isMediumCalorie;
+    }
+  });
+
+  if (snackRecipes.length === 0) {
+    console.warn(`No suitable recipes found for ${snackType}`);
+    return null;
   }
+
+  // Use diversity manager to select appropriate snack
+  const targetCalories = snackType === 'pre_run_snack' ? 150 : 250;
+  const proteinTarget = snackType === 'pre_run_snack' ? 5 : 15;
+
+  return diversityManager.selectRecipeWithDiversity(snackRecipes, targetCalories, proteinTarget);
 }
 
 /**
@@ -108,12 +113,33 @@ function generateGenericMealPlanItems(
     currentDate.setDate(startDate.getDate() + day);
     const dateStr = currentDate.toISOString().split('T')[0];
     
-    const isRunDay = hasRunsOnDate(currentDate, runs);
-    console.log(`Planning meals for day ${day + 1}: ${dateStr} ${isRunDay ? '(RUN DAY)' : '(REST DAY)'}`);
+    // Check if this day has any runs and their timing
+    const dayRuns = runs.filter(run => {
+      const runDate = new Date(run.date);
+      return isSameDay(runDate, currentDate);
+    });
+    
+    const isRunDay = dayRuns.length > 0;
+    const hasLunchTimeRun = dayRuns.some(run => isLunchTimeRun(run));
+    console.log(`Planning meals for day ${day + 1}: ${dateStr} ${isRunDay ? '(RUN DAY)' : '(REST DAY)'}, lunch-time run: ${hasLunchTimeRun}`);
     
     // Add pre-run snack if it's a run day
     if (isRunDay) {
-      mealPlanItems.push(createRunSnackItem(mealPlanId, dateStr, 'pre_run_snack'));
+      const preRunSnack = selectSnackRecipe(prioritizedRecipes, 'pre_run_snack', diversityManager);
+      if (preRunSnack) {
+        mealPlanItems.push({
+          id: crypto.randomUUID(),
+          meal_plan_id: mealPlanId,
+          recipe_id: preRunSnack.id,
+          date: dateStr,
+          meal_type: 'pre_run_snack',
+          nutritional_context: `Pre-run fuel: ${preRunSnack.title} provides quick energy for your run`,
+          calories: preRunSnack.calories,
+          protein: preRunSnack.protein,
+          carbs: preRunSnack.carbs,
+          fat: preRunSnack.fat
+        });
+      }
     }
     
     // Add breakfast
@@ -148,9 +174,12 @@ function generateGenericMealPlanItems(
     );
     
     if (lunch) {
-      const lunchContext = isRunDay 
-        ? "POST-RUN RECOVERY: A satisfying lunch with good protein content for muscle recovery"
-        : "A satisfying lunch with good protein content";
+      let lunchContext = "A satisfying lunch with good protein content";
+      if (hasLunchTimeRun) {
+        lunchContext = "POST-RUN RECOVERY LUNCH: Enhanced nutrition for muscle recovery after your lunch-time run";
+      } else if (isRunDay) {
+        lunchContext = "RUN DAY LUNCH: A satisfying lunch with good protein content for your training day";
+      }
         
       mealPlanItems.push({
         id: crypto.randomUUID(),
@@ -166,15 +195,22 @@ function generateGenericMealPlanItems(
       });
     }
     
-    // Add post-run snack for longer runs (5km+)
-    if (isRunDay) {
-      const dayRuns = runs.filter(run => {
-        const runDate = new Date(run.date);
-        return isSameDay(runDate, currentDate);
-      });
-      
-      if (dayRuns.some(run => run.distance >= 5)) {
-        mealPlanItems.push(createRunSnackItem(mealPlanId, dateStr, 'post_run_snack'));
+    // Add post-run snack only if it's NOT a lunch-time run and it's a longer run
+    if (isRunDay && !hasLunchTimeRun && dayRuns.some(run => run.distance >= 5)) {
+      const postRunSnack = selectSnackRecipe(prioritizedRecipes, 'post_run_snack', diversityManager);
+      if (postRunSnack) {
+        mealPlanItems.push({
+          id: crypto.randomUUID(),
+          meal_plan_id: mealPlanId,
+          recipe_id: postRunSnack.id,
+          date: dateStr,
+          meal_type: 'post_run_snack',
+          nutritional_context: `Post-run recovery: ${postRunSnack.title} helps with muscle recovery after your run`,
+          calories: postRunSnack.calories,
+          protein: postRunSnack.protein,
+          carbs: postRunSnack.carbs,
+          fat: postRunSnack.fat
+        });
       }
     }
     
@@ -229,12 +265,33 @@ function generatePersonalizedMealPlanItems(
     currentDate.setDate(startDate.getDate() + day);
     const dateStr = currentDate.toISOString().split('T')[0];
     
-    const isRunDay = hasRunsOnDate(currentDate, runs);
-    console.log(`Planning personalized meals for day ${day + 1}: ${dateStr} ${isRunDay ? '(RUN DAY)' : '(REST DAY)'}`);
+    // Check if this day has any runs and their timing
+    const dayRuns = runs.filter(run => {
+      const runDate = new Date(run.date);
+      return isSameDay(runDate, currentDate);
+    });
+    
+    const isRunDay = dayRuns.length > 0;
+    const hasLunchTimeRun = dayRuns.some(run => isLunchTimeRun(run));
+    console.log(`Planning personalized meals for day ${day + 1}: ${dateStr} ${isRunDay ? '(RUN DAY)' : '(REST DAY)'}, lunch-time run: ${hasLunchTimeRun}`);
     
     // Add pre-run snack if it's a run day
     if (isRunDay) {
-      mealPlanItems.push(createRunSnackItem(mealPlanId, dateStr, 'pre_run_snack'));
+      const preRunSnack = selectSnackRecipe(prioritizedRecipes, 'pre_run_snack', diversityManager);
+      if (preRunSnack) {
+        mealPlanItems.push({
+          id: crypto.randomUUID(),
+          meal_plan_id: mealPlanId,
+          recipe_id: preRunSnack.id,
+          date: dateStr,
+          meal_type: 'pre_run_snack',
+          nutritional_context: `Pre-run fuel: ${preRunSnack.title} provides quick energy for your run`,
+          calories: preRunSnack.calories,
+          protein: preRunSnack.protein,
+          carbs: preRunSnack.carbs,
+          fat: preRunSnack.fat
+        });
+      }
     }
     
     // Add breakfast
@@ -270,8 +327,10 @@ function generatePersonalizedMealPlanItems(
     
     if (lunch) {
       let lunchContext = getContextForMeal('lunch', lunch, profile);
-      if (isRunDay) {
-        lunchContext = `POST-RUN RECOVERY: ${lunchContext}`;
+      if (hasLunchTimeRun) {
+        lunchContext = `POST-RUN RECOVERY LUNCH: ${lunchContext} Enhanced for muscle recovery after your lunch-time run.`;
+      } else if (isRunDay) {
+        lunchContext = `RUN DAY LUNCH: ${lunchContext}`;
       }
       
       mealPlanItems.push({
@@ -288,15 +347,22 @@ function generatePersonalizedMealPlanItems(
       });
     }
     
-    // Add post-run snack for longer runs (5km+)
-    if (isRunDay) {
-      const dayRuns = runs.filter(run => {
-        const runDate = new Date(run.date);
-        return isSameDay(runDate, currentDate);
-      });
-      
-      if (dayRuns.some(run => run.distance >= 5)) {
-        mealPlanItems.push(createRunSnackItem(mealPlanId, dateStr, 'post_run_snack'));
+    // Add post-run snack only if it's NOT a lunch-time run and it's a longer run
+    if (isRunDay && !hasLunchTimeRun && dayRuns.some(run => run.distance >= 5)) {
+      const postRunSnack = selectSnackRecipe(prioritizedRecipes, 'post_run_snack', diversityManager);
+      if (postRunSnack) {
+        mealPlanItems.push({
+          id: crypto.randomUUID(),
+          meal_plan_id: mealPlanId,
+          recipe_id: postRunSnack.id,
+          date: dateStr,
+          meal_type: 'post_run_snack',
+          nutritional_context: `Post-run recovery: ${postRunSnack.title} helps with muscle recovery after your run`,
+          calories: postRunSnack.calories,
+          protein: postRunSnack.protein,
+          carbs: postRunSnack.carbs,
+          fat: postRunSnack.fat
+        });
       }
     }
     

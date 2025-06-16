@@ -27,6 +27,15 @@ interface UserProfile {
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
+/**
+ * Helper function to check if a run is during lunch time (11:00-14:00)
+ */
+function isLunchTimeRun(run: any): boolean {
+  const runDate = new Date(run.date);
+  const hour = runDate.getHours();
+  return hour >= 11 && hour <= 14;
+}
+
 export async function callOpenAIMealPlan(
   profile: UserProfile,
   recipes: RecipeSummary[],
@@ -48,6 +57,12 @@ export async function callOpenAIMealPlan(
     console.error('Error fetching weather data:', weatherError);
   }
 
+  // Categorize recipes for easier selection
+  const breakfastRecipes = recipes.filter(r => r.meal_type?.includes('breakfast'));
+  const lunchRecipes = recipes.filter(r => r.meal_type?.includes('lunch'));
+  const dinnerRecipes = recipes.filter(r => r.meal_type?.includes('dinner'));
+  const lightRecipes = recipes.filter(r => r.calories <= 300);
+
   const systemPrompt = `You are a professional nutritionist and meal planning expert. Create a detailed 7-day meal plan that considers:
 
 1. **User Profile**: ${profile.fitness_goal || 'maintain'} fitness goal, ${profile.activity_level || 'moderate'} activity level
@@ -63,11 +78,28 @@ export async function callOpenAIMealPlan(
 - Each meal MUST include a valid recipe_id from the available recipes
 - Include breakfast, lunch, and dinner for each day
 - For run days, add appropriate pre-run and post-run snacks with meal_type "pre_run_snack" and "post_run_snack"
+- **IMPORTANT SNACK RULES:**
+  * Pre-run snacks: Use light breakfast recipes (≤200 calories) for quick energy
+  * Post-run snacks: Use light lunch recipes (≤300 calories) for recovery, BUT ONLY if the run is NOT during lunch time (11:00-14:00)
+  * If a run is during lunch time (11:00-14:00), SKIP the post-run snack and enhance the lunch meal with "POST-RUN RECOVERY" context instead
 - Provide nutritional context explaining why each meal fits the day's needs
 - Consider seasonal appropriateness and weather conditions
 - Ensure variety across the week
 
-**Available Recipes:**
+**Available Recipe Categories:**
+Breakfast Recipes (${breakfastRecipes.length} available): Use for breakfast and pre-run snacks
+${breakfastRecipes.slice(0, 10).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
+
+Lunch Recipes (${lunchRecipes.length} available): Use for lunch and post-run snacks (when not lunch-time runs)
+${lunchRecipes.slice(0, 10).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
+
+Dinner Recipes (${dinnerRecipes.length} available): Use for dinner
+${dinnerRecipes.slice(0, 10).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
+
+Light Recipes for Snacks (≤300 cal, ${lightRecipes.length} available):
+${lightRecipes.slice(0, 15).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}, Types: ${recipe.meal_type?.join(', ')}`).join('\n')}
+
+**Complete Recipe List:**
 ${recipes.map(recipe => `
 ID: ${recipe.id}
 Title: ${recipe.title}

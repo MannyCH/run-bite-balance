@@ -8,7 +8,8 @@ import {
   insertMealPlanItems
 } from './mealPlanDb';
 import { validateMealType } from './validators';
-import { isSameDay, parseISO } from 'date-fns';
+import { isSameDay, parseISO, getHours } from 'date-fns';
+import { RecipeDiversityManager } from './recipeSelection';
 
 interface AIMealPlanDay {
   date: string;
@@ -27,43 +28,47 @@ interface AIMealPlanResponse {
 }
 
 /**
- * Generates a fallback snack item for run days
+ * Checks if a run is scheduled during lunch time (11:00-14:00)
  */
-function createRunSnack(
-  mealPlanId: string,
-  date: string,
+function isLunchTimeRun(run: any): boolean {
+  const runDate = new Date(run.date);
+  const hour = getHours(runDate);
+  return hour >= 11 && hour <= 14;
+}
+
+/**
+ * Selects an appropriate recipe for snacks from existing recipes
+ */
+function selectSnackRecipe(
+  recipes: Recipe[],
   snackType: 'pre_run_snack' | 'post_run_snack',
-  isRunDay: boolean
-): Partial<MealPlanItem> {
-  if (snackType === 'pre_run_snack') {
-    return {
-      id: crypto.randomUUID(),
-      meal_plan_id: mealPlanId,
-      recipe_id: null,
-      date,
-      meal_type: 'pre_run_snack',
-      nutritional_context: 'Pre-run fuel: Easy to digest carbohydrates for energy',
-      custom_title: 'Banana with honey or oatmeal',
-      calories: 180,
-      protein: 3,
-      carbs: 40,
-      fat: 2
-    };
-  } else {
-    return {
-      id: crypto.randomUUID(),
-      meal_plan_id: mealPlanId,
-      recipe_id: null,
-      date,
-      meal_type: 'post_run_snack',
-      nutritional_context: 'Post-run recovery: Protein and carbs for muscle recovery',
-      custom_title: 'Greek yogurt with berries and granola',
-      calories: 250,
-      protein: 15,
-      carbs: 35,
-      fat: 8
-    };
+  diversityManager: RecipeDiversityManager
+): Recipe | null {
+  // Filter recipes suitable for snacks
+  const snackRecipes = recipes.filter(recipe => {
+    if (snackType === 'pre_run_snack') {
+      // Light breakfast items or low-calorie recipes (100-200 cal)
+      const isLightBreakfast = recipe.meal_type?.includes('breakfast') && recipe.calories <= 200;
+      const isLowCalorie = recipe.calories <= 200 && recipe.calories >= 100;
+      return isLightBreakfast || isLowCalorie;
+    } else {
+      // Light lunch items or medium-calorie recipes (200-300 cal)
+      const isLightLunch = recipe.meal_type?.includes('lunch') && recipe.calories <= 300;
+      const isMediumCalorie = recipe.calories <= 300 && recipe.calories >= 200;
+      return isLightLunch || isMediumCalorie;
+    }
+  });
+
+  if (snackRecipes.length === 0) {
+    console.warn(`No suitable recipes found for ${snackType}`);
+    return null;
   }
+
+  // Use diversity manager to select appropriate snack
+  const targetCalories = snackType === 'pre_run_snack' ? 150 : 250;
+  const proteinTarget = snackType === 'pre_run_snack' ? 5 : 15;
+
+  return diversityManager.selectRecipeWithDiversity(snackRecipes, targetCalories, proteinTarget);
 }
 
 /**
@@ -101,13 +106,16 @@ export async function processAIMealPlan(
     }
 
     const mealPlanItems: Partial<MealPlanItem>[] = [];
+    const allRecipes = Object.values(recipesMap);
+    const diversityManager = new RecipeDiversityManager();
+    diversityManager.reset();
 
     // Process each day from the AI response
     for (const day of aiResponse.mealPlan.days) {
       const { date, meals } = day;
       console.log(`Processing day ${date} with ${meals.length} meals`);
       
-      // Check if this day has any runs
+      // Check if this day has any runs and their timing
       const dayRuns = runs.filter(run => {
         const runDate = new Date(run.date);
         const dayDate = parseISO(date);
@@ -115,7 +123,8 @@ export async function processAIMealPlan(
       });
       
       const isRunDay = dayRuns.length > 0;
-      console.log(`Day ${date} has ${dayRuns.length} runs (${isRunDay ? 'RUN DAY' : 'REST DAY'})`);
+      const hasLunchTimeRun = dayRuns.some(run => isLunchTimeRun(run));
+      console.log(`Day ${date} has ${dayRuns.length} runs (${isRunDay ? 'RUN DAY' : 'REST DAY'}), lunch-time run: ${hasLunchTimeRun}`);
       
       // Process AI-generated meals
       for (const meal of meals) {
@@ -134,7 +143,11 @@ export async function processAIMealPlan(
         // Add contextual information for lunch on run days
         let contextualExplanation = explanation;
         if (isRunDay && validMealType === 'lunch') {
-          contextualExplanation = `POST-RUN RECOVERY: ${explanation}`;
+          if (hasLunchTimeRun) {
+            contextualExplanation = `POST-RUN RECOVERY LUNCH: ${explanation} Enhanced for muscle recovery after your lunch-time run.`;
+          } else {
+            contextualExplanation = `RUN DAY LUNCH: ${explanation}`;
+          }
         }
 
         console.log(`Adding ${validMealType}: ${recipe.title} (${recipe.calories} cal)`);
@@ -154,55 +167,51 @@ export async function processAIMealPlan(
         });
       }
       
-      // Validate meal structure for the day and add missing run-based meals
-      const mealTypes = meals.map(m => validateMealType(m.meal_type));
-      const expectedMeals = isRunDay 
-        ? ['breakfast', 'pre_run_snack', 'lunch', 'dinner']
-        : ['breakfast', 'lunch', 'dinner'];
-      
-      // Check if we have the expected meal structure
-      const hasAllExpectedMeals = expectedMeals.every(expectedMeal => 
-        mealTypes.includes(expectedMeal as any)
-      );
-      
-      if (!hasAllExpectedMeals) {
-        const missingMeals = expectedMeals.filter(expectedMeal => 
-          !mealTypes.includes(expectedMeal as any)
-        );
-        console.warn(`Day ${date} missing expected meals: ${missingMeals.join(', ')}`);
-        
-        // Add missing run-based snacks
-        if (isRunDay) {
-          if (missingMeals.includes('pre_run_snack')) {
-            console.log(`Adding fallback pre-run snack for ${date}`);
-            mealPlanItems.push(createRunSnack(mealPlan.id, date, 'pre_run_snack', isRunDay));
-          }
-          
-          // Add post-run snack if we detect it might be needed (optional)
-          if (!mealTypes.includes('post_run_snack') && dayRuns.some(run => run.distance > 5)) {
-            console.log(`Adding post-run recovery snack for long run on ${date}`);
-            mealPlanItems.push(createRunSnack(mealPlan.id, date, 'post_run_snack', isRunDay));
-          }
-        }
-        
-        // Add fallback dinner if missing (essential meal)
-        if (missingMeals.includes('dinner')) {
-          console.log(`Adding fallback dinner for ${date}`);
+      // Add run-specific snacks using existing recipes
+      if (isRunDay) {
+        // Always add pre-run snack
+        const preRunSnack = selectSnackRecipe(allRecipes, 'pre_run_snack', diversityManager);
+        if (preRunSnack) {
+          console.log(`Adding pre-run snack recipe: ${preRunSnack.title}`);
           mealPlanItems.push({
             id: crypto.randomUUID(),
             meal_plan_id: mealPlan.id,
-            recipe_id: null,
+            recipe_id: preRunSnack.id,
             date,
-            meal_type: 'dinner',
-            nutritional_context: `Simple dinner - AI couldn't select a suitable recipe`,
-            custom_title: 'Simple dinner (lean protein + vegetables)',
-            calories: isRunDay ? 400 : 500,
-            protein: 25,
-            carbs: 30,
-            fat: 15
+            meal_type: 'pre_run_snack',
+            nutritional_context: `Pre-run fuel: ${preRunSnack.title} provides quick energy for your run`,
+            custom_title: null,
+            calories: preRunSnack.calories,
+            protein: preRunSnack.protein,
+            carbs: preRunSnack.carbs,
+            fat: preRunSnack.fat
           });
         }
+        
+        // Add post-run snack only if it's NOT a lunch-time run and it's a longer run
+        if (!hasLunchTimeRun && dayRuns.some(run => run.distance >= 5)) {
+          const postRunSnack = selectSnackRecipe(allRecipes, 'post_run_snack', diversityManager);
+          if (postRunSnack) {
+            console.log(`Adding post-run recovery snack recipe: ${postRunSnack.title}`);
+            mealPlanItems.push({
+              id: crypto.randomUUID(),
+              meal_plan_id: mealPlan.id,
+              recipe_id: postRunSnack.id,
+              date,
+              meal_type: 'post_run_snack',
+              nutritional_context: `Post-run recovery: ${postRunSnack.title} helps with muscle recovery after your run`,
+              custom_title: null,
+              calories: postRunSnack.calories,
+              protein: postRunSnack.protein,
+              carbs: postRunSnack.carbs,
+              fat: postRunSnack.fat
+            });
+          }
+        }
       }
+      
+      // Move to next day for diversity tracking
+      diversityManager.nextDay();
     }
 
     // Insert the processed meal plan items

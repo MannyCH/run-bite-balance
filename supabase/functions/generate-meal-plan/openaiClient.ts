@@ -25,6 +25,15 @@ interface UserProfile {
   avatar_url?: string | null;
 }
 
+/**
+ * Helper function to check if a run is during lunch time (11:00-14:00)
+ */
+function isLunchTimeRun(run: any): boolean {
+  const runDate = new Date(run.date);
+  const hour = runDate.getHours();
+  return hour >= 11 && hour <= 14;
+}
+
 export async function generateAIMealPlan(
   userId: string,
   profile: UserProfile,
@@ -54,17 +63,22 @@ export async function generateAIMealPlan(
   
   console.log(`Runs found: ${runs.length}`);
   runs.forEach((run, index) => {
-    console.log(`Run ${index + 1}: ${run.title} on ${run.date}, ${run.distance}km, ${Math.round(run.duration / 60)}min`);
+    const runDate = new Date(run.date);
+    const isLunchTime = isLunchTimeRun(run);
+    console.log(`Run ${index + 1}: ${run.title} on ${run.date}, ${run.distance}km, ${Math.round(run.duration / 60)}min, lunch-time: ${isLunchTime}`);
   });
 
-  // Create run context for the AI prompt
+  // Create enhanced run context for the AI prompt with timing information
   const runContext = runs.length > 0 
-    ? `\n\nIMPORTANT RUN SCHEDULE:\n${runs.map(run => 
-        `- ${run.date}: ${run.title} (${run.distance}km, ${Math.round(run.duration / 60)} minutes)`
-      ).join('\n')}\n\nFor run days, include:
-      1. Pre-run snack (light carbs, 150-200 calories, easy to digest)
-      2. Post-run snack for runs 5km+ (protein + carbs for recovery, 200-300 calories)
-      3. Adjust lunch portions for better post-run recovery`
+    ? `\n\n**IMPORTANT RUN SCHEDULE WITH TIMING:**\n${runs.map(run => {
+        const runDate = new Date(run.date);
+        const isLunchTime = isLunchTimeRun(run);
+        return `- ${run.date}: ${run.title} (${run.distance}km, ${Math.round(run.duration / 60)} minutes)${isLunchTime ? ' [LUNCH-TIME RUN]' : ''}`;
+      }).join('\n')}\n\n**RUN-SPECIFIC MEAL RULES:**
+      1. Pre-run snack (light breakfast recipe, ≤200 calories, easy to digest)
+      2. For LUNCH-TIME RUNS (11:00-14:00): Skip post-run snack and enhance lunch with "POST-RUN RECOVERY" context
+      3. For OTHER run times: Add post-run snack (light lunch recipe, ≤300 calories) only for runs 5km+
+      4. Always use existing recipes from the provided list for snacks - never create custom items`
     : '';
 
   try {
