@@ -8,7 +8,7 @@ import { recipeToDbFormat, dbToRecipeFormat } from "./utils";
  */
 export const importRecipes = async (newRecipes: Recipe[]): Promise<Recipe[]> => {
   try {
-    console.log('Importing recipes to Supabase:', newRecipes.length);
+    console.log('RecipeService: Importing recipes to Supabase:', newRecipes.length);
     
     // Verify Supabase connection
     if (!supabase || typeof supabase.from !== 'function') {
@@ -18,7 +18,7 @@ export const importRecipes = async (newRecipes: Recipe[]): Promise<Recipe[]> => 
     // Pre-process recipes with proper IDs and ensure image URLs are properly saved
     const recipesForDb = await Promise.all(newRecipes.map(recipeToDbFormat));
     
-    console.log('Prepared recipes for insert:', recipesForDb[0]);
+    console.log('RecipeService: Prepared recipes for insert:', recipesForDb[0]);
     
     // Insert the data
     const { data, error: insertError } = await supabase
@@ -26,11 +26,11 @@ export const importRecipes = async (newRecipes: Recipe[]): Promise<Recipe[]> => 
       .insert(recipesForDb);
     
     if (insertError) {
-      console.error('Error inserting recipes to Supabase:', insertError);
+      console.error('RecipeService: Error inserting recipes to Supabase:', insertError);
       throw new Error(`Failed to save recipes: ${insertError.message}`);
     }
     
-    console.log('Successfully inserted recipes, now fetching them back');
+    console.log('RecipeService: Successfully inserted recipes, now fetching them back');
     
     // Fetch all recipes in a separate query to update state
     const { data: fetchedData, error: selectError } = await supabase
@@ -38,12 +38,12 @@ export const importRecipes = async (newRecipes: Recipe[]): Promise<Recipe[]> => 
       .select('*');
     
     if (selectError) {
-      console.error('Error fetching recipes after insert:', selectError);
+      console.error('RecipeService: Error fetching recipes after insert:', selectError);
       throw new Error(`Failed to fetch recipes: ${selectError.message}`);
     }
     
     if (fetchedData) {
-      console.log('Successfully loaded all recipes:', fetchedData.length);
+      console.log('RecipeService: Successfully loaded all recipes:', fetchedData.length);
       
       // Map the fetched data back to our Recipe interface format
       return fetchedData.map(dbToRecipeFormat);
@@ -51,7 +51,7 @@ export const importRecipes = async (newRecipes: Recipe[]): Promise<Recipe[]> => 
     
     return [];
   } catch (error) {
-    console.error('Error in importRecipes:', error);
+    console.error('RecipeService: Error in importRecipes:', error);
     throw error;
   }
 };
@@ -61,28 +61,46 @@ export const importRecipes = async (newRecipes: Recipe[]): Promise<Recipe[]> => 
  */
 export const loadRecipes = async (): Promise<Recipe[]> => {
   try {
+    console.log('RecipeService: Starting to load recipes from Supabase...');
+    
+    // Verify Supabase connection
+    if (!supabase || typeof supabase.from !== 'function') {
+      console.error('RecipeService: Supabase not properly initialized');
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('recipes')
       .select('*');
 
     if (error) {
-      console.error('Error fetching recipes:', error);
+      console.error('RecipeService: Error fetching recipes:', error);
+      console.error('RecipeService: Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       return [];
     }
 
     if (data) {
-      console.log('Loaded recipes from Supabase:', data.length);
+      console.log('RecipeService: Successfully loaded recipes from Supabase:', data.length);
       // Check if we have any blob URLs that won't work after refresh
       const recipesWithBlobUrls = data.filter(r => r.is_blob_url).length;
       if (recipesWithBlobUrls > 0) {
-        console.log(`Found ${recipesWithBlobUrls} recipes with blob URLs that won't display correctly`);
+        console.log(`RecipeService: Found ${recipesWithBlobUrls} recipes with blob URLs that won't display correctly`);
       }
-      return data.map(dbToRecipeFormat);
+      
+      const mappedRecipes = data.map(dbToRecipeFormat);
+      console.log('RecipeService: Mapped recipes to format:', mappedRecipes.length);
+      return mappedRecipes;
     }
     
+    console.log('RecipeService: No data returned from Supabase');
     return [];
   } catch (error) {
-    console.error('Failed to fetch recipes:', error);
+    console.error('RecipeService: Failed to fetch recipes:', error);
     return [];
   }
 };

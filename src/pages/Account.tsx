@@ -5,9 +5,14 @@ import AccountSettings from "@/components/Auth/AccountSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProfile } from "@/context/ProfileContext";
+import { useAuth } from "@/context/AuthContext";
 import { ProfileForm } from "@/components/Profile/ProfileForm";
 
 const Account = () => {
+  const { user } = useAuth();
+  
+  console.log('Account page: Rendering with user:', user?.email);
+  
   return (
     <MainLayout>
       <div className="container mx-auto py-8 px-4">
@@ -34,6 +39,8 @@ const Account = () => {
 
 const ProfileTab = () => {
   const { profile, isLoading } = useProfile();
+  
+  console.log('ProfileTab: Rendering with profile:', profile, 'isLoading:', isLoading);
   
   if (isLoading) {
     return (
@@ -62,6 +69,8 @@ const ProfileTab = () => {
 };
 
 const AccountTab = () => {
+  console.log('AccountTab: Rendering');
+  
   return (
     <Card>
       <CardHeader>

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Meal, Run, Recipe, AppContextType } from './types';
 import { loadRecipes, importRecipes as importRecipesToDb } from './recipeService';
@@ -17,14 +18,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const loadInitialRecipes = async () => {
       setIsLoadingRecipes(true);
       try {
-        console.log('AppContext: Loading recipes from Supabase...');
+        console.log('AppContext: Starting to load recipes from Supabase...');
         const loadedRecipes = await loadRecipes();
-        console.log('AppContext: Loaded recipes:', loadedRecipes.length);
+        console.log('AppContext: Successfully loaded recipes:', loadedRecipes.length);
+        console.log('AppContext: Sample recipe data:', loadedRecipes[0] || 'No recipes found');
         setRecipes(loadedRecipes);
       } catch (error) {
         console.error('AppContext: Error loading recipes:', error);
+        // Set empty array on error to prevent undefined state
+        setRecipes([]);
       } finally {
         setIsLoadingRecipes(false);
+        console.log('AppContext: Recipe loading completed');
       }
     };
 
@@ -36,14 +41,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...meal,
       id: Date.now().toString(),
     };
+    console.log('AppContext: Adding meal:', newMeal);
     setMeals(prev => [...prev, newMeal]);
   };
 
   const updateMeal = (meal: Meal) => {
+    console.log('AppContext: Updating meal:', meal.id);
     setMeals(prev => prev.map(m => m.id === meal.id ? meal : m));
   };
 
   const removeMeal = (id: string) => {
+    console.log('AppContext: Removing meal:', id);
     setMeals(prev => prev.filter(m => m.id !== id));
   };
 
@@ -52,18 +60,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...run,
       id: Date.now().toString(),
     };
+    console.log('AppContext: Adding run:', newRun);
     setRuns(prev => [...prev, newRun]);
   };
 
   const updateRun = (run: Run) => {
+    console.log('AppContext: Updating run:', run.id);
     setRuns(prev => prev.map(r => r.id === run.id ? run : r));
   };
 
   const removeRun = (id: string) => {
+    console.log('AppContext: Removing run:', id);
     setRuns(prev => prev.filter(r => r.id !== id));
   };
 
   const planRecipeAsMeal = (recipe: Recipe, date: Date) => {
+    console.log('AppContext: Planning recipe as meal:', recipe.title, 'for date:', date);
     const meal: Omit<Meal, "id"> = {
       title: recipe.title,
       date,
@@ -81,10 +93,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const importRunsFromIcal = async (url: string) => {
     setIsLoadingImportedRuns(true);
     try {
+      console.log('AppContext: Importing runs from:', url);
       // Import logic would go here
-      console.log('Importing runs from:', url);
     } catch (error) {
-      console.error('Error importing runs:', error);
+      console.error('AppContext: Error importing runs:', error);
     } finally {
       setIsLoadingImportedRuns(false);
     }
@@ -93,16 +105,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const importRecipes = async (newRecipes: Recipe[]) => {
     setIsLoadingRecipes(true);
     try {
-      console.log('Importing recipes to database...');
+      console.log('AppContext: Importing', newRecipes.length, 'recipes to database...');
       const updatedRecipes = await importRecipesToDb(newRecipes);
-      console.log('Import completed, updating state with:', updatedRecipes.length, 'recipes');
+      console.log('AppContext: Import completed, updating state with:', updatedRecipes.length, 'recipes');
       setRecipes(updatedRecipes);
     } catch (error) {
-      console.error('Error importing recipes:', error);
+      console.error('AppContext: Error importing recipes:', error);
+      // Don't clear existing recipes on import error
     } finally {
       setIsLoadingRecipes(false);
     }
   };
+
+  console.log('AppContext: Current state - recipes:', recipes.length, 'isLoading:', isLoadingRecipes);
 
   return (
     <AppContext.Provider

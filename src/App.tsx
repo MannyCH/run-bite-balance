@@ -56,6 +56,16 @@ function App() {
                       }
                     />
                     <Route
+                      path="/account"
+                      element={
+                        <AuthGuard>
+                          <OnboardingCheck>
+                            <Account />
+                          </OnboardingCheck>
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
                       path="/settings"
                       element={
                         <AuthGuard>
