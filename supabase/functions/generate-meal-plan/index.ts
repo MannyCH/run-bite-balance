@@ -6,6 +6,7 @@ import { generateAIMealPlan } from "./openaiClient.ts";
 import { corsHeaders, handleCorsPreflightRequest, createCorsResponse } from "./corsHandler.ts";
 import { validateRequestBody } from "./requestValidator.ts";
 import { createSupabaseClient, fetchUserProfile, fetchRecipes } from "./supabaseClient.ts";
+import { prepareRecipeData, validateRecipeData } from "./dataPreparation.ts";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -55,11 +56,11 @@ serve(async (req) => {
       }), error.message.includes('not found') ? 404 : 500);
     }
     
-    // Get available recipes
-    let recipes;
+    // Get available recipes with proper meal type handling
+    let rawRecipes;
     try {
-      recipes = await fetchRecipes(supabase);
-      console.log(`Fetched ${recipes.length} recipes for meal planning`);
+      rawRecipes = await fetchRecipes(supabase);
+      console.log(`Fetched ${rawRecipes.length} raw recipes for meal planning`);
     } catch (error) {
       console.error('Error fetching recipes:', error);
       return createCorsResponse(JSON.stringify({ 
@@ -67,9 +68,17 @@ serve(async (req) => {
       }), error.message.includes('not found') ? 404 : 500);
     }
     
+    // Prepare and validate recipe data
+    const recipes = prepareRecipeData(rawRecipes);
+    const isValidData = validateRecipeData(recipes);
+    
+    if (!isValidData) {
+      console.warn('Recipe data validation failed, but continuing with meal plan generation...');
+    }
+    
     console.log(`Received ${runs.length} planned runs from frontend`);
     
-    // Generate AI meal plan
+    // Generate AI meal plan with properly formatted recipe data
     try {
       const result = await generateAIMealPlan(
         userId, 

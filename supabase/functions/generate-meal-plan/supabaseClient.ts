@@ -34,9 +34,11 @@ export async function fetchUserProfile(supabase: any, userId: string) {
 }
 
 export async function fetchRecipes(supabase: any) {
+  console.log('Fetching recipes with meal_type data...');
+  
   const { data: recipes, error: recipesError } = await supabase
     .from('recipes')
-    .select('*');
+    .select('id, title, calories, protein, carbs, fat, ingredients, categories, meal_type, seasonal_suitability, temperature_preference, dish_type');
   
   if (recipesError) {
     throw new Error(`Failed to fetch recipes: ${recipesError.message}`);
@@ -45,6 +47,25 @@ export async function fetchRecipes(supabase: any) {
   if (!recipes || recipes.length === 0) {
     throw new Error('No recipes found in the database');
   }
+  
+  // Log sample recipe to check meal_type format
+  if (recipes.length > 0) {
+    console.log('Sample recipe with meal_type:', {
+      id: recipes[0].id,
+      title: recipes[0].title,
+      meal_type: recipes[0].meal_type,
+      meal_type_type: typeof recipes[0].meal_type,
+      meal_type_is_array: Array.isArray(recipes[0].meal_type)
+    });
+  }
+  
+  // Count recipes with meal_type data
+  const recipesWithMealType = recipes.filter(recipe => 
+    recipe.meal_type && 
+    (Array.isArray(recipe.meal_type) ? recipe.meal_type.length > 0 : recipe.meal_type)
+  );
+  
+  console.log(`Fetched ${recipes.length} total recipes, ${recipesWithMealType.length} have meal_type classifications`);
   
   return recipes;
 }
