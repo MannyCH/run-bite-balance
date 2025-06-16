@@ -1,3 +1,4 @@
+
 // Utility functions for validating meal plan data
 import { MealPlanItem } from '@/types/profile';
 

@@ -20,8 +20,14 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
 
   // Format meal type for display
   const formatMealType = (type: string) => {
-    const formatted = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    return formatted;
+    switch (type) {
+      case 'pre_run_snack':
+        return 'Pre-Run Snack';
+      case 'post_run_snack':
+        return 'Post-Run Snack';
+      default:
+        return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
   };
 
   // Get meal type color
@@ -92,13 +98,22 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
   const displayValues = getDisplayValues();
   const displayTitle = item.custom_title || recipe?.title || 'Meal';
 
+  // Check if this is lunch with post-run context
+  const isPostRunLunch = item.meal_type === 'lunch' && 
+    item.nutritional_context?.includes('POST-RUN RECOVERY');
+
   return (
     <div key={item.id} className="border rounded-lg overflow-hidden">
       <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           <Badge variant="outline" className={`font-medium ${getMealTypeColor(item.meal_type)}`}>
             {formatMealType(item.meal_type)}
           </Badge>
+          {isPostRunLunch && (
+            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+              Recovery Meal
+            </Badge>
+          )}
         </div>
         {item.nutritional_context && (
           <span className="text-sm text-muted-foreground">
@@ -159,6 +174,11 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
             )}
             <div className="flex-1">
               <h3 className="text-lg font-medium">{recipe.title}</h3>
+              {isPostRunLunch && (
+                <p className="text-sm text-orange-600 font-medium mt-1">
+                  Optimized for post-run recovery
+                </p>
+              )}
               <div className="flex flex-wrap gap-2 mt-2">
                 {isAnalyzing && needsNutritionAnalysis() ? (
                   <div className="flex items-center gap-2">

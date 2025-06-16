@@ -74,7 +74,8 @@ export async function processAIMealPlan(
         return isSameDay(runDate, dayDate);
       });
       
-      console.log(`Day ${date} has ${dayRuns.length} runs`);
+      const isRunDay = dayRuns.length > 0;
+      console.log(`Day ${date} has ${dayRuns.length} runs (${isRunDay ? 'RUN DAY' : 'REST DAY'})`);
       
       // Process AI-generated meals
       for (const meal of meals) {
@@ -90,6 +91,12 @@ export async function processAIMealPlan(
           continue;
         }
 
+        // Add contextual information for lunch on run days
+        let contextualExplanation = explanation;
+        if (isRunDay && validMealType === 'lunch') {
+          contextualExplanation = `POST-RUN RECOVERY: ${explanation}`;
+        }
+
         console.log(`Adding ${validMealType}: ${recipe.title} (${recipe.calories} cal)`);
 
         mealPlanItems.push({
@@ -98,7 +105,7 @@ export async function processAIMealPlan(
           recipe_id: recipe_id,
           date,
           meal_type: validMealType,
-          nutritional_context: explanation,
+          nutritional_context: contextualExplanation,
           custom_title: null, // Using actual recipe, no custom title needed
           calories: recipe.calories,
           protein: recipe.protein,
@@ -107,43 +114,38 @@ export async function processAIMealPlan(
         });
       }
       
-      // FALLBACK: Only add simple snacks if AI didn't generate ANY snacks for a run day
-      if (dayRuns.length > 0) {
-        const existingSnackTypes = meals.map(m => validateMealType(m.meal_type));
+      // Validate meal structure for the day
+      const mealTypes = meals.map(m => validateMealType(m.meal_type));
+      const expectedMeals = isRunDay 
+        ? ['breakfast', 'pre_run_snack', 'lunch', 'dinner']
+        : ['breakfast', 'lunch', 'dinner'];
+      
+      // Check if we have the expected meal structure
+      const hasAllExpectedMeals = expectedMeals.every(expectedMeal => 
+        mealTypes.includes(expectedMeal as any)
+      );
+      
+      if (!hasAllExpectedMeals) {
+        const missingMeals = expectedMeals.filter(expectedMeal => 
+          !mealTypes.includes(expectedMeal as any)
+        );
+        console.warn(`Day ${date} missing expected meals: ${missingMeals.join(', ')}`);
         
-        // Add pre-run snack if missing and no suitable recipe was selected
-        if (!existingSnackTypes.includes('pre_run_snack')) {
-          console.log(`Adding fallback pre-run snack for ${date} (AI didn't select a recipe)`);
+        // Only add fallback for missing dinner as it's essential
+        if (missingMeals.includes('dinner')) {
+          console.log(`Adding fallback dinner for ${date}`);
           mealPlanItems.push({
             id: crypto.randomUUID(),
             meal_plan_id: mealPlan.id,
             recipe_id: null,
             date,
-            meal_type: 'pre_run_snack',
-            nutritional_context: `Pre-run fuel for ${dayRuns[0].title} - AI couldn't find suitable recipe`,
-            custom_title: 'Pre-run snack (banana + dates)',
-            calories: 150,
-            protein: 3,
+            meal_type: 'dinner',
+            nutritional_context: `Simple dinner - AI couldn't select a suitable recipe`,
+            custom_title: 'Simple dinner (lean protein + vegetables)',
+            calories: isRunDay ? 400 : 500,
+            protein: 25,
             carbs: 30,
-            fat: 2
-          });
-        }
-        
-        // Add post-run snack if missing and no suitable recipe was selected
-        if (!existingSnackTypes.includes('post_run_snack')) {
-          console.log(`Adding fallback post-run snack for ${date} (AI didn't select a recipe)`);
-          mealPlanItems.push({
-            id: crypto.randomUUID(),
-            meal_plan_id: mealPlan.id,
-            recipe_id: null,
-            date,
-            meal_type: 'post_run_snack',
-            nutritional_context: `Recovery nutrition after ${dayRuns[0].title} - AI couldn't find suitable recipe`,
-            custom_title: 'Post-run recovery (protein shake + fruit)',
-            calories: 200,
-            protein: 15,
-            carbs: 25,
-            fat: 5
+            fat: 15
           });
         }
       }

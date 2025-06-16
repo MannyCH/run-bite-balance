@@ -101,21 +101,38 @@ export async function generateAIMealPlan(
     // Create detailed daily breakdown for OpenAI
     const dailyBreakdown: DailyBreakdown[] = Object.entries(dailyRequirements).map(([date, reqs]) => {
       const dayRuns = runsByDate[date] || [];
+      const isRunDay = dayRuns.length > 0;
+      
+      // Adjust meal distribution for run days
+      let mealDistribution;
+      if (isRunDay) {
+        // Run days: breakfast (25%), pre-run snack (10%), lunch as post-run (40%), dinner (25%)
+        mealDistribution = {
+          breakfast: Math.round(reqs.targetCalories * 0.25),
+          pre_run_snack: Math.round(reqs.targetCalories * 0.10),
+          lunch: Math.round(reqs.targetCalories * 0.40), // Lunch serves as post-run recovery
+          dinner: Math.round(reqs.targetCalories * 0.25)
+        };
+      } else {
+        // Rest days: breakfast (25%), lunch (40%), dinner (35%)
+        mealDistribution = {
+          breakfast: Math.round(reqs.targetCalories * 0.25),
+          lunch: Math.round(reqs.targetCalories * 0.40),
+          dinner: Math.round(reqs.targetCalories * 0.35)
+        };
+      }
+      
       return {
         date,
         targetCalories: reqs.targetCalories,
         runCalories: reqs.runCalories || 0,
-        hasRuns: dayRuns.length > 0,
+        hasRuns: isRunDay,
         runs: dayRuns.map(run => ({
           title: run.title,
           distance: run.distance,
           duration: Math.round(run.duration / 60)
         })),
-        meals: {
-          breakfast: reqs.mealDistribution.breakfast,
-          lunch: reqs.mealDistribution.lunch,
-          dinner: reqs.mealDistribution.dinner
-        }
+        meals: mealDistribution
       };
     });
     
@@ -141,10 +158,16 @@ DAILY ACTIVITY & CALORIE ADJUSTMENTS:
 ${dailyBreakdown.map(day => `
 Date ${day.date}:
 - Target Calories: ${day.targetCalories} calories${day.runCalories > 0 ? ` (${baseRequirements.targetCalories} base + ${day.runCalories} run calories)` : ' (base calories)'}
+${day.hasRuns ? `
 - Breakfast: ~${day.meals.breakfast} calories
-- Lunch: ~${day.meals.lunch} calories  
+- Pre-run snack: ~${day.meals.pre_run_snack} calories (before lunchtime run)
+- Lunch: ~${day.meals.lunch} calories (POST-RUN RECOVERY MEAL - high protein + carbs)
 - Dinner: ~${day.meals.dinner} calories
-${day.hasRuns ? `- Planned Runs: ${day.runs.map(run => `${run.title} (${run.distance}km, ${run.duration}min)`).join(', ')}` : '- No planned runs'}
+- Planned Runs: ${day.runs.map(run => `${run.title} (${run.distance}km, ${run.duration}min)`).join(', ')}` : `
+- Breakfast: ~${day.meals.breakfast} calories
+- Lunch: ~${day.meals.lunch} calories
+- Dinner: ~${day.meals.dinner} calories
+- No planned runs (REST DAY)`}
 `).join('')}
 
 NUTRITIONAL APPROACH: ${nutritionalGuidance.focus}
@@ -157,45 +180,32 @@ DIETARY RESTRICTIONS & PREFERENCES:
 - Dietary Preferences: ${dietaryInfo.dietary_preferences.join(', ') || 'None'}
 - Preferred Cuisines: ${dietaryInfo.preferred_cuisines.join(', ') || 'Any'}
 
-Your task is to create a meal plan that:
-1. Meets the specific caloric targets for each day and meal
-2. On run days, adds strategic pre-run and post-run snacks for optimal performance and recovery
-3. Follows the user's nutritional approach (${profile.nutritional_theory || 'balanced'})
-4. Respects all dietary restrictions and preferences
-5. Provides appropriate portion guidance to meet caloric goals
-6. Ensures variety and nutritional balance across the week
+IMPORTANT MEAL PLANNING RULES:
 
-MEAL PLANNING RULES:
-
-**REGULAR DAYS (No Runs):**
-- THREE main meals only: breakfast, lunch, dinner
+**REST DAYS (No Runs):**
+- Generate exactly THREE meals: breakfast, lunch, dinner
+- Standard nutritional distribution
 - No snacks needed
 
-**RUN DAYS (Planned Runs):**
-- THREE main meals: breakfast, lunch, dinner (normal portions)
-- PRE-RUN SNACK: Select a recipe from the database that is:
-  - 100-200 calories
-  - High in easily digestible carbohydrates (>20g carbs)
+**RUN DAYS (Planned Runs - User runs during lunchtime):**
+- Generate exactly FOUR meals: breakfast, pre_run_snack, lunch, dinner
+- **PRE-RUN SNACK**: Select a recipe that is:
+  - 100-200 calories (light fuel before run)
+  - High in easily digestible carbohydrates (>15g carbs)
   - Low in fiber and fat to avoid digestive issues
   - Simple preparation/minimal ingredients
-  - Examples from recipes: smoothies, fruit-based dishes, yogurt parfaits, oatmeal variations
-- POST-RUN SNACK: Select a recipe from the database that is:
-  - 150-250 calories
-  - Contains both protein (>10g) and carbs (>15g) for recovery
+- **LUNCH (POST-RUN RECOVERY)**: This is the main recovery meal, select a recipe that is:
+  - Higher calories (matching lunch target ~40% of daily calories)
+  - Rich in protein (>25g) and carbohydrates (>30g) for recovery
   - Can include healthy fats
-  - Examples from recipes: protein smoothies, Greek yogurt dishes, nuts/seeds combinations, recovery bowls
+  - Focus on recovery and refueling after the lunchtime run
+- **BREAKFAST & DINNER**: Normal meals as usual
 
-**SNACK SELECTION STRATEGY:**
-You MUST analyze the provided recipes and intelligently select the most appropriate ones for snacks based on:
-- Caloric content matching the target ranges
-- Macronutrient profile (carbs for pre-run, protein+carbs for post-run)
-- Ingredient complexity (simpler is better for snacks)
-- Digestibility (avoid high-fiber/high-fat for pre-run)
-- Preparation time and convenience
+**CRITICAL INSTRUCTION:** Always use actual recipe IDs from the provided recipe list for ALL meals. Do NOT use generic placeholders. If no suitable recipe exists, select the closest appropriate recipe and explain portion adjustments.
 
-**CRITICAL INSTRUCTION:** Always use actual recipe IDs from the provided recipe list for ALL meals and snacks. Do NOT use "simple-snack" or generic placeholders. If no suitable snack recipe exists in the database, select the closest appropriate recipe and explain the timing/portion adjustment needed.
+**MEAL TYPE VALUES:** Each meal_type MUST be exactly: "breakfast", "lunch", "dinner", or "pre_run_snack".
 
-IMPORTANT: Each meal_type MUST be one of these exact values: "breakfast", "lunch", "dinner", "pre_run_snack", or "post_run_snack".
+**LUNCH ON RUN DAYS:** Remember that lunch on run days serves as the post-run recovery meal and should be nutritionally dense with adequate protein and carbs.
 
 The response should be a JSON object following this exact structure:
 {
@@ -204,16 +214,16 @@ The response should be a JSON object following this exact structure:
       "date": "YYYY-MM-DD",
       "meals": [
         {
-          "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", "pre_run_snack", or "post_run_snack"
+          "meal_type": "breakfast", // MUST be "breakfast", "lunch", "dinner", or "pre_run_snack"
           "recipe_id": "actual-recipe-id-from-database", 
-          "explanation": "Why this recipe fits the nutritional approach, timing, and activity level for this day. For snacks, include specific guidance on timing (e.g., '30 minutes before run') and any portion adjustments needed."
+          "explanation": "Why this recipe fits the nutritional approach, timing, and activity level for this day. For lunch on run days, emphasize recovery nutrition. For pre-run snacks, focus on quick energy."
         }
       ]
     }
   ]
 }
 
-NEVER use "simple-snack" as a recipe_id. Always select actual recipes from the provided database that best match the snack requirements.`
+NEVER use "simple-snack" as a recipe_id. Always select actual recipes from the provided database.`
     };
 
     console.log(`Making request to OpenAI API with model: gpt-4o`);
