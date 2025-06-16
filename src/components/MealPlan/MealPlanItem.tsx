@@ -160,10 +160,10 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
         ) : recipe ? (
           // Regular recipe display
           <div className="flex flex-col md:flex-row gap-4">
-            {recipe.imgurl && (
+            {recipe.imgUrl && (
               <div className="md:w-1/4 h-40 overflow-hidden rounded-md">
                 <img 
-                  src={recipe.imgurl} 
+                  src={recipe.imgUrl} 
                   alt={recipe.title} 
                   className="w-full h-full object-cover"
                   onError={(e) => {
