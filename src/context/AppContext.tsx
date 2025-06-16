@@ -1,6 +1,7 @@
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Meal, Run, Recipe, AppContextType } from './types';
+import { loadRecipes, importRecipes as importRecipesToDb } from './recipeService';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -11,6 +12,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoadingImportedRuns, setIsLoadingImportedRuns] = useState(false);
   const [isLoadingRecipes, setIsLoadingRecipes] = useState(false);
+
+  // Load recipes from Supabase when the component mounts
+  useEffect(() => {
+    const loadInitialRecipes = async () => {
+      setIsLoadingRecipes(true);
+      try {
+        console.log('Loading recipes from Supabase...');
+        const loadedRecipes = await loadRecipes();
+        console.log('Loaded recipes:', loadedRecipes.length);
+        setRecipes(loadedRecipes);
+      } catch (error) {
+        console.error('Error loading recipes:', error);
+      } finally {
+        setIsLoadingRecipes(false);
+      }
+    };
+
+    loadInitialRecipes();
+  }, []);
 
   const addMeal = (meal: Omit<Meal, "id">) => {
     const newMeal: Meal = {
@@ -74,7 +94,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const importRecipes = async (newRecipes: Recipe[]) => {
     setIsLoadingRecipes(true);
     try {
-      setRecipes(prev => [...prev, ...newRecipes]);
+      console.log('Importing recipes to database...');
+      const updatedRecipes = await importRecipesToDb(newRecipes);
+      console.log('Import completed, updating state with:', updatedRecipes.length, 'recipes');
+      setRecipes(updatedRecipes);
     } catch (error) {
       console.error('Error importing recipes:', error);
     } finally {

@@ -15,6 +15,7 @@ import ShoppingList from './pages/ShoppingList';
 import ProfileSetup from './pages/ProfileSetup';
 import RecipeImporterPage from './pages/RecipeImporter';
 import SuggestedMeals from './pages/SuggestedMeals';
+import PlannedRuns from './pages/PlannedRuns';
 import Auth from './pages/Auth';
 import { Toaster } from 'sonner';
 
@@ -90,6 +91,16 @@ function App() {
                         <AuthGuard>
                           <OnboardingCheck>
                             <SuggestedMeals />
+                          </OnboardingCheck>
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
+                      path="/planned-runs"
+                      element={
+                        <AuthGuard>
+                          <OnboardingCheck>
+                            <PlannedRuns />
                           </OnboardingCheck>
                         </AuthGuard>
                       }
