@@ -1,4 +1,5 @@
 
+
 export interface Recipe {
   id: string;
   title: string;
@@ -7,8 +8,11 @@ export interface Recipe {
   carbs: number;
   fat: number;
   imgUrl?: string;
+  isBlobUrl?: boolean; // Keeping this for backward compatibility
   ingredients?: string[];
   instructions?: string[];
+  categories?: string[]; // Add back categories
+  website?: string; // Add back website
   servings?: number;
   prepTime?: number;
   cookTime?: number;
@@ -17,6 +21,10 @@ export interface Recipe {
   tags?: string[];
   season?: 'spring' | 'summer' | 'autumn' | 'winter' | null;
   mealTypes?: Array<'breakfast' | 'lunch' | 'dinner' | 'snack'>;
+  meal_type?: string[] | string; // Add meal_type field that can be array or string
+  seasonal_suitability?: string[]; // Add back seasonal properties
+  temperature_preference?: string;
+  dish_type?: string;
 }
 
 export interface Meal {
@@ -63,3 +71,4 @@ export interface AppContextType {
   importRecipes: (recipes: Recipe[]) => Promise<void>;
   isLoadingRecipes: boolean;
 }
+
