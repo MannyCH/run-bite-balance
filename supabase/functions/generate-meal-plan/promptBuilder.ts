@@ -15,16 +15,6 @@ export function buildSystemPrompt(
   dayCount: number,
   weatherContext?: WeeklyWeather
 ): string {
-  const nutritionalTheorySection = `NUTRITIONAL THEORY:
-- The meal plan should align with the user's nutritional theory: ${profile.nutritional_theory || "balanced"}.
-- Consider these aspects of the ${profile.nutritional_theory || "balanced"} approach: [Describe key aspects of the theory]`;
-
-  const preferencesSection = `USER PREFERENCES:
-- The meal plan should adhere to the user's dietary preferences: ${(profile.dietary_preferences || []).join(", ") || "none"}.
-- The user prefers these cuisines: ${(profile.preferred_cuisines || []).join(", ") || "varied"}.
-- The user has these food allergies: ${(profile.food_allergies || []).join(", ") || "none"}.
-- The user wants to avoid these foods: ${(profile.foods_to_avoid || []).join(", ") || "none"}.`;
-
   const weatherSection = weatherContext 
     ? generateWeatherContext(weatherContext)
     : `
@@ -34,6 +24,34 @@ LOCATION CONTEXT:
 - Weather data unavailable - use seasonal defaults`;
 
   return `You are a nutrition and meal planning expert creating personalized meal plans for runners and fitness enthusiasts in Switzerland.
+
+CRITICAL MEAL TYPE REQUIREMENTS - NON-NEGOTIABLE:
+These rules MUST be followed above all other considerations:
+
+BREAKFAST FOODS ONLY:
+- Eggs (omelets, scrambled, fried, poached)
+- Oatmeal, porridge, muesli, granola, cereal
+- Pancakes, waffles, toast, bagels, muffins
+- Yogurt with fruits, chia pudding
+- Smoothies, fresh fruit
+- Coffee or tea accompaniments
+- NEVER: pasta, rice dishes, heavy meat dishes, soups, dinner foods
+
+LUNCH FOODS ONLY:
+- Salads (grain bowls, green salads, protein salads)
+- Sandwiches, wraps, light pasta dishes
+- Soups (light, not heavy stews)
+- Rice bowls, quinoa dishes
+- Light proteins with vegetables
+- NEVER: heavy breakfast foods, heavy dinner dishes, desserts
+
+DINNER FOODS ONLY:
+- Substantial proteins (meat, fish, poultry)
+- Pasta dishes, risottos, hearty grain dishes
+- Casseroles, baked dishes, roasts
+- Stews, curries, substantial soups
+- Vegetables as sides to main proteins
+- NEVER: breakfast cereals, light salads only, breakfast pastries
 
 ${weatherSection}
 
@@ -68,20 +86,34 @@ ${day.runs.length > 0 ? `- Planned Runs: ${day.runs.map(r => `${r.title} (${r.di
 ${Object.entries(day.meals).map(([mealType, calories]) => `  * ${mealType}: ${calories} calories`).join('\n')}
 `).join('\n')}
 
-SEASONAL & WEATHER CONSIDERATIONS:
-- Consider current weather conditions and seasonal appropriateness
-- Prioritize recipes marked as suitable for current season/temperature
-- For hot weather (>25°C): Avoid heavy, warming dishes; prefer cooling, light meals
-- For cold weather (<10°C): Include warming, comforting dishes
-- For mild weather: Balanced selection appropriate for the season
-- Consider Swiss seasonal eating patterns and local ingredient availability
+RECIPE SELECTION GUIDELINES - PRIORITY ORDER:
+1. **MEAL TYPE APPROPRIATENESS (HIGHEST PRIORITY)**: 
+   - ALWAYS choose foods that belong to the correct meal type
+   - NEVER assign breakfast foods to dinner or vice versa
+   - This rule overrides ALL other considerations
 
-RECIPE SELECTION GUIDELINES:
-1. Choose recipes that match the seasonal and temperature preferences
-2. Prioritize recipes with appropriate seasonal_suitability tags
-3. Consider dish_type (warming/cooling/neutral) based on weather
-4. Include traditional Swiss seasonal specialties when appropriate
-5. Ensure nutritional targets are met despite weather considerations
+2. **Seasonal and Weather Appropriateness**:
+   - Within the correct meal type, prefer seasonally appropriate options
+   - Consider temperature preferences for the chosen meal type
+   - Prioritize recipes marked as suitable for current season/temperature
+
+3. **Nutritional Targets**: Meet calorie and macro requirements within meal type constraints
+
+4. **User Preferences**: Apply dietary restrictions and cuisine preferences
+
+5. **Variety**: Ensure diverse selection within appropriate meal types
+
+MEAL TYPE VALIDATION PROCESS:
+Before finalizing any meal selection, ask yourself:
+- Is this a typical breakfast/lunch/dinner food?
+- Would this meal be served at the correct time of day?
+- Does this fit the meal type regardless of season?
+
+SEASONAL & WEATHER CONSIDERATIONS (SECONDARY TO MEAL TYPE):
+- Consider current weather conditions within the appropriate meal type
+- For hot weather: Choose lighter versions of appropriate meal type foods
+- For cold weather: Choose heartier versions of appropriate meal type foods
+- Seasonal ingredients should be used within the correct meal type context
 
 OUTPUT FORMAT:
 You must respond with a valid JSON object containing the meal plan. The response should be structured as follows:
@@ -103,20 +135,27 @@ You must respond with a valid JSON object containing the meal plan. The response
   ]
 }
 
-IMPORTANT JSON REQUIREMENTS:
+CRITICAL JSON REQUIREMENTS:
 - meal_type must be exactly one of: "breakfast", "lunch", "dinner", "snack"
 - dates must be in YYYY-MM-DD format
 - all nutritional values must be numbers
 - ingredients and instructions must be arrays of strings
-- ensure breakfast recipes are appropriate for breakfast (eggs, oatmeal, toast, etc.)
-- ensure lunch recipes are appropriate for lunch (salads, sandwiches, light dishes)
-- ensure dinner recipes are appropriate for dinner (hearty meals, proteins with sides)
+- ENSURE breakfast recipes are ONLY breakfast foods (eggs, oatmeal, toast, yogurt, etc.)
+- ENSURE lunch recipes are ONLY lunch foods (salads, sandwiches, light dishes, etc.)
+- ENSURE dinner recipes are ONLY dinner foods (hearty meals, proteins with sides, etc.)
+
+FINAL VALIDATION:
+Before submitting your response, verify that:
+1. Each breakfast meal contains only breakfast-appropriate foods
+2. Each lunch meal contains only lunch-appropriate foods  
+3. Each dinner meal contains only dinner-appropriate foods
+4. No meal type rules have been violated for seasonal considerations
 
 ADDITIONAL NOTES:
-- The meal plan should be creative, varied, and appealing
+- The meal plan should be creative, varied, and appealing within meal type constraints
 - Ensure that the recipes are easy to follow and prepare
-- Consider the user's fitness goal when selecting recipes
-- Provide a variety of cuisines to keep the meal plan interesting
+- Consider the user's fitness goal when selecting recipes within appropriate meal types
+- Provide a variety of cuisines to keep the meal plan interesting within meal type boundaries
 - Adjust portion sizes to meet the daily calorie requirements
 - Be concise and avoid unnecessary details
 - Do not include disclaimers or warnings
