@@ -32,6 +32,13 @@ export async function generateMealPlan({
     }
 
     console.log(`Generating meal plan with ${runs.length} runs for date range ${startDate} to ${endDate}`);
+    console.log('Runs data:', runs.map(r => ({
+      title: r.title,
+      date: r.date,
+      distance: r.distance,
+      isPlanned: r.isPlanned,
+      isImported: r.isImported || false
+    })));
 
     // Try to use the AI meal planner first (if available)
     try {
@@ -115,9 +122,9 @@ export async function generateMealPlan({
       return null;
     }
 
-    // Generate the meal plan items using the improved algorithmic approach
-    console.log('🍽️ Generating meal plan items algorithmically...');
-    const mealPlanItems = generateMealPlanItems(mealPlan.id, profile, recipes, startDate, endDate);
+    // Generate the meal plan items using the improved algorithmic approach with runs
+    console.log('🍽️ Generating meal plan items algorithmically with runs...');
+    const mealPlanItems = generateMealPlanItems(mealPlan.id, profile, recipes, startDate, endDate, runs);
 
     console.log(`Generated ${mealPlanItems.length} meal plan items:`);
     mealPlanItems.forEach(item => {
@@ -171,6 +178,11 @@ export async function generateMealPlanForUser(
 
     console.log(`🎯 Generating meal plan for user ${userId} with ${runs.length} runs`);
     console.log(`📅 Date range: ${startDate} to ${endDateStr}`);
+    
+    // Log runs data for debugging
+    runs.forEach(run => {
+      console.log(`📍 Run: ${run.title} on ${run.date}, planned: ${run.isPlanned}, imported: ${run.isImported || false}`);
+    });
 
     // Generate the meal plan using the existing function with runs
     return generateMealPlan({

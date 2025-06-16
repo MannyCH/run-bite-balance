@@ -1,94 +1,107 @@
 
-import type { RecipeSummary } from './types.ts';
+// Data preparation utilities for meal plan generation
+import type { UserProfile } from "../../../src/types/profile.ts";
+import type { DailyRequirements } from "./types.ts";
+import { calculateDailyRequirements, calculateDaySpecificRequirements } from "./nutritionCalculator.ts";
 
-export function prepareRecipeData(recipes: any[]): RecipeSummary[] {
-  console.log('Preparing recipe data...');
-  
-  const preparedRecipes = recipes.map(recipe => {
-    // Ensure meal_type is always an array
-    let mealType: string[] = [];
-    if (recipe.meal_type) {
-      if (Array.isArray(recipe.meal_type)) {
-        mealType = recipe.meal_type;
-      } else if (typeof recipe.meal_type === 'string') {
-        // Handle legacy string format
-        mealType = [recipe.meal_type];
-      }
-    }
-    
-    // Ensure seasonal_suitability is an array
-    let seasonalSuitability: string[] = ['year_round'];
-    if (recipe.seasonal_suitability) {
-      if (Array.isArray(recipe.seasonal_suitability)) {
-        seasonalSuitability = recipe.seasonal_suitability;
-      } else if (typeof recipe.seasonal_suitability === 'string') {
-        seasonalSuitability = [recipe.seasonal_suitability];
-      }
-    }
-    
-    return {
-      id: recipe.id,
-      title: recipe.title || 'Untitled Recipe',
-      calories: recipe.calories || 0,
-      protein: recipe.protein || 0,
-      carbs: recipe.carbs || 0,
-      fat: recipe.fat || 0,
-      ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : [],
-      categories: Array.isArray(recipe.categories) ? recipe.categories : [],
-      meal_type: mealType,
-      seasonal_suitability: seasonalSuitability,
-      temperature_preference: recipe.temperature_preference || 'any',
-      dish_type: recipe.dish_type || 'neutral'
-    } as RecipeSummary;
-  });
-  
-  // Log meal type distribution
-  const mealTypeStats = {
-    breakfast: 0,
-    lunch: 0,
-    dinner: 0,
-    snack: 0,
-    no_meal_type: 0
-  };
-  
-  preparedRecipes.forEach(recipe => {
-    if (!recipe.meal_type || recipe.meal_type.length === 0) {
-      mealTypeStats.no_meal_type++;
-    } else {
-      recipe.meal_type.forEach(mealType => {
-        if (mealType === 'breakfast') mealTypeStats.breakfast++;
-        else if (mealType === 'lunch') mealTypeStats.lunch++;
-        else if (mealType === 'dinner') mealTypeStats.dinner++;
-        else if (mealType === 'snack') mealTypeStats.snack++;
-      });
-    }
-  });
-  
-  console.log('Recipe meal type distribution:', mealTypeStats);
-  console.log(`Prepared ${preparedRecipes.length} recipes for meal planning`);
-  
-  return preparedRecipes;
+/**
+ * Prepare recipe summaries for AI processing
+ */
+export function prepareRecipeSummaries(recipes: any[]): any[] {
+  return recipes.map(recipe => ({
+    id: recipe.id,
+    title: recipe.title,
+    calories: recipe.calories || 0,
+    protein: recipe.protein || 0,
+    carbs: recipe.carbs || 0,
+    fat: recipe.fat || 0,
+    meal_type: Array.isArray(recipe.meal_type) ? recipe.meal_type[0] : recipe.meal_type || 'any',
+    categories: recipe.categories || [],
+    ingredients: recipe.ingredients || [],
+    seasonal_suitability: recipe.seasonal_suitability || ['year_round'],
+    temperature_preference: recipe.temperature_preference || 'any',
+    dish_type: recipe.dish_type || 'neutral'
+  }));
 }
 
-export function validateRecipeData(recipes: RecipeSummary[]): boolean {
-  const recipesWithMealTypes = recipes.filter(r => r.meal_type && r.meal_type.length > 0);
+/**
+ * Group runs by date
+ */
+export function groupRunsByDate(runs: any[]): Record<string, any[]> {
+  const grouped: Record<string, any[]> = {};
   
-  if (recipesWithMealTypes.length === 0) {
-    console.warn('No recipes have meal type classifications! Meal planning may not work correctly.');
-    console.warn('Please run the Recipe Meal Type Classifier first.');
-    return false;
+  runs.forEach(run => {
+    // Normalize date to YYYY-MM-DD format
+    const date = run.date instanceof Date ? 
+      run.date.toISOString().split('T')[0] : 
+      new Date(run.date).toISOString().split('T')[0];
+    
+    if (!grouped[date]) {
+      grouped[date] = [];
+    }
+    grouped[date].push(run);
+  });
+  
+  return grouped;
+}
+
+/**
+ * Calculate daily requirements for all dates in the range
+ */
+export function calculateAllDailyRequirements(
+  profile: UserProfile,
+  startDate: string,
+  endDate: string,
+  runsByDate: Record<string, any[]>
+): { baseRequirements: DailyRequirements; dailyRequirements: Record<string, DailyRequirements> } {
+  const baseRequirements = calculateDailyRequirements(profile);
+  if (!baseRequirements) {
+    // Fallback requirements
+    const fallback = {
+      targetCalories: 2000,
+      maintenanceCalories: 2000,
+      proteinGrams: 100,
+      fatGrams: 67,
+      carbGrams: 250,
+      mealDistribution: {
+        breakfast: 500,
+        lunch: 800,
+        dinner: 700
+      }
+    };
+    return { 
+      baseRequirements: fallback, 
+      dailyRequirements: { [startDate]: fallback }
+    };
+  }
+
+  const dailyRequirements: Record<string, DailyRequirements> = {};
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+    const dateStr = date.toISOString().split('T')[0];
+    const runsForDay = runsByDate[dateStr] || [];
+    
+    dailyRequirements[dateStr] = calculateDaySpecificRequirements(
+      baseRequirements,
+      runsForDay,
+      profile.weight || 70
+    );
   }
   
-  // Check if we have recipes for each meal type
-  const mealTypes = ['breakfast', 'lunch', 'dinner'];
-  const missingMealTypes = mealTypes.filter(mealType => 
-    !recipesWithMealTypes.some(recipe => recipe.meal_type?.includes(mealType))
-  );
+  return { baseRequirements, dailyRequirements };
+}
+
+/**
+ * Validate recipe data quality
+ */
+export function validateRecipeData(recipes: any[]): boolean {
+  const hasValidRecipes = recipes.length > 0;
+  const hasNutritionData = recipes.some(r => r.calories > 0 && r.protein > 0);
+  const hasMealTypes = recipes.some(r => r.meal_type && r.meal_type !== 'any');
   
-  if (missingMealTypes.length > 0) {
-    console.warn(`Missing recipes for meal types: ${missingMealTypes.join(', ')}`);
-    console.warn('Meal planning may be limited for these meal types.');
-  }
+  console.log(`Recipe validation: ${recipes.length} recipes, nutrition: ${hasNutritionData}, meal types: ${hasMealTypes}`);
   
-  return true;
+  return hasValidRecipes && hasNutritionData;
 }
