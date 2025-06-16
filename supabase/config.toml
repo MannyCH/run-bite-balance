@@ -3,3 +3,5 @@
 project_id = "lnaaxnpffaoqjyccpeso"
 [functions.generate-meal-plan]
 verify_jwt = true
+[functions.classify-recipes-seasonally]
+verify_jwt = true
