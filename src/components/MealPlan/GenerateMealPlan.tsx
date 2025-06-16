@@ -2,11 +2,13 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
 import { generateMealPlanForUser } from "@/utils/mealPlan";
 import { format, addDays, isSameDay, isWithinInterval } from "date-fns";
+import { Cloud, Thermometer, Calendar, Info } from "lucide-react";
 
 interface GenerateMealPlanProps {
   onMealPlanGenerated: () => Promise<void>;
@@ -19,6 +21,16 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
   const { runs } = useApp();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [weatherInfo, setWeatherInfo] = useState<string | null>(null);
+
+  // Get current season for display
+  const getCurrentSeason = () => {
+    const month = new Date().getMonth() + 1; // 1-12
+    if (month >= 3 && month <= 5) return 'Spring';
+    if (month >= 6 && month <= 8) return 'Summer';
+    if (month >= 9 && month <= 11) return 'Autumn';
+    return 'Winter';
+  };
 
   // Generate a new meal plan
   const handleGenerateMealPlan = async () => {
@@ -32,6 +44,8 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
     }
 
     setIsGenerating(true);
+    setWeatherInfo("Fetching weather data for Bern, Switzerland...");
+    
     try {
       // Calculate the meal plan date range (7 days starting from today)
       const today = new Date();
@@ -53,6 +67,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
       });
 
       console.log(`Generating meal plan with ${plannedRunsInRange.length} planned runs in date range`);
+      setWeatherInfo(`Found ${plannedRunsInRange.length} planned runs. Generating seasonal meal plan...`);
       
       // Log details of each run being passed
       plannedRunsInRange.forEach(run => {
@@ -62,9 +77,10 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
       const result = await generateMealPlanForUser(user.id, plannedRunsInRange);
 
       if (result) {
+        setWeatherInfo("Meal plan generated successfully with seasonal and weather considerations!");
         toast({
           title: "Success",
-          description: "Your meal plan has been generated successfully!",
+          description: "Your seasonal meal plan has been generated successfully!",
         });
         // Refresh data
         await onMealPlanGenerated();
@@ -84,25 +100,67 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
       });
     } finally {
       setIsGenerating(false);
+      setTimeout(() => setWeatherInfo(null), 5000); // Clear weather info after 5 seconds
     }
   };
 
   return (
-    <Card className="mb-6">
-      <CardContent className="pt-6 flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-medium">Need a new meal plan?</h3>
-          <p className="text-muted-foreground">
-            Generate a personalized plan based on your profile and planned runs
-          </p>
-        </div>
-        <Button 
-          onClick={handleGenerateMealPlan}
-          disabled={isGenerating}
-        >
-          {isGenerating ? 'Generating...' : 'Generate New Plan'}
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h3 className="text-lg font-medium flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Generate Seasonal Meal Plan
+              </h3>
+              <p className="text-muted-foreground">
+                Generate a personalized plan based on your profile, planned runs, and current weather
+              </p>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Thermometer className="h-4 w-4" />
+                  <span>Current season: {getCurrentSeason()}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Cloud className="h-4 w-4" />
+                  <span>Location: Bern, Switzerland</span>
+                </div>
+              </div>
+            </div>
+            <Button 
+              onClick={handleGenerateMealPlan}
+              disabled={isGenerating}
+              size="lg"
+            >
+              {isGenerating ? 'Generating...' : 'Generate New Plan'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {weatherInfo && (
+        <Alert className="border-blue-200 bg-blue-50">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            {weatherInfo}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Alert className="border-orange-200 bg-orange-50">
+        <Info className="h-4 w-4 text-orange-600" />
+        <AlertDescription className="text-orange-800">
+          <div className="space-y-1">
+            <div className="font-medium">Seasonal Meal Planning</div>
+            <div className="text-sm">
+              Your meal plan will automatically consider current weather conditions and seasonal appropriateness. 
+              If you're seeing winter dishes in summer, make sure to classify your recipes first using the 
+              Recipe Seasonal Classifier in the Recipe Management page.
+            </div>
+          </div>
+        </AlertDescription>
+      </Alert>
+    </div>
   );
 };

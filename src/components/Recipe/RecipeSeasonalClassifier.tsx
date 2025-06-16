@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader, RefreshCw, CheckCircle, AlertCircle, Thermometer, Calendar } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
@@ -49,22 +49,44 @@ export const RecipeSeasonalClassifier: React.FC = () => {
   };
 
   return (
-    <Card className="w-full max-w-2xl">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <RefreshCw className="h-5 w-5" />
-          Recipe Seasonal Classification
+          <Thermometer className="h-5 w-5" />
+          Seasonal Recipe Classification
         </CardTitle>
         <CardDescription>
-          Use AI to analyze and classify all recipes by their seasonal suitability, temperature preference, and dish type.
-          This will improve meal plan recommendations based on weather and seasons.
+          <div className="space-y-2">
+            <p className="font-medium text-orange-600">
+              ⚠️ Required for seasonal meal planning
+            </p>
+            <p>
+              Use AI to analyze and classify all recipes by their seasonal suitability and temperature preference.
+              This is essential for generating weather-appropriate meal plans that avoid winter dishes in summer.
+            </p>
+          </div>
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <Alert className="border-blue-200 bg-blue-50">
+          <Calendar className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            <div className="space-y-1">
+              <div className="font-medium">Why this is needed:</div>
+              <div className="text-sm">
+                Currently all recipes are marked as "year_round" which means winter soups and stews 
+                show up in summer meal plans. After classification, recipes will be properly categorized 
+                for seasonal appropriateness.
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+
         <Button 
           onClick={handleClassifyRecipes} 
           disabled={isClassifying}
           className="w-full"
+          size="lg"
         >
           {isClassifying ? (
             <>
@@ -74,7 +96,7 @@ export const RecipeSeasonalClassifier: React.FC = () => {
           ) : (
             <>
               <RefreshCw className="h-4 w-4 mr-2" />
-              Classify All Recipes
+              Classify All Recipes with AI
             </>
           )}
         </Button>
@@ -83,7 +105,7 @@ export const RecipeSeasonalClassifier: React.FC = () => {
           <Alert>
             <Loader className="h-4 w-4 animate-spin" />
             <AlertDescription>
-              This process analyzes each recipe using AI to determine its seasonal appropriateness.
+              This process analyzes each recipe using OpenAI to determine its seasonal appropriateness.
               Please wait, this may take a few minutes...
             </AlertDescription>
           </Alert>
@@ -94,12 +116,15 @@ export const RecipeSeasonalClassifier: React.FC = () => {
             <CheckCircle className="h-4 w-4 text-green-600" />
             <AlertDescription className="text-green-800">
               <div className="space-y-1">
-                <div className="font-medium">Classification Complete!</div>
-                <div>Total recipes processed: {result.totalRecipes}</div>
-                <div>Successfully updated: {result.successful}</div>
+                <div className="font-medium">🎉 Classification Complete!</div>
+                <div>Total recipes processed: <strong>{result.totalRecipes}</strong></div>
+                <div>Successfully updated: <strong>{result.successful}</strong></div>
                 {result.errors > 0 && (
                   <div className="text-orange-700">Errors: {result.errors}</div>
                 )}
+                <div className="mt-2 text-sm">
+                  ✅ Your recipes are now ready for seasonal meal planning!
+                </div>
               </div>
             </AlertDescription>
           </Alert>
@@ -115,12 +140,13 @@ export const RecipeSeasonalClassifier: React.FC = () => {
           </Alert>
         )}
 
-        <div className="text-sm text-muted-foreground">
-          <div className="font-medium mb-2">What this does:</div>
+        <div className="text-sm text-muted-foreground bg-gray-50 p-3 rounded-md">
+          <div className="font-medium mb-2">What this classification does:</div>
           <ul className="space-y-1 text-xs">
-            <li>• <strong>Seasonal Suitability:</strong> Determines which seasons each recipe fits (spring, summer, autumn, winter, year_round)</li>
-            <li>• <strong>Temperature Preference:</strong> Classifies dishes for hot_weather, cold_weather, mild_weather, or any</li>
-            <li>• <strong>Dish Type:</strong> Identifies thermal effect: warming (soups, stews), cooling (salads, cold dishes), or neutral</li>
+            <li>• <strong>Seasonal Suitability:</strong> spring, summer, autumn, winter, or year_round</li>
+            <li>• <strong>Temperature Preference:</strong> hot_weather, cold_weather, mild_weather, or any</li>
+            <li>• <strong>Dish Type:</strong> warming (soups, stews), cooling (salads, cold dishes), or neutral</li>
+            <li>• <strong>Examples:</strong> Tomato soup → winter/cold_weather/warming, Greek salad → summer/hot_weather/cooling</li>
           </ul>
         </div>
       </CardContent>

@@ -33,45 +33,64 @@ function calculateSeasonalScore(recipe: RecipeSummary, context: SeasonalContext)
   let score = 5; // Base score
   const { weather } = context;
   
-  // Check seasonal suitability
+  // Check seasonal suitability - FIXED LOGIC
   if (recipe.seasonal_suitability?.includes(weather.season)) {
-    score += 2;
+    score += 3; // Strong bonus for season-specific recipes
   } else if (recipe.seasonal_suitability?.includes('year_round')) {
-    score += 1;
+    score += 1; // Mild bonus for year-round recipes (don't penalize them)
+  } else if (recipe.seasonal_suitability && recipe.seasonal_suitability.length > 0) {
+    // Only penalize if recipe has specific seasons but doesn't match current season
+    const hasSpecificSeasons = recipe.seasonal_suitability.some(s => s !== 'year_round');
+    if (hasSpecificSeasons) {
+      score -= 2; // Penalty for non-matching seasonal recipes
+    }
   }
   
-  // Temperature preference scoring
-  switch (weather.temperatureCategory) {
-    case 'hot':
-      if (recipe.temperature_preference === 'hot_weather') {
-        score += 2;
-      } else if (recipe.temperature_preference === 'cold_weather') {
-        score -= 3; // Heavily penalize cold weather dishes in hot weather
-      }
-      break;
-      
-    case 'cold':
-      if (recipe.temperature_preference === 'cold_weather') {
-        score += 2;
-      } else if (recipe.temperature_preference === 'hot_weather') {
-        score -= 2;
-      }
-      break;
-      
-    case 'mild':
-      if (recipe.temperature_preference === 'mild_weather') {
-        score += 1;
-      }
-      break;
+  // Temperature preference scoring - IMPROVED LOGIC
+  if (recipe.temperature_preference) {
+    switch (weather.temperatureCategory) {
+      case 'hot':
+        if (recipe.temperature_preference === 'hot_weather') {
+          score += 3;
+        } else if (recipe.temperature_preference === 'cold_weather') {
+          score -= 4; // Heavy penalty for cold weather dishes in hot weather
+        } else if (recipe.temperature_preference === 'any') {
+          score += 0.5; // Small bonus for flexible recipes
+        }
+        break;
+        
+      case 'cold':
+        if (recipe.temperature_preference === 'cold_weather') {
+          score += 3;
+        } else if (recipe.temperature_preference === 'hot_weather') {
+          score -= 3; // Penalty for hot weather dishes in cold weather
+        } else if (recipe.temperature_preference === 'any') {
+          score += 0.5; // Small bonus for flexible recipes
+        }
+        break;
+        
+      case 'mild':
+        if (recipe.temperature_preference === 'mild_weather') {
+          score += 2;
+        } else if (recipe.temperature_preference === 'any') {
+          score += 1; // Good for flexible recipes
+        }
+        break;
+    }
   }
   
-  // Dish type scoring based on temperature
-  if (weather.temperatureCategory === 'hot' && recipe.dish_type === 'cooling') {
-    score += 1;
-  } else if (weather.temperatureCategory === 'cold' && recipe.dish_type === 'warming') {
-    score += 1;
-  } else if (weather.temperatureCategory === 'hot' && recipe.dish_type === 'warming') {
-    score -= 2;
+  // Dish type scoring based on temperature - ENHANCED LOGIC
+  if (recipe.dish_type) {
+    if (weather.temperatureCategory === 'hot' && recipe.dish_type === 'cooling') {
+      score += 2; // Bonus for cooling dishes in hot weather
+    } else if (weather.temperatureCategory === 'cold' && recipe.dish_type === 'warming') {
+      score += 2; // Bonus for warming dishes in cold weather
+    } else if (weather.temperatureCategory === 'hot' && recipe.dish_type === 'warming') {
+      score -= 3; // Strong penalty for warming dishes in hot weather
+    } else if (weather.temperatureCategory === 'cold' && recipe.dish_type === 'cooling') {
+      score -= 2; // Penalty for cooling dishes in cold weather
+    }
+    // Neutral dishes get no modifier (which is good)
   }
   
   // Swiss seasonal considerations
@@ -79,6 +98,7 @@ function calculateSeasonalScore(recipe: RecipeSummary, context: SeasonalContext)
     score += getSwissSeasonalBonus(recipe, weather.season);
   }
   
+  // Ensure score stays within reasonable bounds
   return Math.max(0, Math.min(10, score));
 }
 
@@ -93,8 +113,11 @@ function getSwissSeasonalBonus(recipe: RecipeSummary, season: string): number {
       if (recipeTitle.includes('fondue') || 
           recipeTitle.includes('raclette') || 
           recipeTitle.includes('soup') ||
-          recipeTitle.includes('stew')) {
-        return 1;
+          recipeTitle.includes('stew') ||
+          recipeTitle.includes('chili') ||
+          recipeTitle.includes('curry') ||
+          recipeTitle.includes('casserole')) {
+        return 1.5;
       }
       break;
       
@@ -102,15 +125,21 @@ function getSwissSeasonalBonus(recipe: RecipeSummary, season: string): number {
       if (recipeTitle.includes('salad') || 
           recipeTitle.includes('grilled') || 
           recipeTitle.includes('cold') ||
-          recipeTitle.includes('fresh')) {
-        return 1;
+          recipeTitle.includes('fresh') ||
+          recipeTitle.includes('gazpacho') ||
+          recipeTitle.includes('smoothie') ||
+          recipeTitle.includes('ice cream')) {
+        return 1.5;
       }
       break;
       
     case 'autumn':
       if (recipeTitle.includes('pumpkin') || 
           recipeTitle.includes('mushroom') || 
-          recipeTitle.includes('root')) {
+          recipeTitle.includes('root') ||
+          recipeTitle.includes('squash') ||
+          recipeTitle.includes('apple') ||
+          recipeTitle.includes('harvest')) {
         return 1;
       }
       break;
@@ -118,7 +147,10 @@ function getSwissSeasonalBonus(recipe: RecipeSummary, season: string): number {
     case 'spring':
       if (recipeTitle.includes('asparagus') || 
           recipeTitle.includes('fresh') || 
-          recipeTitle.includes('green')) {
+          recipeTitle.includes('green') ||
+          recipeTitle.includes('pea') ||
+          recipeTitle.includes('herb') ||
+          recipeTitle.includes('light')) {
         return 1;
       }
       break;
@@ -145,8 +177,15 @@ LOCATION & WEATHER CONTEXT:
 - Weather category: ${weather.temperatureCategory} weather
 - Average temperature: ${weather.averageTemp}°C
 
-SEASONAL MEAL GUIDELINES:
+CRITICAL SEASONAL REQUIREMENTS:
 ${seasonalGuidance}
+
+RECIPE FILTERING RULES:
+- AVOID recipes marked for opposite seasons (e.g., no winter dishes in summer)
+- PRIORITIZE recipes with matching seasonal_suitability
+- RESPECT temperature_preference classifications strictly
+- FAVOR cooling dishes in hot weather, warming dishes in cold weather
+- Year-round recipes are acceptable but seasonal matches are preferred
 
 TEMPERATURE-BASED PREFERENCES:
 ${getTemperatureGuidelines(weather.temperatureCategory)}
@@ -162,26 +201,29 @@ function getSeasonalGuidance(season: string, tempCategory: string): string {
 - Fresh spring vegetables (asparagus, peas, early greens)
 - Lighter preparations after winter
 - Fresh herbs and seasonal produce
-- Moderate warming dishes for cool days`,
+- Moderate warming dishes for cool days
+- AVOID heavy winter stews and warming soups`,
     
     summer: `
-- Light, refreshing meals
-- Fresh salads and cold dishes
+- Light, refreshing meals are ESSENTIAL
+- Fresh salads and cold dishes PREFERRED
 - Grilled foods and outdoor cooking
 - Seasonal fruits and vegetables
-- Minimal heavy, warming dishes`,
+- STRICTLY AVOID heavy, warming dishes, soups, stews, and comfort foods`,
     
     autumn: `
 - Hearty harvest ingredients (pumpkin, mushrooms, root vegetables)
 - Warming preparations for cooling weather
 - Preserving and comfort foods
-- Traditional Swiss autumn dishes`,
+- Traditional Swiss autumn dishes
+- AVOID light summer salads and cold dishes`,
     
     winter: `
-- Warming, comfort foods
-- Traditional Swiss winter dishes (fondue, raclette)
+- Warming, comfort foods are ESSENTIAL
+- Traditional Swiss winter dishes (fondue, raclette) PREFERRED
 - Hearty soups and stews
-- Rich, satisfying meals for cold weather`
+- Rich, satisfying meals for cold weather
+- AVOID cold salads, gazpacho, and cooling dishes`
   };
   
   return guidance[season] || guidance.winter;
@@ -194,17 +236,19 @@ function getTemperatureGuidelines(tempCategory: string): string {
   switch (tempCategory) {
     case 'hot':
       return `
-- Prioritize cooling, refreshing dishes
-- Avoid heavy, warming meals
-- Focus on salads, cold soups, grilled items
-- Light proteins and fresh ingredients`;
+- PRIORITIZE cooling, refreshing dishes ONLY
+- STRICTLY AVOID heavy, warming meals
+- FOCUS on salads, cold soups, grilled items
+- Light proteins and fresh ingredients
+- NO soups, stews, casseroles, or warming dishes`;
       
     case 'cold':
       return `
-- Emphasize warming, comforting dishes
-- Include hearty soups, stews, and braised items
-- Traditional winter preparations
-- Rich, satisfying meals`;
+- EMPHASIZE warming, comforting dishes ONLY
+- INCLUDE hearty soups, stews, and braised items
+- Traditional winter preparations PREFERRED
+- Rich, satisfying meals
+- AVOID salads, cold dishes, and cooling foods`;
       
     case 'mild':
     default:
@@ -212,6 +256,7 @@ function getTemperatureGuidelines(tempCategory: string): string {
 - Balanced meal selection
 - Mix of light and substantial dishes
 - Seasonal ingredients preferred
-- Flexible cooking methods`;
+- Flexible cooking methods
+- Moderate preferences for season-appropriate dishes`;
   }
 }
