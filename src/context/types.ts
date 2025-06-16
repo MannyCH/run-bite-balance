@@ -1,29 +1,3 @@
-// Shared types used across the application
-export interface Meal {
-  id: string;
-  title: string;
-  date: Date;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  isPlanned: boolean;
-  recipeId?: string;
-  imgUrl?: string;
-}
-
-export interface Run {
-  id: string;
-  title: string;
-  date: Date;
-  distance: number;
-  duration: number;
-  pace: number;
-  isPlanned: boolean;
-  route?: string;
-  imgUrl?: string;
-  isImported?: boolean; // Flag to identify imported runs
-}
 
 export interface Recipe {
   id: string;
@@ -33,19 +7,44 @@ export interface Recipe {
   carbs: number;
   fat: number;
   imgUrl?: string;
-  isBlobUrl?: boolean; // Keeping this for backward compatibility
   ingredients?: string[];
   instructions?: string[];
-  categories?: string[];
-  website?: string;
-  servings?: string;
-  meal_type?: string[] | string; // Add meal_type field that can be array or string
-  seasonal_suitability?: string[];
-  temperature_preference?: string;
-  dish_type?: string;
+  servings?: number;
+  prepTime?: number;
+  cookTime?: number;
+  difficulty?: string;
+  cuisine?: string;
+  tags?: string[];
+  season?: 'spring' | 'summer' | 'autumn' | 'winter' | null;
+  mealTypes?: Array<'breakfast' | 'lunch' | 'dinner' | 'snack'>;
 }
 
-// Context type definition
+export interface Meal {
+  id: string;
+  title: string;
+  date: Date;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  isPlanned?: boolean;
+  recipeId?: string;
+  imgUrl?: string;
+}
+
+export interface Run {
+  id: string;
+  title: string;
+  date: Date;
+  distance: number; // in kilometers
+  duration: number; // in seconds
+  pace: number; // in minutes per km (as decimal, e.g., 5.5 for 5:30)
+  route?: string;
+  isPlanned?: boolean;
+  imgUrl?: string;
+  isImported?: boolean;
+}
+
 export interface AppContextType {
   meals: Meal[];
   runs: Run[];
@@ -59,7 +58,7 @@ export interface AppContextType {
   updateRun: (run: Run) => void;
   removeRun: (id: string) => void;
   planRecipeAsMeal: (recipe: Recipe, date: Date) => void;
-  importRunsFromIcal: (url: string) => Promise<void>;
+  importRunsFromIcal: (url: string) => Promise<Run[]>; // Changed from Promise<void> to Promise<Run[]>
   isLoadingImportedRuns: boolean;
   importRecipes: (recipes: Recipe[]) => Promise<void>;
   isLoadingRecipes: boolean;
