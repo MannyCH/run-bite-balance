@@ -53,6 +53,10 @@ export const saveProfileToSupabase = async (
       foods_to_avoid: preferences.foodsToAvoid,
       meal_complexity: mealComplexityValue,
       
+      // Batch cooking settings
+      batch_cooking_repetitions: preferences.batchCookingRepetitions || 1,
+      batch_cooking_people: preferences.batchCookingPeople || 1,
+      
       updated_at: new Date().toISOString()
     };
 

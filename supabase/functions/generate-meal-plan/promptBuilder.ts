@@ -1,4 +1,3 @@
-
 // Build the system prompt for OpenAI meal plan generation
 import type { UserProfile } from "../../../src/types/profile.ts";
 import type { DailyRequirements, DailyBreakdown } from "./types.ts";
@@ -160,4 +159,153 @@ ADDITIONAL NOTES:
 - Be concise and avoid unnecessary details
 - Do not include disclaimers or warnings
 - Return only the JSON object, no additional text`;
+}
+
+export function buildMealPlanPrompt(
+  profile: UserProfile,
+  recipes: any[],
+  runs: any[],
+  startDate: string,
+  endDate: string,
+  dailyRequirements: any,
+  recipesByMealType: any,
+  currentWeather?: any
+): string {
+  // Basic profile info
+  const profileSection = `
+USER PROFILE:
+- Fitness Goal: ${profile.fitness_goal || "general fitness"}
+- Nutritional Theory: ${profile.nutritional_theory || "balanced"}
+- Activity Level: ${profile.activity_level || "moderate"}
+- Age: ${profile.age || "not specified"}
+- Gender: ${profile.gender || "not specified"}
+- Weight: ${profile.weight || "not specified"}kg
+- Dietary Preferences: ${(profile.dietary_preferences || []).join(", ") || "none"}
+- Food Allergies: ${(profile.food_allergies || []).join(", ") || "none"}
+- Foods to Avoid: ${(profile.foods_to_avoid || []).join(", ") || "none"}
+- Preferred Cuisines: ${(profile.preferred_cuisines || []).join(", ") || "varied"}
+- Meal Complexity: ${profile.meal_complexity || "moderate"}
+`;
+
+  // Daily nutritional requirements
+  const requirementsSection = `
+DAILY NUTRITIONAL REQUIREMENTS:
+- Base Calories: ${dailyRequirements.calories}
+- Protein: ${dailyRequirements.protein}g
+- Carbohydrates: ${dailyRequirements.carbs}g
+- Fat: ${dailyRequirements.fat}g
+`;
+
+  // Runs analysis
+  const runsSection = `
+RUNS AND ACTIVITY SCHEDULE:
+${runs.map(run => `
+- Date: ${run.date}
+  - Title: ${run.title}
+  - Distance: ${run.distance}km
+  - Duration: ${run.duration}min
+  - Calories: ${run.calories}
+`).join('\n')}
+`;
+
+  // Seasonal preferences
+  const seasonalSection = `
+SEASONAL AND WEATHER CONSIDERATIONS:
+- Location: Bern, Switzerland
+- Season: Based on current date
+- Weather data unavailable - use seasonal defaults
+`;
+
+  // Available recipes by meal type
+  const recipesByMealTypeSection = `
+AVAILABLE RECIPES BY MEAL TYPE:
+${Object.entries(recipesByMealType).map(([mealType, recipes]) => `
+- ${mealType}:
+  ${recipes.map(recipe => `
+    - ${recipe.title} (calories: ${recipe.calories}, protein: ${recipe.protein}g, carbs: ${recipe.carbs}g, fat: ${recipe.fat}g)
+  `).join('\n')}
+`).join('\n')}
+`;
+
+  // Batch cooking configuration
+  const batchCookingEnabled = profile.batch_cooking_repetitions && profile.batch_cooking_repetitions > 1;
+  const batchCookingRepetitions = profile.batch_cooking_repetitions || 1;
+  const batchCookingPeople = profile.batch_cooking_people || 1;
+  const totalRequiredServings = batchCookingRepetitions * batchCookingPeople;
+
+  let batchCookingInstructions = '';
+  if (batchCookingEnabled) {
+    batchCookingInstructions = `
+BATCH COOKING PREFERENCES:
+- User wants to cook the same meal ${batchCookingRepetitions} times per week for ${batchCookingPeople} people
+- Total required servings per recipe: ${totalRequiredServings} servings (${batchCookingRepetitions} × ${batchCookingPeople})
+- IMPORTANT: Repeat selected recipes across ${batchCookingRepetitions} different days during the week
+- When selecting recipes, prioritize those with servings close to or greater than ${totalRequiredServings}
+- If a recipe has fewer servings than required, suggest increasing portion size or making a double batch
+- Focus on selecting fewer unique recipes but repeating them strategically across the week
+- Example: If selecting a dinner recipe for 4 servings but need ${totalRequiredServings}, suggest "Make a double portion to cover ${batchCookingRepetitions} meals for ${batchCookingPeople} people"
+`;
+  }
+
+  const prompt = `You are a professional nutritionist and meal planning expert. Create a personalized weekly meal plan.
+
+USER PROFILE:
+${profileSection}
+
+DAILY NUTRITIONAL REQUIREMENTS:
+${requirementsSection}
+
+${batchCookingInstructions}
+
+RUNS AND ACTIVITY SCHEDULE:
+${runsSection}
+
+SEASONAL AND WEATHER CONSIDERATIONS:
+${seasonalSection}
+
+AVAILABLE RECIPES BY MEAL TYPE:
+${recipesByMealTypeSection}
+
+MEAL PLAN REQUIREMENTS:
+- Plan for dates from ${startDate} to ${endDate}
+- Include breakfast, lunch, dinner, and snacks (pre/post-run when applicable)
+- Ensure nutritional balance and variety
+- Consider meal complexity preference: ${profile.meal_complexity || 'moderate'}
+- Account for dietary restrictions and preferences
+- Factor in seasonal appropriateness and current weather
+${batchCookingEnabled ? `- Apply batch cooking strategy: repeat selected recipes ${batchCookingRepetitions} times across the week` : '- Provide variety across different days'}
+
+RESPONSE FORMAT:
+Return a JSON object with this exact structure:
+{
+  "message": "Brief explanation of the meal plan approach and any batch cooking considerations",
+  "mealPlan": {
+    "days": [
+      {
+        "date": "YYYY-MM-DD",
+        "meals": [
+          {
+            "mealType": "breakfast|lunch|dinner|pre_run_snack|post_run_snack",
+            "recipeId": "recipe-uuid-from-available-recipes",
+            "customTitle": "Custom meal title if no recipe",
+            "nutritionalContext": "Context like 'PRE-RUN FUEL' or 'POST-RUN RECOVERY'",
+            "portionNote": "Note about portion sizes for batch cooking if applicable"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+${batchCookingEnabled ? `
+BATCH COOKING SPECIFIC INSTRUCTIONS:
+- When repeating a recipe across ${batchCookingRepetitions} days, mention this in the meal's "portionNote"
+- Calculate if recipe servings match the required ${totalRequiredServings} total servings
+- Suggest portion adjustments in "portionNote" when needed (e.g., "Make double portion for 3 meals for 2 people")
+- In your message, explain how the batch cooking strategy was applied
+` : ''}
+
+Important: Only use recipeId values that exist in the provided recipes list. Ensure all dates are within the specified range.`;
+
+  return prompt;
 }

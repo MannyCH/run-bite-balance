@@ -105,6 +105,8 @@ export type Database = {
           age: number | null
           ai_recipe_ratio: number | null
           avatar_url: string | null
+          batch_cooking_people: number | null
+          batch_cooking_repetitions: number | null
           bmr: number | null
           created_at: string
           dietary_preferences: string[] | null
@@ -128,6 +130,8 @@ export type Database = {
           age?: number | null
           ai_recipe_ratio?: number | null
           avatar_url?: string | null
+          batch_cooking_people?: number | null
+          batch_cooking_repetitions?: number | null
           bmr?: number | null
           created_at?: string
           dietary_preferences?: string[] | null
@@ -151,6 +155,8 @@ export type Database = {
           age?: number | null
           ai_recipe_ratio?: number | null
           avatar_url?: string | null
+          batch_cooking_people?: number | null
+          batch_cooking_repetitions?: number | null
           bmr?: number | null
           created_at?: string
           dietary_preferences?: string[] | null

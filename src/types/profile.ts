@@ -23,6 +23,8 @@ export interface UserProfile {
   meal_complexity?: MealComplexity | null;
   ical_feed_url?: string | null;
   avatar_url?: string | null;
+  batch_cooking_repetitions?: number | null;
+  batch_cooking_people?: number | null;
 }
 
 export type OnboardingStep = 'basic' | 'fitness' | 'dietary' | 'preferences' | 'complete';
@@ -73,5 +75,7 @@ export interface ProfileFormData {
     preferredCuisines: string[];
     foodsToAvoid: string[];
     mealComplexity: MealComplexity | undefined;
+    batchCookingRepetitions: number | undefined;
+    batchCookingPeople: number | undefined;
   };
 }

@@ -24,6 +24,8 @@ const initialFormData: ProfileFormData = {
     preferredCuisines: [],
     foodsToAvoid: [],
     mealComplexity: undefined,
+    batchCookingRepetitions: 1,
+    batchCookingPeople: 1,
   },
 };
 
