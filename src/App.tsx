@@ -14,6 +14,7 @@ import WeeklyMealPlanner from './pages/WeeklyMealPlanner';
 import ShoppingList from './pages/ShoppingList';
 import ProfileSetup from './pages/ProfileSetup';
 import RecipeImporterPage from './pages/RecipeImporter';
+import SuggestedMeals from './pages/SuggestedMeals';
 import { Toaster } from 'sonner';
 
 const queryClient = new QueryClient();
@@ -78,11 +79,23 @@ function App() {
                         </AuthGuard>
                       }
                     />
+                    <Route
+                      path="/suggested-meals"
+                      element={
+                        <AuthGuard>
+                          <OnboardingCheck>
+                            <SuggestedMeals />
+                          </OnboardingCheck>
+                        </AuthGuard>
+                      }
+                    />
                     <Route 
                       path="/onboarding" 
                       element={
                         <AuthGuard>
-                          <ProfileSetup />
+                          <ProfileProvider>
+                            <ProfileSetup />
+                          </ProfileProvider>
                         </AuthGuard>
                       } 
                     />
