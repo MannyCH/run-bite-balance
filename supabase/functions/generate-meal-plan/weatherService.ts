@@ -1,5 +1,5 @@
 
-// Weather service for fetching Bern, Switzerland weather data
+// Weather service for fetching Bern, Switzerland weather data using Open-Meteo API
 export interface WeatherData {
   temperature: number;
   condition: string;
@@ -14,28 +14,26 @@ export interface WeeklyWeather {
 }
 
 /**
- * Fetch weather forecast for Bern, Switzerland
+ * Fetch weather forecast for Bern, Switzerland using Open-Meteo API
  */
 export async function fetchBernWeather(startDate: string, endDate: string): Promise<WeeklyWeather | null> {
-  const apiKey = Deno.env.get('OPENWEATHER_API_KEY');
-  
-  if (!apiKey) {
-    console.warn('No OpenWeather API key found, using seasonal fallback');
-    return getSeasonalFallback(startDate);
-  }
-
   try {
     // Bern coordinates: lat=46.9481, lon=7.4474
     const lat = 46.9481;
     const lon = 7.4474;
     
-    // Fetch 5-day forecast
+    // Calculate the number of days for the forecast
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+    const dayCount = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 3600 * 24)) + 1;
+    
+    // Open-Meteo API call - free, no API key required
     const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=Europe/Zurich&forecast_days=${Math.min(dayCount, 16)}`
     );
     
     if (!response.ok) {
-      console.error('Weather API error:', response.statusText);
+      console.error('Open-Meteo API error:', response.statusText);
       return getSeasonalFallback(startDate);
     }
     
@@ -43,39 +41,38 @@ export async function fetchBernWeather(startDate: string, endDate: string): Prom
     
     // Process the forecast data
     const dailyWeather: WeatherData[] = [];
-    const startDateObj = new Date(startDate);
-    const endDateObj = new Date(endDate);
     
-    // Group forecasts by day and take midday temperature
-    const dailyData = new Map<string, any>();
-    
-    data.list.forEach((forecast: any) => {
-      const forecastDate = new Date(forecast.dt * 1000);
-      const dateStr = forecastDate.toISOString().split('T')[0];
-      
-      // Only include dates within our range
-      if (forecastDate >= startDateObj && forecastDate <= endDateObj) {
-        const hour = forecastDate.getHours();
+    // Open-Meteo returns arrays of daily data
+    if (data.daily && data.daily.time) {
+      for (let i = 0; i < data.daily.time.length; i++) {
+        const forecastDate = data.daily.time[i];
+        const maxTemp = data.daily.temperature_2m_max[i];
+        const minTemp = data.daily.temperature_2m_min[i];
+        const weatherCode = data.daily.weather_code[i];
         
-        // Use midday forecast (12:00) as representative for the day
-        if (hour >= 11 && hour <= 13) {
-          dailyData.set(dateStr, {
-            temperature: Math.round(forecast.main.temp),
-            condition: forecast.weather[0].main,
-            date: dateStr
+        // Calculate average temperature for the day
+        const avgTemp = Math.round((maxTemp + minTemp) / 2);
+        
+        // Convert weather code to condition string
+        const condition = interpretWeatherCode(weatherCode);
+        
+        // Only include dates within our range
+        const forecastDateObj = new Date(forecastDate);
+        if (forecastDateObj >= startDateObj && forecastDateObj <= endDateObj) {
+          dailyWeather.push({
+            temperature: avgTemp,
+            condition: condition,
+            date: forecastDate
           });
         }
       }
-    });
+    }
     
-    // Convert map to array and fill missing days with interpolated data
+    // Fill missing days with seasonal fallback if needed
     for (let d = new Date(startDateObj); d <= endDateObj; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split('T')[0];
       
-      if (dailyData.has(dateStr)) {
-        dailyWeather.push(dailyData.get(dateStr));
-      } else {
-        // Fallback for missing days
+      if (!dailyWeather.find(day => day.date === dateStr)) {
         const seasonalTemp = getSeasonalTemperature(dateStr);
         dailyWeather.push({
           temperature: seasonalTemp,
@@ -85,8 +82,13 @@ export async function fetchBernWeather(startDate: string, endDate: string): Prom
       }
     }
     
+    // Sort by date to ensure proper order
+    dailyWeather.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
     // Calculate average temperature
     const averageTemp = dailyWeather.reduce((sum, day) => sum + day.temperature, 0) / dailyWeather.length;
+    
+    console.log(`Weather data fetched for Bern: ${dailyWeather.length} days, avg temp ${Math.round(averageTemp)}°C`);
     
     return {
       averageTemp: Math.round(averageTemp),
@@ -96,9 +98,25 @@ export async function fetchBernWeather(startDate: string, endDate: string): Prom
     };
     
   } catch (error) {
-    console.error('Error fetching weather data:', error);
+    console.error('Error fetching weather data from Open-Meteo:', error);
     return getSeasonalFallback(startDate);
   }
+}
+
+/**
+ * Interpret Open-Meteo weather codes to readable conditions
+ */
+function interpretWeatherCode(code: number): string {
+  if (code === 0) return 'Clear';
+  if (code <= 3) return 'Partly Cloudy';
+  if (code <= 48) return 'Foggy';
+  if (code <= 57) return 'Drizzle';
+  if (code <= 67) return 'Rain';
+  if (code <= 77) return 'Snow';
+  if (code <= 82) return 'Rain Showers';
+  if (code <= 86) return 'Snow Showers';
+  if (code <= 99) return 'Thunderstorm';
+  return 'Unknown';
 }
 
 /**
@@ -144,7 +162,9 @@ function getSeasonalFallback(startDate: string): WeeklyWeather {
   const season = getSeason(startDate);
   const avgTemp = getSeasonalTemperature(startDate);
   
-  // Generate 7 days of fallback data
+  console.log(`Using seasonal fallback for ${season}: ${avgTemp}°C average`);
+  
+  // Generate fallback data for the requested period
   const dailyWeather: WeatherData[] = [];
   const startDateObj = new Date(startDate);
   
