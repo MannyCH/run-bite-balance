@@ -1,4 +1,3 @@
-
 import { RecipeSummary } from "./types.ts";
 import { fetchBernWeather } from "./weatherService.ts";
 
@@ -26,7 +25,7 @@ interface UserProfile {
   batch_cooking_people?: number | null;
 }
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const OPENAI_API_KEY_PERSONAL = Deno.env.get("OPENAI_API_KEY_PERSONAL");
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
 function extractJsonFromResponse(content: string): any {
@@ -233,7 +232,7 @@ Generate the meal plan now. Return ONLY the JSON object.`;
 
   const headers = {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${OPENAI_API_KEY}`,
+    "Authorization": `Bearer ${OPENAI_API_KEY_PERSONAL}`,
   };
 
   try {
