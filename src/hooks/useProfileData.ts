@@ -2,7 +2,13 @@
 import { useState, useCallback } from "react";
 import { ProfileFormData, UserProfile } from "@/types/profile";
 import { supabase } from "@/integrations/supabase/client";
-import { safeGenderCast, safeFitnessGoalCast, safeActivityLevelCast, safeMealComplexityCast } from "@/utils/profileUtils";
+import { 
+  safeGenderCast, 
+  safeFitnessGoalCast, 
+  safeActivityLevelCast, 
+  safeMealComplexityCast,
+  safeBatchCookingIntensityCast 
+} from "@/utils/profileUtils";
 
 export const useProfileData = (
   userId: string | undefined,
@@ -60,7 +66,8 @@ export const useProfileData = (
               preferredCuisines: profileData.preferred_cuisines || [],
               foodsToAvoid: profileData.foods_to_avoid || [],
               mealComplexity: safeMealComplexityCast(profileData.meal_complexity),
-              batchCookingRepetitions: profileData.batch_cooking_repetitions || 1,
+              batchCookingEnabled: profileData.batch_cooking_enabled || false,
+              batchCookingIntensity: safeBatchCookingIntensityCast(profileData.batch_cooking_intensity) || 'medium',
               batchCookingPeople: profileData.batch_cooking_people || 1,
             },
           });

@@ -1,7 +1,13 @@
 
-import { Gender, FitnessGoal, ActivityLevel, MealComplexity, ProfileFormData, UserProfile } from "@/types/profile";
+import { Gender, FitnessGoal, ActivityLevel, MealComplexity, BatchCookingIntensity, ProfileFormData, UserProfile } from "@/types/profile";
 import { supabase } from "@/integrations/supabase/client";
-import { safeGenderCast, safeFitnessGoalCast, safeActivityLevelCast, safeMealComplexityCast } from "@/utils/profileUtils";
+import { 
+  safeGenderCast, 
+  safeFitnessGoalCast, 
+  safeActivityLevelCast, 
+  safeMealComplexityCast,
+  safeBatchCookingIntensityCast 
+} from "@/utils/profileUtils";
 
 export const saveProfileToSupabase = async (
   userId: string, 
@@ -28,6 +34,7 @@ export const saveProfileToSupabase = async (
     const fitnessGoalValue = safeFitnessGoalCast(basic.fitnessGoal);
     const activityLevelValue = safeActivityLevelCast(fitness.activityLevel);
     const mealComplexityValue = safeMealComplexityCast(preferences.mealComplexity);
+    const batchCookingIntensityValue = safeBatchCookingIntensityCast(preferences.batchCookingIntensity);
 
     const profileData = {
       // Basic info - with proper type checking
@@ -54,7 +61,8 @@ export const saveProfileToSupabase = async (
       meal_complexity: mealComplexityValue,
       
       // Batch cooking settings
-      batch_cooking_repetitions: preferences.batchCookingRepetitions || 1,
+      batch_cooking_enabled: preferences.batchCookingEnabled || false,
+      batch_cooking_intensity: batchCookingIntensityValue || 'medium',
       batch_cooking_people: preferences.batchCookingPeople || 1,
       
       updated_at: new Date().toISOString()

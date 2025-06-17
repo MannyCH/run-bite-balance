@@ -7,7 +7,9 @@ import * as z from 'zod';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { MealComplexity } from '@/types/profile';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+import { MealComplexity, BatchCookingIntensity } from '@/types/profile';
 
 // Reuse MultiSelectField from DietaryInfoForm
 const MultiSelectField = ({
@@ -78,9 +80,16 @@ const formSchema = z.object({
   mealComplexity: z.enum(['simple', 'moderate', 'complex'], { 
     required_error: 'Please select a meal complexity preference' 
   }),
-  batchCookingRepetitions: z.number().min(1).max(7).optional(),
+  batchCookingEnabled: z.boolean().optional(),
+  batchCookingIntensity: z.enum(['low', 'medium', 'high']).optional(),
   batchCookingPeople: z.number().min(1).max(10).optional(),
 });
+
+const intensityLabels = {
+  low: { label: 'Low (2x)', description: 'Recipes appear about 2 times per week' },
+  medium: { label: 'Medium (3-4x)', description: 'Recipes appear 3-4 times per week' },
+  high: { label: 'High (5-7x)', description: 'Recipes appear 5-7 times per week' }
+};
 
 export function PreferencesForm() {
   const { formData, setFormData } = useProfile();
@@ -91,10 +100,14 @@ export function PreferencesForm() {
       preferredCuisines: formData.preferences.preferredCuisines || [],
       foodsToAvoid: formData.preferences.foodsToAvoid || [],
       mealComplexity: formData.preferences.mealComplexity || undefined,
-      batchCookingRepetitions: formData.preferences.batchCookingRepetitions || 1,
+      batchCookingEnabled: formData.preferences.batchCookingEnabled || false,
+      batchCookingIntensity: formData.preferences.batchCookingIntensity || 'medium',
       batchCookingPeople: formData.preferences.batchCookingPeople || 1,
     },
   });
+
+  const batchCookingEnabled = form.watch('batchCookingEnabled');
+  const batchCookingIntensity = form.watch('batchCookingIntensity');
 
   // Update formData in context whenever form values change
   React.useEffect(() => {
@@ -105,7 +118,8 @@ export function PreferencesForm() {
           preferredCuisines: value.preferredCuisines || [],
           foodsToAvoid: value.foodsToAvoid || [],
           mealComplexity: value.mealComplexity as MealComplexity,
-          batchCookingRepetitions: value.batchCookingRepetitions,
+          batchCookingEnabled: value.batchCookingEnabled,
+          batchCookingIntensity: value.batchCookingIntensity as BatchCookingIntensity,
           batchCookingPeople: value.batchCookingPeople,
         }
       }));
@@ -113,6 +127,24 @@ export function PreferencesForm() {
     
     return () => subscription.unsubscribe();
   }, [form, setFormData]);
+
+  const getSliderValue = (intensity: BatchCookingIntensity | undefined): number[] => {
+    switch (intensity) {
+      case 'low': return [0];
+      case 'medium': return [1];
+      case 'high': return [2];
+      default: return [1];
+    }
+  };
+
+  const getIntensityFromSlider = (value: number[]): BatchCookingIntensity => {
+    switch (value[0]) {
+      case 0: return 'low';
+      case 1: return 'medium';
+      case 2: return 'high';
+      default: return 'medium';
+    }
+  };
 
   return (
     <Form {...form}>
@@ -198,67 +230,113 @@ export function PreferencesForm() {
           <div>
             <h3 className="text-lg font-medium">Batch Cooking Preferences</h3>
             <p className="text-sm text-muted-foreground">
-              Configure how often you want to repeat meals and for how many people.
+              Reduce cooking time by repeating recipes throughout the week.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Batch Cooking Repetitions */}
-            <FormField
-              control={form.control}
-              name="batchCookingRepetitions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cook X times per week</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={7}
-                      value={field.value || 1}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                    />
-                  </FormControl>
+          {/* Batch Cooking Enabled Toggle */}
+          <FormField
+            control={form.control}
+            name="batchCookingEnabled"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">
+                    Enable Batch Cooking
+                  </FormLabel>
                   <FormDescription>
-                    How many times should the same recipe appear during the week?
+                    Repeat recipes during the week to save cooking time
                   </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
 
-            {/* Batch Cooking People */}
-            <FormField
-              control={form.control}
-              name="batchCookingPeople"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>For X people</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={field.value || 1}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    How many people will be eating each meal?
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          {/* Batch Cooking Settings (only show when enabled) */}
+          {batchCookingEnabled && (
+            <div className="space-y-6">
+              {/* Batch Cooking Intensity Slider */}
+              <FormField
+                control={form.control}
+                name="batchCookingIntensity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Batch Cooking Intensity</FormLabel>
+                    <FormControl>
+                      <div className="space-y-4">
+                        <Slider
+                          min={0}
+                          max={2}
+                          step={1}
+                          value={getSliderValue(field.value)}
+                          onValueChange={(value) => {
+                            const intensity = getIntensityFromSlider(value);
+                            field.onChange(intensity);
+                          }}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>Low (2x)</span>
+                          <span>Medium (3-4x)</span>
+                          <span>High (5-7x)</span>
+                        </div>
+                        {batchCookingIntensity && (
+                          <div className="text-center">
+                            <p className="font-medium">{intensityLabels[batchCookingIntensity].label}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {intensityLabels[batchCookingIntensity].description}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Controls how often recipes are repeated during the week.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Example:</strong> If you select "Cook 3× per week for 2 people", 
-              the same recipe will appear 3 times during the week, and each recipe should 
-              have enough portions for 2 × 3 = 6 total servings.
-            </p>
-          </div>
+              {/* Batch Cooking People */}
+              <FormField
+                control={form.control}
+                name="batchCookingPeople"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of People</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={field.value || 1}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      How many people will be eating each meal?
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Example:</strong> With {intensityLabels[batchCookingIntensity || 'medium'].label.toLowerCase()} intensity for {form.watch('batchCookingPeople') || 1} people, 
+                  recipes will appear {intensityLabels[batchCookingIntensity || 'medium'].description.toLowerCase()}, 
+                  providing {((form.watch('batchCookingPeople') || 1) * (batchCookingIntensity === 'low' ? 2 : batchCookingIntensity === 'high' ? 6 : 3.5)).toFixed(0)} total servings per recipe.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Form>

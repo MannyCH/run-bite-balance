@@ -1,3 +1,4 @@
+
 import { RecipeSummary } from "./types.ts";
 import { fetchBernWeather } from "./weatherService.ts";
 
@@ -21,7 +22,8 @@ interface UserProfile {
   meal_complexity?: 'simple' | 'moderate' | 'complex' | null;
   ical_feed_url?: string | null;
   avatar_url?: string | null;
-  batch_cooking_repetitions?: number | null;
+  batch_cooking_enabled?: boolean | null;
+  batch_cooking_intensity?: 'low' | 'medium' | 'high' | null;
   batch_cooking_people?: number | null;
 }
 
@@ -121,15 +123,27 @@ export async function callOpenAIMealPlan(
   }
 
   // Check for batch cooking settings
-  const batchCookingEnabled = profile.batch_cooking_repetitions && profile.batch_cooking_repetitions > 1;
-  const batchRepetitions = profile.batch_cooking_repetitions || 1;
+  const batchCookingEnabled = profile.batch_cooking_enabled || false;
+  const batchIntensity = profile.batch_cooking_intensity || 'medium';
   const batchPeople = profile.batch_cooking_people || 1;
+
+  // Calculate repetition ranges based on intensity
+  const getRepetitionRange = (intensity: string): { min: number; max: number; label: string } => {
+    switch (intensity) {
+      case 'low': return { min: 2, max: 2, label: '2x' };
+      case 'medium': return { min: 3, max: 4, label: '3-4x' };
+      case 'high': return { min: 5, max: 7, label: '5-7x' };
+      default: return { min: 3, max: 4, label: '3-4x' };
+    }
+  };
+
+  const repetitionRange = getRepetitionRange(batchIntensity);
 
   // Calculate max unique recipes per meal type for batch cooking
   const totalDays = 7; // Always 7 days for weekly plan
-  const maxUniqueDinners = batchCookingEnabled ? Math.ceil(totalDays / batchRepetitions) : totalDays;
-  const maxUniqueLunches = batchCookingEnabled ? Math.ceil(totalDays / Math.max(2, batchRepetitions - 1)) : totalDays;
-  const maxUniqueBreakfasts = batchCookingEnabled ? Math.ceil(totalDays / Math.max(2, batchRepetitions - 2)) : totalDays;
+  const maxUniqueDinners = batchCookingEnabled ? Math.ceil(totalDays / repetitionRange.max) : totalDays;
+  const maxUniqueLunches = batchCookingEnabled ? Math.ceil(totalDays / Math.max(2, repetitionRange.max - 1)) : totalDays;
+  const maxUniqueBreakfasts = batchCookingEnabled ? Math.ceil(totalDays / Math.max(2, repetitionRange.max - 2)) : totalDays;
 
   // Create compact recipe format to save tokens
   const compactRecipes = recipes.map(r => {
@@ -163,13 +177,14 @@ ${weatherContext}
 
 **BATCH COOKING SETTINGS:**
 ${batchCookingEnabled ? `
-- ENABLED: Repeat recipes ${batchRepetitions}x per week for ${batchPeople} people
+- ENABLED: Intensity "${batchIntensity}" (${repetitionRange.label} repetitions per week) for ${batchPeople} people
+- Repetition range: ${repetitionRange.min}-${repetitionRange.max} times per week per recipe
 - Max unique dinners: ${maxUniqueDinners} (priority for batching)
 - Max unique lunches: ${maxUniqueLunches} (secondary priority)
 - Max unique breakfasts: ${maxUniqueBreakfasts} (lower priority)
 - NEVER batch snacks - always unique for run days
-- Allow 2-4x variation based on practical needs
-- Include portion notes like "Make double portion for 2 meals"` : `
+- Use flexibility within ${repetitionRange.min}-${repetitionRange.max} range based on practical needs
+- Include portion notes like "Make ${repetitionRange.max}x portion for ${repetitionRange.max} meals"` : `
 - DISABLED: Provide variety across all 7 days
 - Each day should have unique meal combinations`}
 
@@ -196,7 +211,7 @@ ${snackRecipes.map(r => `${r.id}|${r.title}|${r.calories}c`).join('\n')}
 
 **REQUIRED JSON FORMAT:**
 {
-  "message": "Brief meal plan summary with${batchCookingEnabled ? ' batch cooking strategy' : ' variety approach'}",
+  "message": "Brief meal plan summary with${batchCookingEnabled ? ` ${batchIntensity} intensity batch cooking strategy` : ' variety approach'}",
   "mealPlan": {
     "days": [
       {
@@ -266,7 +281,7 @@ Generate the meal plan now. Return ONLY the JSON object.`;
       throw new Error("Invalid meal plan response structure from OpenAI");
     }
 
-    console.log(`✅ AI meal plan generated successfully with ${batchCookingEnabled ? 'batch cooking approach' : 'variety approach'}`);
+    console.log(`✅ AI meal plan generated successfully with ${batchCookingEnabled ? `${batchIntensity} intensity batch cooking approach` : 'variety approach'}`);
     console.log(`📊 Result overview: {
   hasMealPlan: ${!!parsedContent?.mealPlan},
   messageLength: ${parsedContent?.message?.length || 0},

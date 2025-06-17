@@ -1,5 +1,5 @@
 
-import { Gender, FitnessGoal, ActivityLevel, MealComplexity } from "@/types/profile";
+import { Gender, FitnessGoal, ActivityLevel, MealComplexity, BatchCookingIntensity } from "@/types/profile";
 
 // Calculate BMR using Mifflin-St Jeor Equation
 export const calculateBMR = (weight: number, height: number, age: number, gender: string): number => {
@@ -35,6 +35,13 @@ export const safeActivityLevelCast = (value: string | null | undefined): Activit
 export const safeMealComplexityCast = (value: string | null | undefined): MealComplexity | undefined => {
   if (value && ['simple', 'moderate', 'complex'].includes(value)) {
     return value as MealComplexity;
+  }
+  return undefined;
+};
+
+export const safeBatchCookingIntensityCast = (value: string | null | undefined): BatchCookingIntensity | undefined => {
+  if (value && ['low', 'medium', 'high'].includes(value)) {
+    return value as BatchCookingIntensity;
   }
   return undefined;
 };
@@ -78,6 +85,18 @@ export const formatNutritionalTheory = (theory: string | null | undefined): stri
   };
   
   return formats[theory] || theory;
+};
+
+export const formatBatchCookingIntensity = (intensity: string | null | undefined): string => {
+  if (!intensity) return 'Not set';
+  
+  const formats: Record<string, string> = {
+    low: 'Low (2x per week)',
+    medium: 'Medium (3-4x per week)',
+    high: 'High (5-7x per week)'
+  };
+  
+  return formats[intensity] || intensity;
 };
 
 export const getBMICategory = (bmi: number): string => {

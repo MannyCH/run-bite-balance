@@ -3,6 +3,7 @@ export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'ver
 export type FitnessGoal = 'lose' | 'maintain' | 'gain';
 export type Gender = 'male' | 'female' | 'other';
 export type MealComplexity = 'simple' | 'moderate' | 'complex';
+export type BatchCookingIntensity = 'low' | 'medium' | 'high';
 
 export interface UserProfile {
   id: string;
@@ -23,7 +24,8 @@ export interface UserProfile {
   meal_complexity?: MealComplexity | null;
   ical_feed_url?: string | null;
   avatar_url?: string | null;
-  batch_cooking_repetitions?: number | null;
+  batch_cooking_enabled?: boolean | null;
+  batch_cooking_intensity?: BatchCookingIntensity | null;
   batch_cooking_people?: number | null;
 }
 
@@ -75,7 +77,8 @@ export interface ProfileFormData {
     preferredCuisines: string[];
     foodsToAvoid: string[];
     mealComplexity: MealComplexity | undefined;
-    batchCookingRepetitions: number | undefined;
+    batchCookingEnabled: boolean | undefined;
+    batchCookingIntensity: BatchCookingIntensity | undefined;
     batchCookingPeople: number | undefined;
   };
 }
