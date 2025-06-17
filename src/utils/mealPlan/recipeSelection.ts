@@ -7,15 +7,30 @@ export interface RecipeUsageTracker {
   recipeId: string;
   usageCount: number;
   lastUsedDay: number;
+  mealType: string; // Track which meal type used this recipe
 }
 
 export class RecipeDiversityManager {
-  private usageTracker: Map<string, RecipeUsageTracker> = new Map();
+  private mainMealUsageTracker: Map<string, RecipeUsageTracker> = new Map();
+  private snackUsageTracker: Map<string, RecipeUsageTracker> = new Map();
   private currentDay: number = 0;
+  private batchCookingMode: boolean = false;
+  private batchCookingRepetitions: number = 1;
+  private strictBatchCooking: boolean = false;
+
+  // Configure batch cooking settings
+  configureBatchCooking(repetitions: number, enabled: boolean = true) {
+    this.batchCookingMode = enabled && repetitions > 1;
+    this.batchCookingRepetitions = repetitions;
+    this.strictBatchCooking = repetitions >= 5;
+    
+    console.log(`Batch cooking configured: ${this.batchCookingMode ? 'enabled' : 'disabled'}, repetitions: ${repetitions}, strict: ${this.strictBatchCooking}`);
+  }
 
   // Reset for a new meal plan generation
   reset() {
-    this.usageTracker.clear();
+    this.mainMealUsageTracker.clear();
+    this.snackUsageTracker.clear();
     this.currentDay = 0;
   }
 
@@ -75,17 +90,21 @@ export class RecipeDiversityManager {
     }
   }
 
-  // Select a recipe with diversity considerations
+  // Select a recipe with diversity considerations and batch cooking logic
   selectRecipeWithDiversity(
     availableRecipes: Recipe[],
     targetCalories: number,
-    proteinTarget: number
+    proteinTarget: number,
+    mealType?: string
   ): Recipe | null {
     if (availableRecipes.length === 0) return null;
 
-    // Score recipes based on nutritional match and diversity
+    const isSnack = mealType === 'pre_run_snack' || mealType === 'post_run_snack';
+    const usageTracker = isSnack ? this.snackUsageTracker : this.mainMealUsageTracker;
+
+    // Score recipes based on nutritional match and diversity/batch cooking logic
     const scoredRecipes = availableRecipes.map(recipe => {
-      const usage = this.usageTracker.get(recipe.id);
+      const usage = usageTracker.get(recipe.id);
       
       // Nutritional scoring
       const calorieScore = recipe.calories ? 
@@ -94,52 +113,101 @@ export class RecipeDiversityManager {
         Math.max(0, 100 - Math.abs(recipe.protein - proteinTarget) / proteinTarget * 100) : 0;
       const nutritionalScore = (calorieScore + proteinScore) / 2;
 
-      // Diversity scoring (penalize recent/frequent usage)
-      let diversityScore = 100;
+      // Batch cooking vs diversity scoring
+      let repetitionScore = 100;
       if (usage) {
-        // Penalty for usage count
-        diversityScore -= usage.usageCount * 20;
-        
-        // Extra penalty if used recently
-        const daysSinceLastUse = this.currentDay - usage.lastUsedDay;
-        if (daysSinceLastUse < 2) {
-          diversityScore -= 50; // Heavy penalty for very recent use
-        } else if (daysSinceLastUse < 4) {
-          diversityScore -= 25; // Moderate penalty for recent use
+        if (this.batchCookingMode && !isSnack) {
+          // In batch cooking mode, ENCOURAGE repetition for main meals
+          if (this.strictBatchCooking) {
+            // Strict mode: heavily reward recipes that can reach exact repetition target
+            const targetUsage = this.batchCookingRepetitions;
+            if (usage.usageCount < targetUsage) {
+              repetitionScore += (targetUsage - usage.usageCount) * 50; // Strong reward for reaching target
+            } else if (usage.usageCount === targetUsage) {
+              repetitionScore -= 200; // Stop using once target reached
+            }
+          } else {
+            // Flexible mode: moderate reward for repetition within range
+            if (usage.usageCount < this.batchCookingRepetitions) {
+              repetitionScore += 30; // Moderate reward
+            } else if (usage.usageCount >= this.batchCookingRepetitions + 1) {
+              repetitionScore -= 100; // Discourage excessive repetition
+            }
+          }
+        } else {
+          // Regular diversity mode: penalize repetition
+          repetitionScore -= usage.usageCount * 20;
+          
+          // Extra penalty if used recently
+          const daysSinceLastUse = this.currentDay - usage.lastUsedDay;
+          if (daysSinceLastUse < 2) {
+            repetitionScore -= 50;
+          } else if (daysSinceLastUse < 4) {
+            repetitionScore -= 25;
+          }
         }
+      } else if (this.batchCookingMode && !isSnack) {
+        // In batch cooking mode, give new recipes a bonus to start repetition chains
+        repetitionScore += 40;
       }
 
       // Seasonal score boost (if available)
       const seasonalScore = (recipe as any).seasonalScore || 5;
-      const seasonalBonus = (seasonalScore - 5) * 10; // Convert 0-10 to -50 to +50
+      const seasonalBonus = (seasonalScore - 5) * 10;
 
-      const totalScore = (nutritionalScore * 0.4) + (diversityScore * 0.4) + (seasonalBonus * 0.2);
+      const totalScore = (nutritionalScore * 0.4) + (repetitionScore * 0.4) + (seasonalBonus * 0.2);
       
-      return { recipe, score: totalScore, nutritionalScore, diversityScore, seasonalScore };
+      return { recipe, score: totalScore, nutritionalScore, repetitionScore, seasonalScore, usage: usage?.usageCount || 0 };
     });
 
     // Sort by total score
     scoredRecipes.sort((a, b) => b.score - a.score);
 
-    // Pick from top 15 recipes to add variety (increased from top 3)
-    const topRecipes = scoredRecipes.slice(0, Math.min(15, scoredRecipes.length));
+    // In strict batch cooking mode, be more selective
+    const selectionPoolSize = this.strictBatchCooking && !isSnack ? 
+      Math.min(3, scoredRecipes.length) : 
+      Math.min(15, scoredRecipes.length);
+    
+    const topRecipes = scoredRecipes.slice(0, selectionPoolSize);
     const selectedRecipe = topRecipes[Math.floor(Math.random() * topRecipes.length)];
 
     if (selectedRecipe) {
       // Track usage
-      const usage = this.usageTracker.get(selectedRecipe.recipe.id) || {
+      const usage = usageTracker.get(selectedRecipe.recipe.id) || {
         recipeId: selectedRecipe.recipe.id,
         usageCount: 0,
-        lastUsedDay: -1
+        lastUsedDay: -1,
+        mealType: mealType || 'unknown'
       };
       
       usage.usageCount++;
       usage.lastUsedDay = this.currentDay;
-      this.usageTracker.set(selectedRecipe.recipe.id, usage);
+      if (mealType) usage.mealType = mealType;
+      usageTracker.set(selectedRecipe.recipe.id, usage);
 
-      console.log(`Selected "${selectedRecipe.recipe.title}" (score: ${selectedRecipe.score.toFixed(1)}, nutritional: ${selectedRecipe.nutritionalScore.toFixed(1)}, diversity: ${selectedRecipe.diversityScore.toFixed(1)}, seasonal: ${selectedRecipe.seasonalScore})`);
+      const batchInfo = this.batchCookingMode && !isSnack ? 
+        ` [batch ${usage.usageCount}/${this.batchCookingRepetitions}]` : '';
+      
+      console.log(`Selected "${selectedRecipe.recipe.title}"${batchInfo} (score: ${selectedRecipe.score.toFixed(1)}, nutritional: ${selectedRecipe.nutritionalScore.toFixed(1)}, repetition: ${selectedRecipe.repetitionScore.toFixed(1)})`);
     }
 
     return selectedRecipe?.recipe || null;
+  }
+
+  // Get usage statistics for reporting
+  getUsageStats() {
+    const mainMealStats = Array.from(this.mainMealUsageTracker.values()).map(usage => ({
+      recipeId: usage.recipeId,
+      usageCount: usage.usageCount,
+      mealType: usage.mealType
+    }));
+
+    const snackStats = Array.from(this.snackUsageTracker.values()).map(usage => ({
+      recipeId: usage.recipeId,
+      usageCount: usage.usageCount,
+      mealType: usage.mealType
+    }));
+
+    return { mainMeals: mainMealStats, snacks: snackStats };
   }
 }

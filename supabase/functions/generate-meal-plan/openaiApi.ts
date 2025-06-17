@@ -1,4 +1,3 @@
-
 import { RecipeSummary } from "./types.ts";
 import { fetchBernWeather } from "./weatherService.ts";
 
@@ -54,48 +53,50 @@ export async function callOpenAIMealPlan(
   const breakfastRecipes = recipes.filter(r => r.meal_type?.includes('breakfast'));
   const lunchRecipes = recipes.filter(r => r.meal_type?.includes('lunch'));
   const dinnerRecipes = recipes.filter(r => r.meal_type?.includes('dinner'));
-  const lightRecipes = recipes.filter(r => r.calories <= 300);
+  const snackRecipes = recipes.filter(r => r.meal_type?.includes('snack'));
 
-  // Flexible batch cooking configuration
+  // Batch cooking configuration
   const batchCookingEnabled = profile.batch_cooking_repetitions && profile.batch_cooking_repetitions > 1;
   const batchCookingRepetitions = profile.batch_cooking_repetitions || 1;
   const batchCookingPeople = profile.batch_cooking_people || 1;
 
+  // Determine batch cooking mode based on repetition setting
+  const isStrictBatchCooking = batchCookingRepetitions >= 5;
+  const uniqueRecipesNeeded = Math.ceil(21 / batchCookingRepetitions); // 21 meals per week (7 days × 3 meals)
+
   let batchCookingInstructions = '';
   if (batchCookingEnabled) {
-    batchCookingInstructions = `
+    if (isStrictBatchCooking) {
+      batchCookingInstructions = `
 
-**FLEXIBLE BATCH COOKING STRATEGY:**
-- Target: Aim for recipes to appear approximately ${batchCookingRepetitions} times per week for ${batchCookingPeople} people
-- Flexibility: Allow intelligent variation (2-4 repetitions per recipe) based on practical constraints
-- Priority: Focus batch cooking primarily on dinner recipes (most time-consuming to prepare)
-- Run Day Adaptation: Allow run days to break batch cooking rules when nutritionally necessary (e.g., special pre/post-run meals)
-- Meal Type Rules:
-  * Dinner: Primary target for batch cooking (aim for 2-4 repetitions of substantial recipes)
-  * Lunch: Secondary target (can be batched but with more flexibility for run days)
-  * Breakfast: Less critical for batching (simpler meals, quick prep)
-  * Snacks: Never batch (too situational based on runs)
+**STRICT BATCH COOKING MODE (${batchCookingRepetitions}x repetitions):**
+- EXACT repetitions required: Each selected recipe MUST appear exactly ${batchCookingRepetitions} times
+- Calculate exact unique recipes needed: approximately ${uniqueRecipesNeeded} unique recipes for the week
+- Priority order: Dinner (most important), Lunch (secondary), Breakfast (least important)
+- NO flexibility in repetitions - user wants meal prep efficiency with exact repetitions
+- Portion calculations: "Make ${batchCookingRepetitions}x portion for ${batchCookingPeople} people = ${batchCookingRepetitions * batchCookingPeople} total servings"
 
-**INTELLIGENT DISTRIBUTION GUIDELINES:**
-- Calculate approximate unique recipes needed per meal type: total_meals ÷ ${batchCookingRepetitions}
-- Allow some recipes to appear 2x, others 4x to balance practical constraints
-- If run days require specialized meals, adapt remaining days for batch cooking
-- Prioritize cooking efficiency over perfect mathematical distribution
-- Example: For 7 dinners, aim for ~2-3 unique recipes appearing 2-4 times each
-- Explain reasoning when deviating from target repetitions (e.g., "Lighter meal needed for pre-run day")
+**STRICT MODE MEAL DISTRIBUTION:**
+- Select exactly ${Math.ceil(7 / batchCookingRepetitions)} unique dinner recipes, each appearing ${batchCookingRepetitions} times
+- Select exactly ${Math.ceil(7 / batchCookingRepetitions)} unique lunch recipes, each appearing ${batchCookingRepetitions} times  
+- Select exactly ${Math.ceil(7 / batchCookingRepetitions)} unique breakfast recipes, each appearing ${batchCookingRepetitions} times
+- Example: For 7 repetitions, use 1 dinner recipe 7 times, 1 lunch recipe 7 times, 1 breakfast recipe 7 times
 
-**PORTION SIZE INTELLIGENCE:**
-- Calculate servings based on actual recipe repetition (may be 2-4x instead of exactly ${batchCookingRepetitions}x)
-- Suggest realistic portion adjustments: "Make double portion for 2 meals" or "Make large batch for 4 meals"
-- Consider leftover management across varying repetitions
-- Include portion notes like: "Cook once, serves 3 dinners for ${batchCookingPeople} people"
-
-**BATCH COOKING RESPONSE FORMAT:**
-When a recipe appears multiple times, include in the "explanation" field:
-- How many times the recipe appears this week
-- Portion guidance for batch cooking
-- Example: "This recipe appears 3 times this week - make a large batch to serve 3 dinners for ${batchCookingPeople} people"
+**PORTION & STORAGE GUIDANCE:**
+- Include meal prep instructions: "Cook once at start of week, portion into ${batchCookingRepetitions} containers"
+- Add storage notes: "Refrigerate for 3-4 days, freeze remainder if cooking for full week"
+- Reheating instructions for each recipe type
 `;
+    } else {
+      batchCookingInstructions = `
+
+**FLEXIBLE BATCH COOKING MODE (${batchCookingRepetitions}x target repetitions):**
+- Target: Aim for recipes to appear ${batchCookingRepetitions} times, allow 2-${batchCookingRepetitions + 1} variation
+- Priority: Focus batch cooking primarily on dinner recipes (most time-consuming)
+- Allow intelligent variation based on run day requirements and nutritional needs
+- Portion guidance: "Make ${batchCookingRepetitions}x portion for ${batchCookingPeople} people"
+`;
+    }
   }
 
   const systemPrompt = `You are a professional nutritionist and meal planning expert. Create a detailed 7-day meal plan that considers:
@@ -110,33 +111,37 @@ When a recipe appears multiple times, include in the "explanation" field:
 
 ${batchCookingInstructions}
 
-**CRITICAL REQUIREMENTS:**
-- Use ONLY recipes from the provided list
-- Each meal MUST include a valid recipe_id from the available recipes
-- Include breakfast, lunch, and dinner for each day
-- For run days, add pre-run snacks with meal_type "pre_run_snack" using light breakfast recipes (≤200 calories)
-- **IMPORTANT RUN DAY RULES:**
-  * Pre-run snacks: Use light breakfast recipes (≤200 calories) for quick energy before runs
-  * Lunch on run days: Enhanced with higher protein and recovery-focused nutrition to serve as post-run recovery meal
-  * No separate post-run snacks needed - lunch serves this purpose
-- Provide nutritional context explaining why each meal fits the day's needs
-- For run day lunches, include "POST-RUN RECOVERY" context emphasizing muscle recovery and glycogen replenishment
-- Consider seasonal appropriateness and weather conditions
-- Ensure variety across the week
-${batchCookingEnabled ? `- Apply flexible batch cooking strategy: aim for ~${batchCookingRepetitions} repetitions but allow 2-4x variation based on practical needs` : '- Provide variety across different days'}
+**CRITICAL SNACK REQUIREMENTS:**
+- ONLY use recipes with meal_type "snack" for pre-run snacks and post-run snacks
+- NEVER use breakfast, lunch, or dinner recipes as snacks
+- If no snack recipes are available, create simple custom snacks (banana, energy bar, etc.)
+- Snack recipes do NOT interfere with main meal batch cooking calculations
+
+**RUN DAY MEAL STRATEGY:**
+- Pre-run snacks: Use ONLY snack-classified recipes (≤200 calories) for quick energy
+- Lunch on run days: Enhanced with higher protein and recovery nutrition to serve as post-run recovery meal
+- NO separate post-run snacks needed - enhanced lunch serves this purpose
+- Run day lunches should include "POST-RUN RECOVERY" context emphasizing muscle recovery
+
+**MEAL TYPE SEPARATION:**
+- Breakfast recipes: Only for breakfast meals
+- Lunch recipes: For lunch (enhanced on run days for recovery)
+- Dinner recipes: Only for dinner meals  
+- Snack recipes: ONLY for pre/post-run snacks
+- This separation ensures batch cooking works properly without interference
 
 **Available Recipe Categories:**
-Breakfast Recipes (${breakfastRecipes.length} available): Use for breakfast and pre-run snacks
-${breakfastRecipes.slice(0, 10).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
+Breakfast Recipes (${breakfastRecipes.length} available):
+${breakfastRecipes.slice(0, 5).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
 
-Lunch Recipes (${lunchRecipes.length} available): Use for lunch (enhanced for recovery on run days)
-${lunchRecipes.slice(0, 10).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
+Lunch Recipes (${lunchRecipes.length} available):
+${lunchRecipes.slice(0, 5).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
 
-Dinner Recipes (${dinnerRecipes.length} available): Use for dinner
-${dinnerRecipes.slice(0, 10).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
+Dinner Recipes (${dinnerRecipes.length} available):
+${dinnerRecipes.slice(0, 5).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
 
-Light Recipes for Pre-run Snacks (≤300 cal, ${lightRecipes.length} available):
-${lightRecipes.slice(0, 15).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}, Types: ${recipe.meal_type?.join(', ')}`).join('\n')}
+Snack Recipes (${snackRecipes.length} available):
+${snackRecipes.slice(0, 10).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
 
 **Complete Recipe List:**
 ${recipes.map(recipe => `
@@ -150,7 +155,7 @@ Temperature: ${recipe.temperature_preference || 'any'}
 
 Return a JSON object with this exact structure:
 {
-  "message": "Brief summary of the meal plan approach${batchCookingEnabled ? ' and batch cooking strategy applied' : ''}",
+  "message": "Brief summary of the meal plan approach${batchCookingEnabled ? ` and ${isStrictBatchCooking ? 'strict' : 'flexible'} batch cooking strategy applied` : ''}",
   "mealPlan": {
     "days": [
       {
@@ -159,7 +164,7 @@ Return a JSON object with this exact structure:
           {
             "meal_type": "breakfast|lunch|dinner|pre_run_snack",
             "recipe_id": "exact_recipe_id_from_list",
-            "explanation": "Why this meal fits the day's nutritional and activity needs${batchCookingEnabled ? ' and batch cooking notes if applicable' : ''}"
+            "explanation": "Why this meal fits the day's needs${batchCookingEnabled ? ' and batch cooking notes' : ''}"
           }
         ]
       }
@@ -168,14 +173,12 @@ Return a JSON object with this exact structure:
 }
 
 ${batchCookingEnabled ? `
-**FLEXIBLE BATCH COOKING SPECIFIC INSTRUCTIONS:**
-- When a recipe appears multiple times, mention this in the meal's "explanation"
-- Allow variation in repetitions (2-4x) and explain reasoning in explanation
-- Calculate servings flexibly: "Make large batch for 3-4 meals for ${batchCookingPeople} people"
-- Suggest practical adjustments: "Double recipe for 2 dinners" or "Large batch for 4 servings"
-- In your message, explain how the flexible batch cooking strategy was applied
-- Prioritize dinner batch cooking over other meal types
-- Allow run day meals to break batch cooking when nutritionally appropriate
+**BATCH COOKING RESPONSE FORMAT:**
+${isStrictBatchCooking ? 
+`- For strict mode: "This recipe appears exactly ${batchCookingRepetitions} times this week - cook once for entire week, portion into ${batchCookingRepetitions} servings for ${batchCookingPeople} people"` :
+`- For flexible mode: Include repetition count and portion guidance in explanation`}
+- Explain meal prep and storage strategy
+- Include reheating instructions when applicable
 ` : ''}`;
 
   const data = {
