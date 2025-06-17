@@ -35,6 +35,13 @@ interface MealPlanDay {
   }[];
 }
 
+interface RecipeScore {
+  recipe: RecipeSummary;
+  score: number;
+  diversityPenalty: number;
+  nutritionalMatch: number;
+}
+
 export function generateFallbackMealPlan(
   profile: UserProfile,
   recipes: RecipeSummary[],
@@ -42,7 +49,7 @@ export function generateFallbackMealPlan(
   endDate: string,
   runs: any[] = []
 ): any {
-  console.log('🔄 Generating fallback meal plan algorithmically');
+  console.log('🔄 Generating fallback meal plan algorithmically with improved diversity');
   
   const requirements = calculateAllDailyRequirements(profile);
   
@@ -52,7 +59,7 @@ export function generateFallbackMealPlan(
   const dinnerRecipes = recipes.filter(r => r.meal_type?.includes('dinner') && r.calories > 0);
   const snackRecipes = recipes.filter(r => r.meal_type?.includes('snack') && r.calories > 0);
   
-  console.log(`Fallback recipe categories: ${breakfastRecipes.length} breakfast, ${lunchRecipes.length} lunch, ${dinnerRecipes.length} dinner, ${snackRecipes.length} snack`);
+  console.log(`Improved fallback recipe categories: ${breakfastRecipes.length} breakfast, ${lunchRecipes.length} lunch, ${dinnerRecipes.length} dinner, ${snackRecipes.length} snack`);
   
   // Batch cooking configuration
   const batchCookingEnabled = profile.batch_cooking_repetitions && profile.batch_cooking_repetitions > 1;
@@ -63,21 +70,31 @@ export function generateFallbackMealPlan(
   const dates = generateDateRange(startDate, endDate);
   const days: MealPlanDay[] = [];
   
-  // Recipe selection for batch cooking
+  // Recipe selection for batch cooking with improved diversity
   let selectedBreakfastRecipes: RecipeSummary[] = [];
   let selectedLunchRecipes: RecipeSummary[] = [];
   let selectedDinnerRecipes: RecipeSummary[] = [];
   
   if (batchCookingEnabled) {
-    // Select limited recipes for batch cooking
-    const uniqueRecipesNeeded = Math.ceil(7 / batchCookingRepetitions);
+    // For improved diversity, select 2-3 recipes instead of just 1, even in batch cooking mode
+    const recipesPerMealType = isStrictBatchCooking ? 
+      Math.max(1, Math.min(2, Math.ceil(7 / batchCookingRepetitions))) : 
+      Math.max(2, Math.min(3, Math.ceil(7 / (batchCookingRepetitions - 1))));
     
-    selectedBreakfastRecipes = selectBestRecipes(breakfastRecipes, uniqueRecipesNeeded, requirements.mealDistribution.breakfast);
-    selectedLunchRecipes = selectBestRecipes(lunchRecipes, uniqueRecipesNeeded, requirements.mealDistribution.lunch);
-    selectedDinnerRecipes = selectBestRecipes(dinnerRecipes, uniqueRecipesNeeded, requirements.mealDistribution.dinner);
+    console.log(`Batch cooking diversity: Selecting ${recipesPerMealType} recipes per meal type`);
     
-    console.log(`Batch cooking: Selected ${selectedBreakfastRecipes.length} breakfast, ${selectedLunchRecipes.length} lunch, ${selectedDinnerRecipes.length} dinner recipes`);
+    selectedBreakfastRecipes = selectDiverseRecipes(breakfastRecipes, recipesPerMealType, requirements.mealDistribution.breakfast);
+    selectedLunchRecipes = selectDiverseRecipes(lunchRecipes, recipesPerMealType, requirements.mealDistribution.lunch);
+    selectedDinnerRecipes = selectDiverseRecipes(dinnerRecipes, recipesPerMealType, requirements.mealDistribution.dinner);
+    
+    console.log(`Batch cooking diversity: Selected ${selectedBreakfastRecipes.length} breakfast, ${selectedLunchRecipes.length} lunch, ${selectedDinnerRecipes.length} dinner recipes`);
+    console.log(`Selected breakfast recipes: ${selectedBreakfastRecipes.map(r => r.title).join(', ')}`);
+    console.log(`Selected lunch recipes: ${selectedLunchRecipes.map(r => r.title).join(', ')}`);
+    console.log(`Selected dinner recipes: ${selectedDinnerRecipes.map(r => r.title).join(', ')}`);
   }
+  
+  // Track recipe usage for rotation
+  const recipeUsageCount = new Map<string, number>();
   
   // Generate meals for each day
   dates.forEach((date, index) => {
@@ -92,16 +109,19 @@ export function generateFallbackMealPlan(
     
     // Breakfast
     const breakfastRecipe = batchCookingEnabled 
-      ? selectedBreakfastRecipes[index % selectedBreakfastRecipes.length]
-      : selectBestRecipes(breakfastRecipes, 1, requirements.mealDistribution.breakfast)[0];
+      ? selectRecipeWithRotation(selectedBreakfastRecipes, recipeUsageCount, `breakfast-${index}`)
+      : selectDiverseRecipes(breakfastRecipes, 1, requirements.mealDistribution.breakfast)[0];
       
     if (breakfastRecipe) {
+      const usageCount = (recipeUsageCount.get(breakfastRecipe.id) || 0) + 1;
+      recipeUsageCount.set(breakfastRecipe.id, usageCount);
+      
       dayMeals.push({
         meal_type: 'breakfast',
         recipe_id: breakfastRecipe.id,
         explanation: batchCookingEnabled 
-          ? `Batch cooking: This recipe appears ${batchCookingRepetitions} times this week - cook once for entire week, portion into ${batchCookingRepetitions} servings for ${profile.batch_cooking_people || 1} people`
-          : `Balanced breakfast providing energy for the day`
+          ? `${breakfastRecipe.title} (${usageCount}/${batchCookingRepetitions}x batch cooking) - cook once for entire week, portion into ${batchCookingRepetitions} servings for ${profile.batch_cooking_people || 1} people`
+          : `${breakfastRecipe.title} - balanced breakfast providing energy for the day`
       });
     }
     
@@ -117,13 +137,16 @@ export function generateFallbackMealPlan(
     
     // Lunch (enhanced for run days)
     const lunchRecipe = batchCookingEnabled 
-      ? selectedLunchRecipes[index % selectedLunchRecipes.length]
-      : selectBestRecipes(lunchRecipes, 1, requirements.mealDistribution.lunch)[0];
+      ? selectRecipeWithRotation(selectedLunchRecipes, recipeUsageCount, `lunch-${index}`)
+      : selectDiverseRecipes(lunchRecipes, 1, requirements.mealDistribution.lunch)[0];
       
     if (lunchRecipe) {
+      const usageCount = (recipeUsageCount.get(lunchRecipe.id) || 0) + 1;
+      recipeUsageCount.set(lunchRecipe.id, usageCount);
+      
       let lunchExplanation = batchCookingEnabled 
-        ? `Batch cooking: This recipe appears ${batchCookingRepetitions} times this week`
-        : `Nutritious lunch meal`;
+        ? `${lunchRecipe.title} (${usageCount}/${batchCookingRepetitions}x batch cooking)`
+        : `${lunchRecipe.title} - nutritious lunch meal`;
         
       if (isRunDay) {
         lunchExplanation += ' - POST-RUN RECOVERY: Enhanced with higher protein for muscle recovery after your run';
@@ -138,16 +161,19 @@ export function generateFallbackMealPlan(
     
     // Dinner
     const dinnerRecipe = batchCookingEnabled 
-      ? selectedDinnerRecipes[index % selectedDinnerRecipes.length]
-      : selectBestRecipes(dinnerRecipes, 1, requirements.mealDistribution.dinner)[0];
+      ? selectRecipeWithRotation(selectedDinnerRecipes, recipeUsageCount, `dinner-${index}`)
+      : selectDiverseRecipes(dinnerRecipes, 1, requirements.mealDistribution.dinner)[0];
       
     if (dinnerRecipe) {
+      const usageCount = (recipeUsageCount.get(dinnerRecipe.id) || 0) + 1;
+      recipeUsageCount.set(dinnerRecipe.id, usageCount);
+      
       dayMeals.push({
         meal_type: 'dinner',
         recipe_id: dinnerRecipe.id,
         explanation: batchCookingEnabled 
-          ? `Batch cooking: This recipe appears ${batchCookingRepetitions} times this week - cook once for entire week, portion into ${batchCookingRepetitions} servings for ${profile.batch_cooking_people || 1} people`
-          : `Satisfying dinner to end the day`
+          ? `${dinnerRecipe.title} (${usageCount}/${batchCookingRepetitions}x batch cooking) - cook once for entire week, portion into ${batchCookingRepetitions} servings for ${profile.batch_cooking_people || 1} people`
+          : `${dinnerRecipe.title} - satisfying dinner to end the day`
       });
     }
     
@@ -158,8 +184,8 @@ export function generateFallbackMealPlan(
   });
   
   const mealPlanMessage = batchCookingEnabled 
-    ? `Algorithmic meal plan generated with ${isStrictBatchCooking ? 'strict' : 'flexible'} batch cooking (${batchCookingRepetitions}x repetitions) - OpenAI unavailable, using recipe-based planning`
-    : 'Algorithmic meal plan generated using available recipes - OpenAI unavailable, using recipe-based planning';
+    ? `Improved algorithmic meal plan with ${isStrictBatchCooking ? 'strict' : 'flexible'} batch cooking (${batchCookingRepetitions}x repetitions) and enhanced recipe diversity - OpenAI unavailable, using improved recipe-based planning`
+    : 'Improved algorithmic meal plan with enhanced recipe diversity - OpenAI unavailable, using improved recipe-based planning';
   
   return {
     message: mealPlanMessage,
@@ -182,18 +208,75 @@ function generateDateRange(startDate: string, endDate: string): string[] {
   return dates;
 }
 
-function selectBestRecipes(recipes: RecipeSummary[], count: number, targetCalories: number): RecipeSummary[] {
+function selectDiverseRecipes(recipes: RecipeSummary[], count: number, targetCalories: number): RecipeSummary[] {
   if (recipes.length === 0) return [];
   
-  // Sort recipes by how close they are to target calories
-  const sortedRecipes = recipes
-    .filter(recipe => recipe.calories > 0)
-    .sort((a, b) => {
-      const aDiff = Math.abs(a.calories - targetCalories);
-      const bDiff = Math.abs(b.calories - targetCalories);
-      return aDiff - bDiff;
-    });
+  // Create a map to track main ingredients to avoid repetition
+  const ingredientUsage = new Map<string, number>();
+  const selectedRecipes: RecipeSummary[] = [];
   
-  // Return the requested number of best-matching recipes
-  return sortedRecipes.slice(0, Math.min(count, sortedRecipes.length));
+  // Score recipes based on nutritional match and diversity
+  const scoredRecipes: RecipeScore[] = recipes.map(recipe => {
+    const calorieScore = recipe.calories ? 
+      Math.max(0, 100 - Math.abs(recipe.calories - targetCalories) / targetCalories * 100) : 0;
+    
+    // Diversity penalty based on main ingredient usage
+    const mainIngredient = recipe.main_ingredient || recipe.title.split(' ')[0].toLowerCase();
+    const ingredientCount = ingredientUsage.get(mainIngredient) || 0;
+    const diversityPenalty = ingredientCount * 25; // Heavy penalty for repetition
+    
+    // Add randomization factor to break ties
+    const randomFactor = Math.random() * 10;
+    
+    const totalScore = calorieScore - diversityPenalty + randomFactor;
+    
+    return {
+      recipe,
+      score: totalScore,
+      diversityPenalty,
+      nutritionalMatch: calorieScore
+    };
+  });
+  
+  // Sort by score and select diverse recipes
+  scoredRecipes.sort((a, b) => b.score - a.score);
+  
+  for (const scoredRecipe of scoredRecipes) {
+    if (selectedRecipes.length >= count) break;
+    
+    const recipe = scoredRecipe.recipe;
+    const mainIngredient = recipe.main_ingredient || recipe.title.split(' ')[0].toLowerCase();
+    
+    // Prefer recipes with ingredients we haven't used much
+    selectedRecipes.push(recipe);
+    ingredientUsage.set(mainIngredient, (ingredientUsage.get(mainIngredient) || 0) + 1);
+    
+    console.log(`Selected "${recipe.title}" (score: ${scoredRecipe.score.toFixed(1)}, main ingredient: ${mainIngredient})`);
+  }
+  
+  return selectedRecipes;
+}
+
+function selectRecipeWithRotation(recipes: RecipeSummary[], usageCount: Map<string, number>, contextKey: string): RecipeSummary {
+  if (recipes.length === 0) return recipes[0];
+  if (recipes.length === 1) return recipes[0];
+  
+  // Find the recipe that has been used least
+  const recipeUsage = recipes.map(recipe => ({
+    recipe,
+    usage: usageCount.get(recipe.id) || 0
+  }));
+  
+  // Sort by usage (least used first), then by random factor for variety
+  recipeUsage.sort((a, b) => {
+    if (a.usage !== b.usage) {
+      return a.usage - b.usage;
+    }
+    // Add deterministic pseudo-randomness based on context
+    const seedA = contextKey.charCodeAt(0) * a.recipe.id.charCodeAt(0);
+    const seedB = contextKey.charCodeAt(0) * b.recipe.id.charCodeAt(0);
+    return (seedA % 100) - (seedB % 100);
+  });
+  
+  return recipeUsage[0].recipe;
 }

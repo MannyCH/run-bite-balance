@@ -13,6 +13,7 @@ export interface RecipeUsageTracker {
 export class RecipeDiversityManager {
   private mainMealUsageTracker: Map<string, RecipeUsageTracker> = new Map();
   private snackUsageTracker: Map<string, RecipeUsageTracker> = new Map();
+  private ingredientUsageTracker: Map<string, number> = new Map(); // Track main ingredient usage
   private currentDay: number = 0;
   private batchCookingMode: boolean = false;
   private batchCookingRepetitions: number = 1;
@@ -31,6 +32,7 @@ export class RecipeDiversityManager {
   reset() {
     this.mainMealUsageTracker.clear();
     this.snackUsageTracker.clear();
+    this.ingredientUsageTracker.clear();
     this.currentDay = 0;
   }
 
@@ -90,7 +92,31 @@ export class RecipeDiversityManager {
     }
   }
 
-  // Select a recipe with diversity considerations and batch cooking logic
+  // Extract main ingredient from recipe for diversity tracking
+  private extractMainIngredient(recipe: Recipe): string {
+    // Use explicit main_ingredient if available
+    if (recipe.main_ingredient) {
+      return recipe.main_ingredient.toLowerCase();
+    }
+    
+    // Extract from title as fallback
+    const titleWords = recipe.title.toLowerCase().split(' ');
+    
+    // Common main ingredients to prioritize in title parsing
+    const commonIngredients = ['chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'turkey', 'tofu', 'beans', 'lentils', 'rice', 'pasta', 'potato', 'sweet potato', 'quinoa', 'egg'];
+    
+    for (const ingredient of commonIngredients) {
+      if (titleWords.some(word => word.includes(ingredient))) {
+        return ingredient;
+      }
+    }
+    
+    // Fallback to first significant word
+    const significantWords = titleWords.filter(word => word.length > 3 && !['with', 'and', 'the', 'for'].includes(word));
+    return significantWords[0] || titleWords[0] || 'unknown';
+  }
+
+  // Select a recipe with enhanced diversity considerations and batch cooking logic
   selectRecipeWithDiversity(
     availableRecipes: Recipe[],
     targetCalories: number,
@@ -102,9 +128,11 @@ export class RecipeDiversityManager {
     const isSnack = mealType === 'pre_run_snack' || mealType === 'post_run_snack';
     const usageTracker = isSnack ? this.snackUsageTracker : this.mainMealUsageTracker;
 
-    // Score recipes based on nutritional match and diversity/batch cooking logic
+    // Score recipes based on nutritional match, diversity, and batch cooking logic
     const scoredRecipes = availableRecipes.map(recipe => {
       const usage = usageTracker.get(recipe.id);
+      const mainIngredient = this.extractMainIngredient(recipe);
+      const ingredientUsage = this.ingredientUsageTracker.get(mainIngredient) || 0;
       
       // Nutritional scoring
       const calorieScore = recipe.calories ? 
@@ -113,11 +141,17 @@ export class RecipeDiversityManager {
         Math.max(0, 100 - Math.abs(recipe.protein - proteinTarget) / proteinTarget * 100) : 0;
       const nutritionalScore = (calorieScore + proteinScore) / 2;
 
+      // Enhanced diversity scoring with ingredient tracking
+      let diversityScore = 100;
+      
+      // Penalize ingredient repetition
+      diversityScore -= ingredientUsage * 30; // Heavy penalty for same ingredients
+      
       // Batch cooking vs diversity scoring
       let repetitionScore = 100;
       if (usage) {
         if (this.batchCookingMode && !isSnack) {
-          // In batch cooking mode, ENCOURAGE repetition for main meals
+          // In batch cooking mode, ENCOURAGE repetition for main meals, but limit variety
           if (this.strictBatchCooking) {
             // Strict mode: heavily reward recipes that can reach exact repetition target
             const targetUsage = this.batchCookingRepetitions;
@@ -127,16 +161,16 @@ export class RecipeDiversityManager {
               repetitionScore -= 200; // Stop using once target reached
             }
           } else {
-            // Flexible mode: moderate reward for repetition within range
+            // Flexible mode: moderate reward for repetition within range, but allow some variety
             if (usage.usageCount < this.batchCookingRepetitions) {
-              repetitionScore += 30; // Moderate reward
-            } else if (usage.usageCount >= this.batchCookingRepetitions + 1) {
-              repetitionScore -= 100; // Discourage excessive repetition
+              repetitionScore += 20; // Moderate reward
+            } else if (usage.usageCount >= this.batchCookingRepetitions) {
+              repetitionScore -= 80; // Discourage excessive repetition
             }
           }
         } else {
           // Regular diversity mode: penalize repetition
-          repetitionScore -= usage.usageCount * 20;
+          repetitionScore -= usage.usageCount * 25;
           
           // Extra penalty if used recently
           const daysSinceLastUse = this.currentDay - usage.lastUsedDay;
@@ -148,24 +182,36 @@ export class RecipeDiversityManager {
         }
       } else if (this.batchCookingMode && !isSnack) {
         // In batch cooking mode, give new recipes a bonus to start repetition chains
-        repetitionScore += 40;
+        repetitionScore += 30;
       }
 
       // Seasonal score boost (if available)
       const seasonalScore = (recipe as any).seasonalScore || 5;
       const seasonalBonus = (seasonalScore - 5) * 10;
 
-      const totalScore = (nutritionalScore * 0.4) + (repetitionScore * 0.4) + (seasonalBonus * 0.2);
+      // Add randomization for variety
+      const randomFactor = Math.random() * 15;
+
+      const totalScore = (nutritionalScore * 0.3) + (diversityScore * 0.3) + (repetitionScore * 0.3) + (seasonalBonus * 0.05) + (randomFactor * 0.05);
       
-      return { recipe, score: totalScore, nutritionalScore, repetitionScore, seasonalScore, usage: usage?.usageCount || 0 };
+      return { 
+        recipe, 
+        score: totalScore, 
+        nutritionalScore, 
+        diversityScore, 
+        repetitionScore, 
+        seasonalScore, 
+        usage: usage?.usageCount || 0,
+        mainIngredient
+      };
     });
 
     // Sort by total score
     scoredRecipes.sort((a, b) => b.score - a.score);
 
-    // In strict batch cooking mode, be more selective
+    // In strict batch cooking mode, be more selective but allow some variety
     const selectionPoolSize = this.strictBatchCooking && !isSnack ? 
-      Math.min(3, scoredRecipes.length) : 
+      Math.min(5, scoredRecipes.length) : 
       Math.min(15, scoredRecipes.length);
     
     const topRecipes = scoredRecipes.slice(0, selectionPoolSize);
@@ -185,10 +231,15 @@ export class RecipeDiversityManager {
       if (mealType) usage.mealType = mealType;
       usageTracker.set(selectedRecipe.recipe.id, usage);
 
+      // Track ingredient usage
+      const mainIngredient = selectedRecipe.mainIngredient;
+      this.ingredientUsageTracker.set(mainIngredient, (this.ingredientUsageTracker.get(mainIngredient) || 0) + 1);
+
       const batchInfo = this.batchCookingMode && !isSnack ? 
-        ` [batch ${usage.usageCount}/${this.batchCookingRepetitions}]` : '';
+        ` [batch ${usage.usageCount}/${this.batchCookingRepetitions}, ${mainIngredient}]` : 
+        ` [${mainIngredient}]`;
       
-      console.log(`Selected "${selectedRecipe.recipe.title}"${batchInfo} (score: ${selectedRecipe.score.toFixed(1)}, nutritional: ${selectedRecipe.nutritionalScore.toFixed(1)}, repetition: ${selectedRecipe.repetitionScore.toFixed(1)})`);
+      console.log(`Selected "${selectedRecipe.recipe.title}"${batchInfo} (score: ${selectedRecipe.score.toFixed(1)}, nutritional: ${selectedRecipe.nutritionalScore.toFixed(1)}, diversity: ${selectedRecipe.diversityScore.toFixed(1)}, repetition: ${selectedRecipe.repetitionScore.toFixed(1)})`);
     }
 
     return selectedRecipe?.recipe || null;
@@ -208,6 +259,11 @@ export class RecipeDiversityManager {
       mealType: usage.mealType
     }));
 
-    return { mainMeals: mainMealStats, snacks: snackStats };
+    const ingredientStats = Array.from(this.ingredientUsageTracker.entries()).map(([ingredient, count]) => ({
+      ingredient,
+      count
+    }));
+
+    return { mainMeals: mainMealStats, snacks: snackStats, ingredients: ingredientStats };
   }
 }

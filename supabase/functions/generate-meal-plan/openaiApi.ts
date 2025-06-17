@@ -30,6 +30,31 @@ interface UserProfile {
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY_PERSONAL");
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
+// Helper function to extract JSON from OpenAI response (handles markdown wrapping)
+function extractJsonFromResponse(content: string): string {
+  console.log("Extracting JSON from response content...");
+  
+  // First, try to find JSON wrapped in markdown code blocks
+  const markdownJsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+  if (markdownJsonMatch) {
+    console.log("Found JSON wrapped in markdown code blocks");
+    return markdownJsonMatch[1].trim();
+  }
+  
+  // If no markdown wrapping, look for JSON object boundaries
+  const jsonStartIndex = content.indexOf('{');
+  const jsonEndIndex = content.lastIndexOf('}');
+  
+  if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+    console.log("Found JSON object boundaries in plain text");
+    return content.substring(jsonStartIndex, jsonEndIndex + 1);
+  }
+  
+  // If still no JSON found, return original content
+  console.log("No JSON structure detected, returning original content");
+  return content;
+}
+
 export async function callOpenAIMealPlan(
   profile: UserProfile,
   recipes: RecipeSummary[],
@@ -161,6 +186,8 @@ Seasonal: ${recipe.seasonal_suitability?.join(', ') || 'year-round'}
 Temperature: ${recipe.temperature_preference || 'any'}
 `).join('\n')}
 
+**IMPORTANT: Response must be valid JSON only, no markdown formatting or code blocks.**
+
 Return a JSON object with this exact structure:
 {
   "message": "Brief summary of the meal plan approach${batchCookingEnabled ? ` and ${isStrictBatchCooking ? 'strict' : 'flexible'} batch cooking strategy applied` : ''}",
@@ -234,8 +261,12 @@ ${isStrictBatchCooking ?
     console.log("Raw Content from OpenAI:", content);
 
     try {
-      const parsedContent = JSON.parse(content);
-      console.log("Parsed Content:", JSON.stringify(parsedContent, null, 2));
+      // Use the enhanced JSON extraction function
+      const extractedJson = extractJsonFromResponse(content);
+      console.log("Extracted JSON content:", extractedJson);
+      
+      const parsedContent = JSON.parse(extractedJson);
+      console.log("✅ Successfully parsed OpenAI response");
       return parsedContent;
     } catch (parseError) {
       console.error("Failed to parse OpenAI response:", parseError);
