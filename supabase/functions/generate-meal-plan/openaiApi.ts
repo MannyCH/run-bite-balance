@@ -152,6 +152,9 @@ export async function callOpenAIMealPlan(
   const batchCookingRepetitions = profile.batch_cooking_repetitions || 1;
   const isStrictBatchCooking = batchCookingRepetitions >= 5;
 
+  // Calculate maximum repetitions for variety control
+  const maxRepetitions = batchCookingEnabled ? batchCookingRepetitions : 3;
+
   // Build a more concise system prompt
   const systemPrompt = `You are a nutrition expert creating a 7-day meal plan.
 
@@ -171,6 +174,10 @@ ${isStrictBatchCooking ?
 - Prioritize batch cooking for dinner (most complex), then lunch, then breakfast
 - Snacks don't need batching (situational based on runs)
 ` : ''}
+
+IMPORTANT RULE:
+- Each recipe can be used at most ${maxRepetitions} times total across the entire week.
+- Do not repeat the same recipe more than this.
 
 AVAILABLE RECIPES:
 ${recipes.slice(0, 30).map(r => `${r.id}: ${r.title} (${r.meal_type?.join('/')}) ${r.calories}cal`).join('\n')}
