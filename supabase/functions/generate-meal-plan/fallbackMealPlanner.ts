@@ -40,6 +40,7 @@ interface RecipeScore {
   score: number;
   diversityPenalty: number;
   nutritionalMatch: number;
+  mainIngredient: string;
 }
 
 export function generateFallbackMealPlan(
@@ -49,7 +50,7 @@ export function generateFallbackMealPlan(
   endDate: string,
   runs: any[] = []
 ): any {
-  console.log('🔄 Generating fallback meal plan algorithmically with improved diversity');
+  console.log('🔄 Generating enhanced fallback meal plan with improved diversity');
   
   const requirements = calculateAllDailyRequirements(profile);
   
@@ -59,9 +60,9 @@ export function generateFallbackMealPlan(
   const dinnerRecipes = recipes.filter(r => r.meal_type?.includes('dinner') && r.calories > 0);
   const snackRecipes = recipes.filter(r => r.meal_type?.includes('snack') && r.calories > 0);
   
-  console.log(`Improved fallback recipe categories: ${breakfastRecipes.length} breakfast, ${lunchRecipes.length} lunch, ${dinnerRecipes.length} dinner, ${snackRecipes.length} snack`);
+  console.log(`Enhanced fallback recipe categories: ${breakfastRecipes.length} breakfast, ${lunchRecipes.length} lunch, ${dinnerRecipes.length} dinner, ${snackRecipes.length} snack`);
   
-  // Batch cooking configuration
+  // Batch cooking configuration with improved diversity
   const batchCookingEnabled = profile.batch_cooking_repetitions && profile.batch_cooking_repetitions > 1;
   const batchCookingRepetitions = profile.batch_cooking_repetitions || 1;
   const isStrictBatchCooking = batchCookingRepetitions >= 5;
@@ -70,34 +71,34 @@ export function generateFallbackMealPlan(
   const dates = generateDateRange(startDate, endDate);
   const days: MealPlanDay[] = [];
   
-  // Recipe selection for batch cooking with improved diversity
+  // Enhanced recipe selection for better diversity
   let selectedBreakfastRecipes: RecipeSummary[] = [];
   let selectedLunchRecipes: RecipeSummary[] = [];
   let selectedDinnerRecipes: RecipeSummary[] = [];
   
   if (batchCookingEnabled) {
-    // For improved diversity, select 2-3 recipes instead of just 1, even in batch cooking mode
+    // Calculate optimal number of unique recipes for better variety
     const recipesPerMealType = isStrictBatchCooking ? 
-      Math.max(1, Math.min(2, Math.ceil(7 / batchCookingRepetitions))) : 
-      Math.max(2, Math.min(3, Math.ceil(7 / (batchCookingRepetitions - 1))));
+      Math.max(1, Math.min(3, Math.ceil(7 / batchCookingRepetitions))) : 
+      Math.max(3, Math.min(4, Math.ceil(7 / (batchCookingRepetitions - 1))));
     
-    console.log(`Batch cooking diversity: Selecting ${recipesPerMealType} recipes per meal type`);
+    console.log(`Enhanced batch cooking: Selecting ${recipesPerMealType} diverse recipes per meal type`);
     
-    selectedBreakfastRecipes = selectDiverseRecipes(breakfastRecipes, recipesPerMealType, requirements.mealDistribution.breakfast);
-    selectedLunchRecipes = selectDiverseRecipes(lunchRecipes, recipesPerMealType, requirements.mealDistribution.lunch);
-    selectedDinnerRecipes = selectDiverseRecipes(dinnerRecipes, recipesPerMealType, requirements.mealDistribution.dinner);
+    selectedBreakfastRecipes = selectDiverseRecipesEnhanced(breakfastRecipes, recipesPerMealType, requirements.mealDistribution.breakfast);
+    selectedLunchRecipes = selectDiverseRecipesEnhanced(lunchRecipes, recipesPerMealType, requirements.mealDistribution.lunch);
+    selectedDinnerRecipes = selectDiverseRecipesEnhanced(dinnerRecipes, recipesPerMealType, requirements.mealDistribution.dinner);
     
-    console.log(`Batch cooking diversity: Selected ${selectedBreakfastRecipes.length} breakfast, ${selectedLunchRecipes.length} lunch, ${selectedDinnerRecipes.length} dinner recipes`);
-    console.log(`Selected breakfast recipes: ${selectedBreakfastRecipes.map(r => r.title).join(', ')}`);
-    console.log(`Selected lunch recipes: ${selectedLunchRecipes.map(r => r.title).join(', ')}`);
-    console.log(`Selected dinner recipes: ${selectedDinnerRecipes.map(r => r.title).join(', ')}`);
+    console.log(`Selected diverse recipes:`);
+    console.log(`- Breakfast: ${selectedBreakfastRecipes.map(r => r.title).join(', ')}`);
+    console.log(`- Lunch: ${selectedLunchRecipes.map(r => r.title).join(', ')}`);
+    console.log(`- Dinner: ${selectedDinnerRecipes.map(r => r.title).join(', ')}`);
   }
   
-  // Track recipe usage for rotation
-  const recipeUsageCount = new Map<string, number>();
+  // Enhanced recipe rotation tracking
+  const recipeRotationTracker = new Map<string, { count: number; lastUsed: number; mainIngredient: string }>();
   
-  // Generate meals for each day
-  dates.forEach((date, index) => {
+  // Generate meals for each day with improved variety
+  dates.forEach((date, dayIndex) => {
     const dayMeals: any[] = [];
     
     // Check if this is a run day
@@ -107,49 +108,64 @@ export function generateFallbackMealPlan(
     });
     const isRunDay = dayRuns.length > 0;
     
-    // Breakfast
+    // Breakfast with enhanced selection
     const breakfastRecipe = batchCookingEnabled 
-      ? selectRecipeWithRotation(selectedBreakfastRecipes, recipeUsageCount, `breakfast-${index}`)
-      : selectDiverseRecipes(breakfastRecipes, 1, requirements.mealDistribution.breakfast)[0];
+      ? selectRecipeWithEnhancedRotation(selectedBreakfastRecipes, recipeRotationTracker, dayIndex, 'breakfast')
+      : selectDiverseRecipesEnhanced(breakfastRecipes, 1, requirements.mealDistribution.breakfast)[0];
       
     if (breakfastRecipe) {
-      const usageCount = (recipeUsageCount.get(breakfastRecipe.id) || 0) + 1;
-      recipeUsageCount.set(breakfastRecipe.id, usageCount);
+      const trackingKey = `breakfast-${breakfastRecipe.id}`;
+      const currentTracking = recipeRotationTracker.get(trackingKey) || { 
+        count: 0, 
+        lastUsed: -1, 
+        mainIngredient: extractMainIngredient(breakfastRecipe) 
+      };
+      currentTracking.count++;
+      currentTracking.lastUsed = dayIndex;
+      recipeRotationTracker.set(trackingKey, currentTracking);
       
       dayMeals.push({
         meal_type: 'breakfast',
         recipe_id: breakfastRecipe.id,
         explanation: batchCookingEnabled 
-          ? `${breakfastRecipe.title} (${usageCount}/${batchCookingRepetitions}x batch cooking) - cook once for entire week, portion into ${batchCookingRepetitions} servings for ${profile.batch_cooking_people || 1} people`
-          : `${breakfastRecipe.title} - balanced breakfast providing energy for the day`
+          ? `${breakfastRecipe.title} (${currentTracking.count}/${batchCookingRepetitions}x batch) - efficient meal prep for ${profile.batch_cooking_people || 1} people`
+          : `${breakfastRecipe.title} - nutritious breakfast with ${currentTracking.mainIngredient}`
       });
     }
     
-    // Pre-run snack for run days
+    // Pre-run snack for run days - always diverse
     if (isRunDay && snackRecipes.length > 0) {
-      const preRunSnack = snackRecipes.find(s => s.calories <= 200) || snackRecipes[0];
+      const availableSnacks = snackRecipes.filter(s => s.calories <= 200);
+      const preRunSnack = availableSnacks.length > 0 ? availableSnacks[dayIndex % availableSnacks.length] : snackRecipes[0];
       dayMeals.push({
         meal_type: 'pre_run_snack',
         recipe_id: preRunSnack.id,
-        explanation: `Pre-run fuel: ${preRunSnack.title} provides quick energy for your run`
+        explanation: `Pre-run fuel: ${preRunSnack.title} provides quick energy (${preRunSnack.calories} cal)`
       });
     }
     
-    // Lunch (enhanced for run days)
+    // Lunch with enhanced rotation (post-run recovery when applicable)
     const lunchRecipe = batchCookingEnabled 
-      ? selectRecipeWithRotation(selectedLunchRecipes, recipeUsageCount, `lunch-${index}`)
-      : selectDiverseRecipes(lunchRecipes, 1, requirements.mealDistribution.lunch)[0];
+      ? selectRecipeWithEnhancedRotation(selectedLunchRecipes, recipeRotationTracker, dayIndex, 'lunch')
+      : selectDiverseRecipesEnhanced(lunchRecipes, 1, requirements.mealDistribution.lunch)[0];
       
     if (lunchRecipe) {
-      const usageCount = (recipeUsageCount.get(lunchRecipe.id) || 0) + 1;
-      recipeUsageCount.set(lunchRecipe.id, usageCount);
+      const trackingKey = `lunch-${lunchRecipe.id}`;
+      const currentTracking = recipeRotationTracker.get(trackingKey) || { 
+        count: 0, 
+        lastUsed: -1, 
+        mainIngredient: extractMainIngredient(lunchRecipe) 
+      };
+      currentTracking.count++;
+      currentTracking.lastUsed = dayIndex;
+      recipeRotationTracker.set(trackingKey, currentTracking);
       
       let lunchExplanation = batchCookingEnabled 
-        ? `${lunchRecipe.title} (${usageCount}/${batchCookingRepetitions}x batch cooking)`
-        : `${lunchRecipe.title} - nutritious lunch meal`;
+        ? `${lunchRecipe.title} (${currentTracking.count}/${batchCookingRepetitions}x batch) with ${currentTracking.mainIngredient}`
+        : `${lunchRecipe.title} featuring ${currentTracking.mainIngredient}`;
         
       if (isRunDay) {
-        lunchExplanation += ' - POST-RUN RECOVERY: Enhanced with higher protein for muscle recovery after your run';
+        lunchExplanation += ' - POST-RUN RECOVERY: Enhanced with higher protein for muscle recovery';
       }
       
       dayMeals.push({
@@ -159,21 +175,28 @@ export function generateFallbackMealPlan(
       });
     }
     
-    // Dinner
+    // Dinner with enhanced rotation
     const dinnerRecipe = batchCookingEnabled 
-      ? selectRecipeWithRotation(selectedDinnerRecipes, recipeUsageCount, `dinner-${index}`)
-      : selectDiverseRecipes(dinnerRecipes, 1, requirements.mealDistribution.dinner)[0];
+      ? selectRecipeWithEnhancedRotation(selectedDinnerRecipes, recipeRotationTracker, dayIndex, 'dinner')
+      : selectDiverseRecipesEnhanced(dinnerRecipes, 1, requirements.mealDistribution.dinner)[0];
       
     if (dinnerRecipe) {
-      const usageCount = (recipeUsageCount.get(dinnerRecipe.id) || 0) + 1;
-      recipeUsageCount.set(dinnerRecipe.id, usageCount);
+      const trackingKey = `dinner-${dinnerRecipe.id}`;
+      const currentTracking = recipeRotationTracker.get(trackingKey) || { 
+        count: 0, 
+        lastUsed: -1, 
+        mainIngredient: extractMainIngredient(dinnerRecipe) 
+      };
+      currentTracking.count++;
+      currentTracking.lastUsed = dayIndex;
+      recipeRotationTracker.set(trackingKey, currentTracking);
       
       dayMeals.push({
         meal_type: 'dinner',
         recipe_id: dinnerRecipe.id,
         explanation: batchCookingEnabled 
-          ? `${dinnerRecipe.title} (${usageCount}/${batchCookingRepetitions}x batch cooking) - cook once for entire week, portion into ${batchCookingRepetitions} servings for ${profile.batch_cooking_people || 1} people`
-          : `${dinnerRecipe.title} - satisfying dinner to end the day`
+          ? `${dinnerRecipe.title} (${currentTracking.count}/${batchCookingRepetitions}x batch) - hearty dinner with ${currentTracking.mainIngredient} for ${profile.batch_cooking_people || 1} people`
+          : `${dinnerRecipe.title} - satisfying dinner with ${currentTracking.mainIngredient}`
       });
     }
     
@@ -184,8 +207,8 @@ export function generateFallbackMealPlan(
   });
   
   const mealPlanMessage = batchCookingEnabled 
-    ? `Improved algorithmic meal plan with ${isStrictBatchCooking ? 'strict' : 'flexible'} batch cooking (${batchCookingRepetitions}x repetitions) and enhanced recipe diversity - OpenAI unavailable, using improved recipe-based planning`
-    : 'Improved algorithmic meal plan with enhanced recipe diversity - OpenAI unavailable, using improved recipe-based planning';
+    ? `Enhanced fallback meal plan with ${isStrictBatchCooking ? 'strict' : 'flexible'} batch cooking (${batchCookingRepetitions}x repetitions) and maximum recipe diversity - OpenAI unavailable, using advanced recipe-based planning`
+    : 'Enhanced fallback meal plan with optimized recipe diversity - OpenAI unavailable, using intelligent recipe selection';
   
   return {
     message: mealPlanMessage,
@@ -208,33 +231,76 @@ function generateDateRange(startDate: string, endDate: string): string[] {
   return dates;
 }
 
-function selectDiverseRecipes(recipes: RecipeSummary[], count: number, targetCalories: number): RecipeSummary[] {
+function extractMainIngredient(recipe: RecipeSummary): string {
+  // Use explicit main_ingredient if available
+  if (recipe.main_ingredient) {
+    return recipe.main_ingredient.toLowerCase();
+  }
+  
+  // Extract from title with enhanced parsing
+  const titleWords = recipe.title.toLowerCase().split(' ');
+  
+  // Enhanced common ingredients list
+  const commonIngredients = [
+    'chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'turkey', 'tofu', 'tempeh',
+    'beans', 'lentils', 'chickpeas', 'quinoa', 'rice', 'pasta', 'noodles',
+    'potato', 'sweet potato', 'egg', 'cheese', 'avocado', 'mushroom', 'spinach'
+  ];
+  
+  for (const ingredient of commonIngredients) {
+    if (titleWords.some(word => word.includes(ingredient))) {
+      return ingredient;
+    }
+  }
+  
+  // Fallback to first significant word
+  const significantWords = titleWords.filter(word => 
+    word.length > 3 && 
+    !['with', 'and', 'the', 'for', 'mit', 'und', 'der', 'die', 'das'].includes(word)
+  );
+  return significantWords[0] || titleWords[0] || 'unknown';
+}
+
+function selectDiverseRecipesEnhanced(recipes: RecipeSummary[], count: number, targetCalories: number): RecipeSummary[] {
   if (recipes.length === 0) return [];
   
-  // Create a map to track main ingredients to avoid repetition
+  // Track ingredients and cuisine diversity
   const ingredientUsage = new Map<string, number>();
+  const cuisineUsage = new Map<string, number>();
   const selectedRecipes: RecipeSummary[] = [];
   
-  // Score recipes based on nutritional match and diversity
+  // Score recipes with enhanced diversity metrics
   const scoredRecipes: RecipeScore[] = recipes.map(recipe => {
     const calorieScore = recipe.calories ? 
-      Math.max(0, 100 - Math.abs(recipe.calories - targetCalories) / targetCalories * 100) : 0;
+      Math.max(0, 100 - Math.abs(recipe.calories - targetCalories) / targetCalories * 100) : 50;
     
-    // Diversity penalty based on main ingredient usage
-    const mainIngredient = recipe.main_ingredient || recipe.title.split(' ')[0].toLowerCase();
+    const mainIngredient = extractMainIngredient(recipe);
     const ingredientCount = ingredientUsage.get(mainIngredient) || 0;
-    const diversityPenalty = ingredientCount * 25; // Heavy penalty for repetition
+    const diversityPenalty = ingredientCount * 30; // Heavy penalty for ingredient repetition
     
-    // Add randomization factor to break ties
-    const randomFactor = Math.random() * 10;
+    // Cuisine diversity bonus (extract from categories or title)
+    const cuisineHints = (recipe.categories || []).concat([recipe.title]).join(' ').toLowerCase();
+    let cuisineBonus = 0;
+    const cuisines = ['italian', 'asian', 'mexican', 'indian', 'mediterranean', 'american', 'french', 'thai', 'chinese'];
+    for (const cuisine of cuisines) {
+      if (cuisineHints.includes(cuisine)) {
+        const cuisineCount = cuisineUsage.get(cuisine) || 0;
+        cuisineBonus = Math.max(0, 20 - cuisineCount * 5); // Bonus for cuisine diversity
+        break;
+      }
+    }
     
-    const totalScore = calorieScore - diversityPenalty + randomFactor;
+    // Enhanced randomization for variety
+    const randomFactor = Math.random() * 15;
+    
+    const totalScore = calorieScore - diversityPenalty + cuisineBonus + randomFactor;
     
     return {
       recipe,
       score: totalScore,
       diversityPenalty,
-      nutritionalMatch: calorieScore
+      nutritionalMatch: calorieScore,
+      mainIngredient
     };
   });
   
@@ -245,38 +311,64 @@ function selectDiverseRecipes(recipes: RecipeSummary[], count: number, targetCal
     if (selectedRecipes.length >= count) break;
     
     const recipe = scoredRecipe.recipe;
-    const mainIngredient = recipe.main_ingredient || recipe.title.split(' ')[0].toLowerCase();
+    const mainIngredient = scoredRecipe.mainIngredient;
     
-    // Prefer recipes with ingredients we haven't used much
     selectedRecipes.push(recipe);
     ingredientUsage.set(mainIngredient, (ingredientUsage.get(mainIngredient) || 0) + 1);
     
-    console.log(`Selected "${recipe.title}" (score: ${scoredRecipe.score.toFixed(1)}, main ingredient: ${mainIngredient})`);
+    console.log(`Selected "${recipe.title}" (score: ${scoredRecipe.score.toFixed(1)}, ingredient: ${mainIngredient})`);
   }
   
   return selectedRecipes;
 }
 
-function selectRecipeWithRotation(recipes: RecipeSummary[], usageCount: Map<string, number>, contextKey: string): RecipeSummary {
+function selectRecipeWithEnhancedRotation(
+  recipes: RecipeSummary[], 
+  rotationTracker: Map<string, { count: number; lastUsed: number; mainIngredient: string }>, 
+  currentDay: number, 
+  mealType: string
+): RecipeSummary {
   if (recipes.length === 0) return recipes[0];
   if (recipes.length === 1) return recipes[0];
   
-  // Find the recipe that has been used least
-  const recipeUsage = recipes.map(recipe => ({
-    recipe,
-    usage: usageCount.get(recipe.id) || 0
-  }));
-  
-  // Sort by usage (least used first), then by random factor for variety
-  recipeUsage.sort((a, b) => {
-    if (a.usage !== b.usage) {
-      return a.usage - b.usage;
+  // Enhanced rotation logic with ingredient diversity
+  const recipeOptions = recipes.map(recipe => {
+    const trackingKey = `${mealType}-${recipe.id}`;
+    const tracking = rotationTracker.get(trackingKey) || { count: 0, lastUsed: -1, mainIngredient: extractMainIngredient(recipe) };
+    
+    // Calculate rotation score based on usage and ingredient diversity
+    let rotationScore = 100;
+    
+    // Penalize recent usage
+    if (tracking.lastUsed >= 0) {
+      const daysSinceLastUse = currentDay - tracking.lastUsed;
+      if (daysSinceLastUse < 2) rotationScore -= 50;
+      else if (daysSinceLastUse < 3) rotationScore -= 25;
     }
-    // Add deterministic pseudo-randomness based on context
-    const seedA = contextKey.charCodeAt(0) * a.recipe.id.charCodeAt(0);
-    const seedB = contextKey.charCodeAt(0) * b.recipe.id.charCodeAt(0);
-    return (seedA % 100) - (seedB % 100);
+    
+    // Penalize high usage count
+    rotationScore -= tracking.count * 20;
+    
+    // Check ingredient diversity across all tracked recipes
+    const ingredientCount = Array.from(rotationTracker.values())
+      .filter(t => t.mainIngredient === tracking.mainIngredient).length;
+    rotationScore -= ingredientCount * 15;
+    
+    // Add randomization for variety
+    rotationScore += Math.random() * 10;
+    
+    return {
+      recipe,
+      rotationScore,
+      tracking
+    };
   });
   
-  return recipeUsage[0].recipe;
+  // Sort by rotation score and select best option
+  recipeOptions.sort((a, b) => b.rotationScore - a.rotationScore);
+  
+  const selected = recipeOptions[0];
+  console.log(`Enhanced rotation selected "${selected.recipe.title}" (score: ${selected.rotationScore.toFixed(1)}, ingredient: ${selected.tracking.mainIngredient})`);
+  
+  return selected.recipe;
 }

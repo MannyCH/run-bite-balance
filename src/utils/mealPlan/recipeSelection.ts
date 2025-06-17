@@ -92,18 +92,23 @@ export class RecipeDiversityManager {
     }
   }
 
-  // Extract main ingredient from recipe for diversity tracking
+  // Enhanced main ingredient extraction with better fallbacks
   private extractMainIngredient(recipe: Recipe): string {
     // Use explicit main_ingredient if available
     if (recipe.main_ingredient) {
       return recipe.main_ingredient.toLowerCase();
     }
     
-    // Extract from title as fallback
+    // Extract from title with enhanced parsing
     const titleWords = recipe.title.toLowerCase().split(' ');
     
-    // Common main ingredients to prioritize in title parsing
-    const commonIngredients = ['chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'turkey', 'tofu', 'beans', 'lentils', 'rice', 'pasta', 'potato', 'sweet potato', 'quinoa', 'egg'];
+    // Enhanced common ingredients to prioritize in title parsing
+    const commonIngredients = [
+      'chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'turkey', 'tofu', 'tempeh',
+      'beans', 'lentils', 'chickpeas', 'quinoa', 'rice', 'pasta', 'noodles',
+      'potato', 'sweet potato', 'egg', 'cheese', 'avocado', 'mushroom', 'spinach',
+      'tomato', 'broccoli', 'carrot', 'onion', 'garlic', 'ginger'
+    ];
     
     for (const ingredient of commonIngredients) {
       if (titleWords.some(word => word.includes(ingredient))) {
@@ -111,12 +116,15 @@ export class RecipeDiversityManager {
       }
     }
     
-    // Fallback to first significant word
-    const significantWords = titleWords.filter(word => word.length > 3 && !['with', 'and', 'the', 'for'].includes(word));
+    // Enhanced fallback to first significant word (excluding common non-ingredient words)
+    const excludeWords = ['with', 'and', 'the', 'for', 'mit', 'und', 'der', 'die', 'das', 'in', 'on', 'at'];
+    const significantWords = titleWords.filter(word => 
+      word.length > 3 && !excludeWords.includes(word)
+    );
     return significantWords[0] || titleWords[0] || 'unknown';
   }
 
-  // Select a recipe with enhanced diversity considerations and batch cooking logic
+  // Enhanced recipe selection with improved diversity and batch cooking logic
   selectRecipeWithDiversity(
     availableRecipes: Recipe[],
     targetCalories: number,
@@ -128,71 +136,89 @@ export class RecipeDiversityManager {
     const isSnack = mealType === 'pre_run_snack' || mealType === 'post_run_snack';
     const usageTracker = isSnack ? this.snackUsageTracker : this.mainMealUsageTracker;
 
-    // Score recipes based on nutritional match, diversity, and batch cooking logic
+    // Enhanced scoring with improved diversity and nutritional matching
     const scoredRecipes = availableRecipes.map(recipe => {
       const usage = usageTracker.get(recipe.id);
       const mainIngredient = this.extractMainIngredient(recipe);
       const ingredientUsage = this.ingredientUsageTracker.get(mainIngredient) || 0;
       
-      // Nutritional scoring
+      // Enhanced nutritional scoring
       const calorieScore = recipe.calories ? 
-        Math.max(0, 100 - Math.abs(recipe.calories - targetCalories) / targetCalories * 100) : 0;
+        Math.max(0, 100 - Math.abs(recipe.calories - targetCalories) / targetCalories * 100) : 50;
       const proteinScore = recipe.protein ? 
-        Math.max(0, 100 - Math.abs(recipe.protein - proteinTarget) / proteinTarget * 100) : 0;
-      const nutritionalScore = (calorieScore + proteinScore) / 2;
-
-      // Enhanced diversity scoring with ingredient tracking
+        Math.max(0, 100 - Math.abs(recipe.protein - proteinTarget) / proteinTarget * 100) : 50;
+      const nutritionalScore = (calorieScore * 0.7) + (proteinScore * 0.3); // Weight calories more heavily
+      
+      // Enhanced diversity scoring with ingredient and cuisine tracking
       let diversityScore = 100;
       
-      // Penalize ingredient repetition
-      diversityScore -= ingredientUsage * 30; // Heavy penalty for same ingredients
+      // Heavy penalty for ingredient repetition (enhanced)
+      diversityScore -= ingredientUsage * 35;
       
-      // Batch cooking vs diversity scoring
+      // Cuisine diversity bonus
+      const cuisineHints = (recipe.categories || []).concat([recipe.title]).join(' ').toLowerCase();
+      const cuisines = ['italian', 'asian', 'mexican', 'indian', 'mediterranean', 'american', 'french'];
+      let cuisineBonus = 0;
+      for (const cuisine of cuisines) {
+        if (cuisineHints.includes(cuisine)) {
+          cuisineBonus = 10; // Small bonus for identifiable cuisine
+          break;
+        }
+      }
+      
+      // Enhanced batch cooking vs diversity scoring
       let repetitionScore = 100;
       if (usage) {
         if (this.batchCookingMode && !isSnack) {
-          // In batch cooking mode, ENCOURAGE repetition for main meals, but limit variety
+          // Enhanced batch cooking logic
           if (this.strictBatchCooking) {
-            // Strict mode: heavily reward recipes that can reach exact repetition target
+            // Strict mode: precisely target exact repetitions
             const targetUsage = this.batchCookingRepetitions;
             if (usage.usageCount < targetUsage) {
-              repetitionScore += (targetUsage - usage.usageCount) * 50; // Strong reward for reaching target
+              repetitionScore += (targetUsage - usage.usageCount) * 60; // Stronger reward for reaching target
             } else if (usage.usageCount === targetUsage) {
-              repetitionScore -= 200; // Stop using once target reached
+              repetitionScore -= 300; // Strong signal to stop using once target reached
             }
           } else {
-            // Flexible mode: moderate reward for repetition within range, but allow some variety
-            if (usage.usageCount < this.batchCookingRepetitions) {
-              repetitionScore += 20; // Moderate reward
-            } else if (usage.usageCount >= this.batchCookingRepetitions) {
-              repetitionScore -= 80; // Discourage excessive repetition
+            // Flexible mode: allow 2-4 repetitions with intelligent variation
+            const minReps = Math.max(2, this.batchCookingRepetitions - 1);
+            const maxReps = this.batchCookingRepetitions + 1;
+            
+            if (usage.usageCount < minReps) {
+              repetitionScore += 30; // Encourage reaching minimum
+            } else if (usage.usageCount <= maxReps) {
+              repetitionScore += 10; // Maintain within target range
+            } else {
+              repetitionScore -= 100; // Discourage excessive repetition
             }
           }
         } else {
-          // Regular diversity mode: penalize repetition
-          repetitionScore -= usage.usageCount * 25;
+          // Regular diversity mode: enhanced penalties for repetition
+          repetitionScore -= usage.usageCount * 30;
           
-          // Extra penalty if used recently
+          // Enhanced recent usage penalty
           const daysSinceLastUse = this.currentDay - usage.lastUsedDay;
           if (daysSinceLastUse < 2) {
-            repetitionScore -= 50;
+            repetitionScore -= 60;
+          } else if (daysSinceLastUse < 3) {
+            repetitionScore -= 30;
           } else if (daysSinceLastUse < 4) {
-            repetitionScore -= 25;
+            repetitionScore -= 15;
           }
         }
       } else if (this.batchCookingMode && !isSnack) {
-        // In batch cooking mode, give new recipes a bonus to start repetition chains
-        repetitionScore += 30;
+        // Enhanced bonus for new recipes in batch cooking mode
+        repetitionScore += 40;
       }
 
-      // Seasonal score boost (if available)
+      // Seasonal score integration (if available)
       const seasonalScore = (recipe as any).seasonalScore || 5;
-      const seasonalBonus = (seasonalScore - 5) * 10;
+      const seasonalBonus = (seasonalScore - 5) * 12;
 
-      // Add randomization for variety
-      const randomFactor = Math.random() * 15;
+      // Enhanced randomization for variety while maintaining consistency
+      const randomFactor = Math.random() * 12;
 
-      const totalScore = (nutritionalScore * 0.3) + (diversityScore * 0.3) + (repetitionScore * 0.3) + (seasonalBonus * 0.05) + (randomFactor * 0.05);
+      const totalScore = (nutritionalScore * 0.35) + (diversityScore * 0.3) + (repetitionScore * 0.25) + (seasonalBonus * 0.05) + (cuisineBonus * 0.02) + (randomFactor * 0.03);
       
       return { 
         recipe, 
@@ -202,23 +228,24 @@ export class RecipeDiversityManager {
         repetitionScore, 
         seasonalScore, 
         usage: usage?.usageCount || 0,
-        mainIngredient
+        mainIngredient,
+        cuisineBonus
       };
     });
 
     // Sort by total score
     scoredRecipes.sort((a, b) => b.score - a.score);
 
-    // In strict batch cooking mode, be more selective but allow some variety
+    // Enhanced selection pool sizing
     const selectionPoolSize = this.strictBatchCooking && !isSnack ? 
-      Math.min(5, scoredRecipes.length) : 
-      Math.min(15, scoredRecipes.length);
+      Math.min(3, scoredRecipes.length) : 
+      Math.min(10, scoredRecipes.length);
     
     const topRecipes = scoredRecipes.slice(0, selectionPoolSize);
     const selectedRecipe = topRecipes[Math.floor(Math.random() * topRecipes.length)];
 
     if (selectedRecipe) {
-      // Track usage
+      // Enhanced usage tracking
       const usage = usageTracker.get(selectedRecipe.recipe.id) || {
         recipeId: selectedRecipe.recipe.id,
         usageCount: 0,
@@ -231,7 +258,7 @@ export class RecipeDiversityManager {
       if (mealType) usage.mealType = mealType;
       usageTracker.set(selectedRecipe.recipe.id, usage);
 
-      // Track ingredient usage
+      // Enhanced ingredient usage tracking
       const mainIngredient = selectedRecipe.mainIngredient;
       this.ingredientUsageTracker.set(mainIngredient, (this.ingredientUsageTracker.get(mainIngredient) || 0) + 1);
 
@@ -245,7 +272,7 @@ export class RecipeDiversityManager {
     return selectedRecipe?.recipe || null;
   }
 
-  // Get usage statistics for reporting
+  // Enhanced usage statistics for better reporting
   getUsageStats() {
     const mainMealStats = Array.from(this.mainMealUsageTracker.values()).map(usage => ({
       recipeId: usage.recipeId,
@@ -262,8 +289,15 @@ export class RecipeDiversityManager {
     const ingredientStats = Array.from(this.ingredientUsageTracker.entries()).map(([ingredient, count]) => ({
       ingredient,
       count
-    }));
+    })).sort((a, b) => b.count - a.count); // Sort by usage frequency
 
-    return { mainMeals: mainMealStats, snacks: snackStats, ingredients: ingredientStats };
+    return { 
+      mainMeals: mainMealStats, 
+      snacks: snackStats, 
+      ingredients: ingredientStats,
+      batchCookingMode: this.batchCookingMode,
+      repetitions: this.batchCookingRepetitions,
+      strictMode: this.strictBatchCooking
+    };
   }
 }

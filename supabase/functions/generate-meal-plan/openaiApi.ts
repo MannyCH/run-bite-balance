@@ -30,15 +30,17 @@ interface UserProfile {
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY_PERSONAL");
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
-// Helper function to extract JSON from OpenAI response (handles markdown wrapping)
-function extractJsonFromResponse(content: string): string {
+// Enhanced JSON extraction with better error handling
+function extractJsonFromResponse(content: string): { json: string; isComplete: boolean } {
   console.log("Extracting JSON from response content...");
+  console.log(`Response length: ${content.length} characters`);
   
   // First, try to find JSON wrapped in markdown code blocks
   const markdownJsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
   if (markdownJsonMatch) {
     console.log("Found JSON wrapped in markdown code blocks");
-    return markdownJsonMatch[1].trim();
+    const extractedJson = markdownJsonMatch[1].trim();
+    return { json: extractedJson, isComplete: isJsonComplete(extractedJson) };
   }
   
   // If no markdown wrapping, look for JSON object boundaries
@@ -47,12 +49,75 @@ function extractJsonFromResponse(content: string): string {
   
   if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
     console.log("Found JSON object boundaries in plain text");
-    return content.substring(jsonStartIndex, jsonEndIndex + 1);
+    const extractedJson = content.substring(jsonStartIndex, jsonEndIndex + 1);
+    return { json: extractedJson, isComplete: isJsonComplete(extractedJson) };
   }
   
   // If still no JSON found, return original content
   console.log("No JSON structure detected, returning original content");
-  return content;
+  return { json: content, isComplete: false };
+}
+
+// Check if JSON response appears complete
+function isJsonComplete(jsonString: string): boolean {
+  try {
+    // Count opening and closing braces
+    const openBraces = (jsonString.match(/\{/g) || []).length;
+    const closeBraces = (jsonString.match(/\}/g) || []).length;
+    
+    // Count opening and closing brackets
+    const openBrackets = (jsonString.match(/\[/g) || []).length;
+    const closeBrackets = (jsonString.match(/\]/g) || []).length;
+    
+    // Basic completeness check - equal braces and brackets
+    const balanced = openBraces === closeBraces && openBrackets === closeBrackets;
+    
+    if (!balanced) {
+      console.log(`JSON appears incomplete: braces ${openBraces}/${closeBraces}, brackets ${openBrackets}/${closeBrackets}`);
+      return false;
+    }
+    
+    // Try to parse to verify it's valid JSON
+    JSON.parse(jsonString);
+    return true;
+  } catch (e) {
+    console.log("JSON completeness check failed:", e.message);
+    return false;
+  }
+}
+
+// Validate that the parsed response has required structure
+function validateMealPlanResponse(parsedResponse: any): { isValid: boolean; error?: string } {
+  if (!parsedResponse || typeof parsedResponse !== 'object') {
+    return { isValid: false, error: 'Response is not an object' };
+  }
+  
+  if (!parsedResponse.mealPlan || !parsedResponse.mealPlan.days) {
+    return { isValid: false, error: 'Missing mealPlan.days structure' };
+  }
+  
+  const days = parsedResponse.mealPlan.days;
+  if (!Array.isArray(days)) {
+    return { isValid: false, error: 'Days is not an array' };
+  }
+  
+  if (days.length !== 7) {
+    return { isValid: false, error: `Expected 7 days, got ${days.length}` };
+  }
+  
+  // Check each day has required structure
+  for (let i = 0; i < days.length; i++) {
+    const day = days[i];
+    if (!day.date || !day.meals || !Array.isArray(day.meals)) {
+      return { isValid: false, error: `Day ${i + 1} missing date or meals array` };
+    }
+    
+    if (day.meals.length === 0) {
+      return { isValid: false, error: `Day ${i + 1} has no meals` };
+    }
+  }
+  
+  return { isValid: true };
 }
 
 export async function callOpenAIMealPlan(
@@ -76,121 +141,49 @@ export async function callOpenAIMealPlan(
   try {
     const weatherData = await fetchBernWeather(startDate, endDate);
     if (weatherData) {
-      weatherContext = `The weather in Bern is ${weatherData.season} season with an average temperature of ${weatherData.averageTemp}°C (${weatherData.temperatureCategory} conditions).`;
+      weatherContext = `Weather in Bern: ${weatherData.season} season, avg ${weatherData.averageTemp}°C.`;
     }
   } catch (weatherError) {
     console.error('Error fetching weather data:', weatherError);
   }
 
-  // Categorize recipes for easier selection
-  const breakfastRecipes = recipes.filter(r => r.meal_type?.includes('breakfast'));
-  const lunchRecipes = recipes.filter(r => r.meal_type?.includes('lunch'));
-  const dinnerRecipes = recipes.filter(r => r.meal_type?.includes('dinner'));
-  const snackRecipes = recipes.filter(r => r.meal_type?.includes('snack'));
-
-  // Batch cooking configuration
+  // Batch cooking configuration - simplified
   const batchCookingEnabled = profile.batch_cooking_repetitions && profile.batch_cooking_repetitions > 1;
   const batchCookingRepetitions = profile.batch_cooking_repetitions || 1;
-  const batchCookingPeople = profile.batch_cooking_people || 1;
-
-  // Determine batch cooking mode based on repetition setting
   const isStrictBatchCooking = batchCookingRepetitions >= 5;
-  const uniqueRecipesNeeded = Math.ceil(21 / batchCookingRepetitions); // 21 meals per week (7 days × 3 meals)
 
-  let batchCookingInstructions = '';
-  if (batchCookingEnabled) {
-    if (isStrictBatchCooking) {
-      batchCookingInstructions = `
+  // Build a more concise system prompt
+  const systemPrompt = `You are a nutrition expert creating a 7-day meal plan.
 
-**STRICT BATCH COOKING MODE (${batchCookingRepetitions}x repetitions):**
-- EXACT repetitions required: Each selected recipe MUST appear exactly ${batchCookingRepetitions} times
-- Calculate exact unique recipes needed: approximately ${uniqueRecipesNeeded} unique recipes for the week
-- Priority order: Dinner (most important), Lunch (secondary), Breakfast (least important)
-- NO flexibility in repetitions - user wants meal prep efficiency with exact repetitions
-- Portion calculations: "Make ${batchCookingRepetitions}x portion for ${batchCookingPeople} people = ${batchCookingRepetitions * batchCookingPeople} total servings"
+USER PROFILE:
+- Goal: ${profile.fitness_goal || 'maintain'}, Activity: ${profile.activity_level || 'moderate'}
+- Calories: ${requirements.calories}/day, Protein: ${requirements.protein}g, Carbs: ${requirements.carbs}g, Fat: ${requirements.fat}g
+- Dietary: ${profile.dietary_preferences?.join(', ') || 'none'} | Avoid: ${profile.food_allergies?.join(', ') || 'none'}
+- Cuisines: ${profile.preferred_cuisines?.join(', ') || 'any'}
 
-**STRICT MODE MEAL DISTRIBUTION:**
-- Select exactly ${Math.ceil(7 / batchCookingRepetitions)} unique dinner recipes, each appearing ${batchCookingRepetitions} times
-- Select exactly ${Math.ceil(7 / batchCookingRepetitions)} unique lunch recipes, each appearing ${batchCookingRepetitions} times  
-- Select exactly ${Math.ceil(7 / batchCookingRepetitions)} unique breakfast recipes, each appearing ${batchCookingRepetitions} times
-- Example: For 7 repetitions, use 1 dinner recipe 7 times, 1 lunch recipe 7 times, 1 breakfast recipe 7 times
+${weatherContext}${runContext}
 
-**PORTION & STORAGE GUIDANCE:**
-- Include meal prep instructions: "Cook once at start of week, portion into ${batchCookingRepetitions} containers"
-- Add storage notes: "Refrigerate for 3-4 days, freeze remainder if cooking for full week"
-- Reheating instructions for each recipe type
-`;
-    } else {
-      batchCookingInstructions = `
+${batchCookingEnabled ? `
+BATCH COOKING (${batchCookingRepetitions}x repetitions for ${profile.batch_cooking_people || 1} people):
+${isStrictBatchCooking ? 
+  `- STRICT: Each recipe appears exactly ${batchCookingRepetitions} times` :
+  `- FLEXIBLE: Aim for ${batchCookingRepetitions} repetitions, allow 2-4x variation`}
+- Prioritize batch cooking for dinner (most complex), then lunch, then breakfast
+- Snacks don't need batching (situational based on runs)
+` : ''}
 
-**FLEXIBLE BATCH COOKING MODE (${batchCookingRepetitions}x target repetitions):**
-- Target: Aim for recipes to appear ${batchCookingRepetitions} times, allow 2-${batchCookingRepetitions + 1} variation
-- Priority: Focus batch cooking primarily on dinner recipes (most time-consuming)
-- Allow intelligent variation based on run day requirements and nutritional needs
-- Portion guidance: "Make ${batchCookingRepetitions}x portion for ${batchCookingPeople} people"
-`;
-    }
-  }
+AVAILABLE RECIPES:
+${recipes.slice(0, 30).map(r => `${r.id}: ${r.title} (${r.meal_type?.join('/')}) ${r.calories}cal`).join('\n')}
 
-  const systemPrompt = `You are a professional nutritionist and meal planning expert. Create a detailed 7-day meal plan that considers:
+RULES:
+1. Use ONLY recipe IDs from the list above
+2. Include pre_run_snack ONLY on run days using snack-type recipes (≤200 cal)
+3. Enhanced lunch on run days serves as post-run recovery (higher protein)
+4. Return ONLY valid JSON - no markdown, no explanation outside JSON
 
-1. **User Profile**: ${profile.fitness_goal || 'maintain'} fitness goal, ${profile.activity_level || 'moderate'} activity level
-2. **Nutritional Requirements**: ${requirements.calories} calories/day, ${requirements.protein}g protein, ${requirements.carbs}g carbs, ${requirements.fat}g fat
-3. **Dietary Preferences**: ${profile.dietary_preferences?.join(', ') || 'none specified'}
-4. **Allergies to Avoid**: ${profile.food_allergies?.join(', ') || 'none'}
-5. **Foods to Avoid**: ${profile.foods_to_avoid?.join(', ') || 'none'}
-6. **Preferred Cuisines**: ${profile.preferred_cuisines?.join(', ') || 'any'}
-7. **Weather Context**: ${weatherContext}${runContext}
-
-${batchCookingInstructions}
-
-**CRITICAL SNACK REQUIREMENTS:**
-- ONLY use recipes with meal_type "snack" for pre-run snacks and post-run snacks
-- NEVER use breakfast, lunch, or dinner recipes as snacks
-- If no snack recipes are available, create simple custom snacks (banana, energy bar, etc.)
-- Snack recipes do NOT interfere with main meal batch cooking calculations
-
-**RUN DAY MEAL STRATEGY:**
-- Pre-run snacks: Use ONLY snack-classified recipes (≤200 calories) for quick energy
-- Lunch on run days: Enhanced with higher protein and recovery nutrition to serve as post-run recovery meal
-- NO separate post-run snacks needed - enhanced lunch serves this purpose
-- Run day lunches should include "POST-RUN RECOVERY" context emphasizing muscle recovery
-
-**MEAL TYPE SEPARATION:**
-- Breakfast recipes: Only for breakfast meals
-- Lunch recipes: For lunch (enhanced on run days for recovery)
-- Dinner recipes: Only for dinner meals  
-- Snack recipes: ONLY for pre/post-run snacks
-- This separation ensures batch cooking works properly without interference
-
-**Available Recipe Categories:**
-Breakfast Recipes (${breakfastRecipes.length} available):
-${breakfastRecipes.slice(0, 5).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
-
-Lunch Recipes (${lunchRecipes.length} available):
-${lunchRecipes.slice(0, 5).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
-
-Dinner Recipes (${dinnerRecipes.length} available):
-${dinnerRecipes.slice(0, 5).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
-
-Snack Recipes (${snackRecipes.length} available):
-${snackRecipes.slice(0, 10).map(recipe => `ID: ${recipe.id}, Title: ${recipe.title}, Calories: ${recipe.calories}`).join('\n')}
-
-**Complete Recipe List:**
-${recipes.map(recipe => `
-ID: ${recipe.id}
-Title: ${recipe.title}
-Meal Types: ${recipe.meal_type?.join(', ') || 'unspecified'}
-Calories: ${recipe.calories}, Protein: ${recipe.protein}g, Carbs: ${recipe.carbs}g, Fat: ${recipe.fat}g
-Seasonal: ${recipe.seasonal_suitability?.join(', ') || 'year-round'}
-Temperature: ${recipe.temperature_preference || 'any'}
-`).join('\n')}
-
-**IMPORTANT: Response must be valid JSON only, no markdown formatting or code blocks.**
-
-Return a JSON object with this exact structure:
+RESPONSE FORMAT:
 {
-  "message": "Brief summary of the meal plan approach${batchCookingEnabled ? ` and ${isStrictBatchCooking ? 'strict' : 'flexible'} batch cooking strategy applied` : ''}",
+  "message": "Brief meal plan summary",
   "mealPlan": {
     "days": [
       {
@@ -199,25 +192,16 @@ Return a JSON object with this exact structure:
           {
             "meal_type": "breakfast|lunch|dinner|pre_run_snack",
             "recipe_id": "exact_recipe_id_from_list",
-            "explanation": "Why this meal fits the day's needs${batchCookingEnabled ? ' and batch cooking notes' : ''}"
+            "explanation": "Why this meal fits${batchCookingEnabled ? ' and batch cooking notes' : ''}"
           }
         ]
       }
     ]
   }
-}
-
-${batchCookingEnabled ? `
-**BATCH COOKING RESPONSE FORMAT:**
-${isStrictBatchCooking ? 
-`- For strict mode: "This recipe appears exactly ${batchCookingRepetitions} times this week - cook once for entire week, portion into ${batchCookingRepetitions} servings for ${batchCookingPeople} people"` :
-`- For flexible mode: Include repetition count and portion guidance in explanation`}
-- Explain meal prep and storage strategy
-- Include reheating instructions when applicable
-` : ''}`;
+}`;
 
   const data = {
-    model: "gpt-4o-mini", // Use the more reliable model
+    model: "gpt-4o-mini",
     messages: [
       {
         role: "system",
@@ -225,7 +209,7 @@ ${isStrictBatchCooking ?
       },
     ],
     temperature: 0.7,
-    max_tokens: 2048,
+    max_tokens: 4096, // Increased from 2048 to allow complete responses
     top_p: 1,
     frequency_penalty: 0,
     presence_penalty: 0,
@@ -258,20 +242,41 @@ ${isStrictBatchCooking ?
     }
 
     const content = result.choices[0].message.content;
-    console.log("Raw Content from OpenAI:", content);
+    console.log(`Raw Content from OpenAI (${content.length} chars):`, content.substring(0, 500) + '...');
+
+    // Check if response was truncated
+    const usage = result.usage;
+    if (usage && usage.finish_reason === 'length') {
+      console.warn("Response was truncated due to token limit");
+      throw new Error("OpenAI response was truncated - try reducing prompt size or increasing max_tokens");
+    }
 
     try {
-      // Use the enhanced JSON extraction function
-      const extractedJson = extractJsonFromResponse(content);
-      console.log("Extracted JSON content:", extractedJson);
+      // Use enhanced JSON extraction
+      const { json: extractedJson, isComplete } = extractJsonFromResponse(content);
+      
+      if (!isComplete) {
+        console.warn("JSON appears incomplete or truncated");
+        throw new Error("OpenAI response appears incomplete - JSON structure is not properly closed");
+      }
+      
+      console.log("Extracted JSON content:", extractedJson.substring(0, 500) + '...');
       
       const parsedContent = JSON.parse(extractedJson);
-      console.log("✅ Successfully parsed OpenAI response");
+      
+      // Validate the parsed response structure
+      const validation = validateMealPlanResponse(parsedContent);
+      if (!validation.isValid) {
+        console.error("Response validation failed:", validation.error);
+        throw new Error(`OpenAI response validation failed: ${validation.error}`);
+      }
+      
+      console.log("✅ Successfully parsed and validated OpenAI response");
       return parsedContent;
     } catch (parseError) {
       console.error("Failed to parse OpenAI response:", parseError);
       console.error("Content that failed to parse:", content);
-      throw new Error("Failed to parse OpenAI response as JSON");
+      throw new Error(`Failed to parse OpenAI response as JSON: ${parseError.message}`);
     }
   } catch (error) {
     console.error("Error calling OpenAI API:", error);
