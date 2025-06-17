@@ -27,7 +27,7 @@ interface UserProfile {
 }
 
 // Try to get the correct OpenAI API key - check both possible secret names
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY_PERSONAL") || Deno.env.get("OPENAI_API_KEY");
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY_PERSONAL");
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
 export async function callOpenAIMealPlan(
