@@ -1,3 +1,4 @@
+
 // Build the system prompt for OpenAI meal plan generation
 import type { UserProfile } from "../../../src/types/profile.ts";
 import type { DailyRequirements, DailyBreakdown } from "./types.ts";
@@ -227,7 +228,7 @@ ${Object.entries(recipesByMealType).map(([mealType, recipes]) => `
 `).join('\n')}
 `;
 
-  // Batch cooking configuration
+  // Flexible batch cooking configuration
   const batchCookingEnabled = profile.batch_cooking_repetitions && profile.batch_cooking_repetitions > 1;
   const batchCookingRepetitions = profile.batch_cooking_repetitions || 1;
   const batchCookingPeople = profile.batch_cooking_people || 1;
@@ -236,14 +237,30 @@ ${Object.entries(recipesByMealType).map(([mealType, recipes]) => `
   let batchCookingInstructions = '';
   if (batchCookingEnabled) {
     batchCookingInstructions = `
-BATCH COOKING PREFERENCES:
-- User wants to cook the same meal ${batchCookingRepetitions} times per week for ${batchCookingPeople} people
-- Total required servings per recipe: ${totalRequiredServings} servings (${batchCookingRepetitions} × ${batchCookingPeople})
-- IMPORTANT: Repeat selected recipes across ${batchCookingRepetitions} different days during the week
-- When selecting recipes, prioritize those with servings close to or greater than ${totalRequiredServings}
-- If a recipe has fewer servings than required, suggest increasing portion size or making a double batch
-- Focus on selecting fewer unique recipes but repeating them strategically across the week
-- Example: If selecting a dinner recipe for 4 servings but need ${totalRequiredServings}, suggest "Make a double portion to cover ${batchCookingRepetitions} meals for ${batchCookingPeople} people"
+FLEXIBLE BATCH COOKING STRATEGY:
+- Target: Aim for recipes to appear approximately ${batchCookingRepetitions} times per week for ${batchCookingPeople} people
+- Flexibility: Allow intelligent variation (2-4 repetitions per recipe) based on practical constraints
+- Priority: Focus batch cooking primarily on dinner recipes (most time-consuming to prepare)
+- Run Day Adaptation: Allow run days to break batch cooking rules when nutritionally necessary (e.g., special pre/post-run meals)
+- Meal Type Rules:
+  * Dinner: Primary target for batch cooking (aim for 2-4 repetitions of substantial recipes)
+  * Lunch: Secondary target (can be batched but with more flexibility for run days)
+  * Breakfast: Less critical for batching (simpler meals, quick prep)
+  * Snacks: Never batch (too situational based on runs)
+
+INTELLIGENT DISTRIBUTION GUIDELINES:
+- Calculate approximate unique recipes needed per meal type: total_meals ÷ ${batchCookingRepetitions}
+- Allow some recipes to appear 2x, others 4x to balance practical constraints
+- If run days require specialized meals, adapt remaining days for batch cooking
+- Prioritize cooking efficiency over perfect mathematical distribution
+- Example: For 7 dinners, aim for ~2-3 unique recipes appearing 2-4 times each
+- Explain reasoning when deviating from target repetitions (e.g., "Lighter meal needed for pre-run day")
+
+PORTION SIZE INTELLIGENCE:
+- Calculate servings based on actual recipe repetition (may be 2-4x instead of exactly ${batchCookingRepetitions}x)
+- Suggest realistic portion adjustments: "Make double portion for 2 meals" or "Make large batch for 4 meals"
+- Consider leftover management across varying repetitions
+- Include portion notes like: "Cook once, serves 3 dinners for ${batchCookingPeople} people"
 `;
   }
 
@@ -273,7 +290,7 @@ MEAL PLAN REQUIREMENTS:
 - Consider meal complexity preference: ${profile.meal_complexity || 'moderate'}
 - Account for dietary restrictions and preferences
 - Factor in seasonal appropriateness and current weather
-${batchCookingEnabled ? `- Apply batch cooking strategy: repeat selected recipes ${batchCookingRepetitions} times across the week` : '- Provide variety across different days'}
+${batchCookingEnabled ? `- Apply flexible batch cooking strategy: aim for ~${batchCookingRepetitions} repetitions but allow 2-4x variation based on practical needs` : '- Provide variety across different days'}
 
 RESPONSE FORMAT:
 Return a JSON object with this exact structure:
@@ -289,7 +306,7 @@ Return a JSON object with this exact structure:
             "recipeId": "recipe-uuid-from-available-recipes",
             "customTitle": "Custom meal title if no recipe",
             "nutritionalContext": "Context like 'PRE-RUN FUEL' or 'POST-RUN RECOVERY'",
-            "portionNote": "Note about portion sizes for batch cooking if applicable"
+            "portionNote": "Flexible portion guidance for batch cooking if applicable"
           }
         ]
       }
@@ -298,11 +315,14 @@ Return a JSON object with this exact structure:
 }
 
 ${batchCookingEnabled ? `
-BATCH COOKING SPECIFIC INSTRUCTIONS:
-- When repeating a recipe across ${batchCookingRepetitions} days, mention this in the meal's "portionNote"
-- Calculate if recipe servings match the required ${totalRequiredServings} total servings
-- Suggest portion adjustments in "portionNote" when needed (e.g., "Make double portion for 3 meals for 2 people")
-- In your message, explain how the batch cooking strategy was applied
+FLEXIBLE BATCH COOKING SPECIFIC INSTRUCTIONS:
+- When a recipe appears multiple times, mention this in the meal's "portionNote"
+- Allow variation in repetitions (2-4x) and explain reasoning in portionNote
+- Calculate servings flexibly: "Make large batch for 3-4 meals for ${batchCookingPeople} people"
+- Suggest practical adjustments: "Double recipe for 2 dinners" or "Large batch for 4 servings"
+- In your message, explain how the flexible batch cooking strategy was applied
+- Prioritize dinner batch cooking over other meal types
+- Allow run day meals to break batch cooking when nutritionally appropriate
 ` : ''}
 
 Important: Only use recipeId values that exist in the provided recipes list. Ensure all dates are within the specified range.`;
