@@ -43,6 +43,7 @@ export interface Recipe {
   seasonal_suitability?: string[];
   temperature_preference?: string;
   dish_type?: string;
+  main_ingredient?: string; // Add main_ingredient property
 }
 
 // Context type definition
