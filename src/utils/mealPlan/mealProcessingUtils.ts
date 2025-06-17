@@ -24,6 +24,8 @@ export function createMealPlanItemFromAI(
     contextualExplanation = `RUN DAY ${validMealType.toUpperCase()}: ${explanation}`;
   }
 
+  console.log(`Creating meal item for ${date}: ${validMealType} - ${recipe.title}`);
+
   return {
     id: crypto.randomUUID(),
     meal_plan_id: mealPlanId,
@@ -51,13 +53,15 @@ export function processAIMealsForDay(
 ): Partial<MealPlanItem>[] {
   const mealPlanItems: Partial<MealPlanItem>[] = [];
 
+  console.log(`Processing ${meals.length} meals for date ${date} (${isRunDay ? 'RUN DAY' : 'REST DAY'})`);
+
   for (const meal of meals) {
     const { recipe_id } = meal;
     
     // Check if recipe exists in our recipes map
     const recipe = recipesMap[recipe_id];
     if (!recipe) {
-      console.warn(`Recipe not found: ${recipe_id}, skipping meal`);
+      console.warn(`Recipe not found: ${recipe_id}, skipping meal for ${date}`);
       continue;
     }
 
@@ -69,9 +73,10 @@ export function processAIMealsForDay(
       isRunDay
     );
 
-    console.log(`Adding ${mealItem.meal_type}: ${recipe.title} (${recipe.calories} cal)`);
+    console.log(`✅ Added ${mealItem.meal_type}: ${recipe.title} (${recipe.calories} cal) for ${date}`);
     mealPlanItems.push(mealItem);
   }
 
+  console.log(`✅ Processed ${mealPlanItems.length} meals for ${date}`);
   return mealPlanItems;
 }
