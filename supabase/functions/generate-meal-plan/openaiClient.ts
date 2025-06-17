@@ -1,5 +1,6 @@
 
 import { callOpenAIMealPlan } from "./openaiApi.ts";
+import { generateFallbackMealPlan } from "./fallbackMealPlanner.ts";
 import { calculateAllDailyRequirements, prepareRecipeData } from "./dataPreparation.ts";
 import type { RecipeSummary } from './types.ts';
 
@@ -96,7 +97,9 @@ export async function generateAIMealPlan(
       5. Snack selections do NOT interfere with main meal batch cooking calculations`
     : '';
 
+  // Try AI meal planning first
   try {
+    console.log('🤖 Attempting AI meal plan generation...');
     const result = await callOpenAIMealPlan(
       profile,
       validRecipes,
@@ -106,11 +109,29 @@ export async function generateAIMealPlan(
       runContext
     );
     
-    console.log(`AI meal plan generated successfully with ${batchCookingEnabled ? 'batch cooking' : 'standard variety'} approach`);
+    console.log(`✅ AI meal plan generated successfully with ${batchCookingEnabled ? 'batch cooking' : 'standard variety'} approach`);
     
     return result;
   } catch (error) {
-    console.error('Error generating AI meal plan:', error);
-    throw error;
+    console.error('❌ AI meal plan generation failed:', error);
+    console.log('🔄 Falling back to algorithmic meal planning...');
+    
+    // Use comprehensive fallback system
+    try {
+      const fallbackResult = generateFallbackMealPlan(
+        profile,
+        validRecipes,
+        startDate,
+        endDate,
+        runs
+      );
+      
+      console.log(`✅ Fallback meal plan generated successfully with ${batchCookingEnabled ? 'batch cooking' : 'standard variety'} approach`);
+      
+      return fallbackResult;
+    } catch (fallbackError) {
+      console.error('❌ Fallback meal plan generation also failed:', fallbackError);
+      throw new Error('Both AI and fallback meal planning failed');
+    }
   }
 }

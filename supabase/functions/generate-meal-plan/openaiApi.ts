@@ -1,3 +1,4 @@
+
 import { RecipeSummary } from "./types.ts";
 import { fetchBernWeather } from "./weatherService.ts";
 
@@ -25,7 +26,8 @@ interface UserProfile {
   batch_cooking_people?: number | null;
 }
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+// Try to get the correct OpenAI API key - check both possible secret names
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY_PERSONAL") || Deno.env.get("OPENAI_API_KEY");
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
 export async function callOpenAIMealPlan(
@@ -36,7 +38,13 @@ export async function callOpenAIMealPlan(
   endDate: string,
   runContext: string = ''
 ): Promise<any> {
-  console.log(`Calling OpenAI GPT-4.1 for meal plan from ${startDate} to ${endDate}`);
+  console.log(`Calling OpenAI GPT-4o-mini for meal plan from ${startDate} to ${endDate}`);
+  console.log(`Using API key source: ${Deno.env.get("OPENAI_API_KEY_PERSONAL") ? "PERSONAL" : "STANDARD"}`);
+
+  if (!OPENAI_API_KEY) {
+    console.error('No OpenAI API key found in either OPENAI_API_KEY_PERSONAL or OPENAI_API_KEY');
+    throw new Error('OpenAI API key not configured');
+  }
 
   // Get weather context for Bern, Switzerland
   let weatherContext = 'Weather data unavailable.';
@@ -102,7 +110,7 @@ export async function callOpenAIMealPlan(
   const systemPrompt = `You are a professional nutritionist and meal planning expert. Create a detailed 7-day meal plan that considers:
 
 1. **User Profile**: ${profile.fitness_goal || 'maintain'} fitness goal, ${profile.activity_level || 'moderate'} activity level
-2. **Nutritional Requirements**: ${requirements.targetCalories} calories/day, ${requirements.proteinGrams}g protein, ${requirements.carbGrams}g carbs, ${requirements.fatGrams}g fat
+2. **Nutritional Requirements**: ${requirements.calories} calories/day, ${requirements.protein}g protein, ${requirements.carbs}g carbs, ${requirements.fat}g fat
 3. **Dietary Preferences**: ${profile.dietary_preferences?.join(', ') || 'none specified'}
 4. **Allergies to Avoid**: ${profile.food_allergies?.join(', ') || 'none'}
 5. **Foods to Avoid**: ${profile.foods_to_avoid?.join(', ') || 'none'}
@@ -182,7 +190,7 @@ ${isStrictBatchCooking ?
 ` : ''}`;
 
   const data = {
-    model: "gpt-4.1-2025-04-14",
+    model: "gpt-4o-mini", // Use the more reliable model
     messages: [
       {
         role: "system",
@@ -209,9 +217,10 @@ ${isStrictBatchCooking ?
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
       console.error(`HTTP error! status: ${response.status}`);
-      console.error(await response.text());
-      throw new Error(`OpenAI API call failed with status ${response.status}`);
+      console.error('Error response:', errorText);
+      throw new Error(`OpenAI API call failed with status ${response.status}: ${errorText}`);
     }
 
     const result = await response.json();

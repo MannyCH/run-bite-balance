@@ -27,6 +27,8 @@ interface UserProfile {
   meal_complexity?: 'simple' | 'moderate' | 'complex' | null;
   ical_feed_url?: string | null;
   avatar_url?: string | null;
+  batch_cooking_repetitions?: number | null;
+  batch_cooking_people?: number | null;
 }
 
 serve(async (req) => {
@@ -96,6 +98,7 @@ serve(async (req) => {
     try {
       profile = await fetchUserProfile(supabase, userId);
       console.log('✅ User profile fetched successfully');
+      console.log(`👤 Profile batch cooking: ${profile.batch_cooking_repetitions}x repetitions for ${profile.batch_cooking_people || 1} people`);
     } catch (error) {
       console.error('Error fetching user profile:', error);
       return createCorsResponse(JSON.stringify({ 
@@ -130,9 +133,9 @@ serve(async (req) => {
       console.log('✅ Recipe data validation passed');
     }
     
-    // Try AI meal plan generation first
-    console.log('🤖 Attempting AI meal plan generation...');
-    console.log(`🏃 Passing ${runs ? runs.length : 0} runs to AI meal planner`);
+    // Generate meal plan (with improved fallback system)
+    console.log('🤖 Generating meal plan with AI and fallback system...');
+    console.log(`🏃 Passing ${runs ? runs.length : 0} runs to meal planner`);
     try {
       const result = await generateAIMealPlan(
         userId, 
@@ -143,29 +146,23 @@ serve(async (req) => {
         endDate
       );
       
-      console.log("✅ AI meal plan generated successfully");
-      console.log("📊 AI result overview:", {
+      console.log("✅ Meal plan generated successfully");
+      console.log("📊 Result overview:", {
         hasMealPlan: !!result?.mealPlan,
         messageLength: result?.message?.length || 0,
-        totalDays: result?.mealPlan?.days?.length || 0
+        totalDays: result?.mealPlan?.days?.length || 0,
+        isFallback: !!result?.fallback
       });
       
       return createCorsResponse(JSON.stringify(result));
-    } catch (aiError) {
-      console.error("❌ AI meal plan generation failed:", aiError);
-      console.log("🔄 AI failed, creating simple fallback meal plan...");
+    } catch (planError) {
+      console.error("❌ Meal plan generation failed completely:", planError);
       
-      // Create a simple fallback response when AI fails
-      const fallbackResult = {
-        message: "AI meal planning temporarily unavailable, using algorithmic approach",
-        mealPlan: {
-          days: [] // Empty days will trigger algorithmic fallback in the frontend
-        },
-        fallback: true
-      };
-      
-      console.log("✅ Fallback meal plan created");
-      return createCorsResponse(JSON.stringify(fallbackResult));
+      // Last resort: return meaningful error
+      return createCorsResponse(JSON.stringify({ 
+        error: 'Meal plan generation failed. Please check your recipes have meal type classifications and try again.',
+        details: planError.message
+      }), 500);
     }
   } catch (error) {
     console.error('Error in generate-meal-plan function:', error);
