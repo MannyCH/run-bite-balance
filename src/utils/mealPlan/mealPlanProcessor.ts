@@ -79,6 +79,9 @@ export async function processAIMealPlan(
       
       console.log(`Day ${date} has ${dayRuns.length} runs (${isRunDay ? 'RUN DAY' : 'REST DAY'})`);
       
+      // Check if AI already included pre_run_snack
+      const hasAIPreRunSnack = meals.some(meal => meal.meal_type === 'pre_run_snack');
+      
       // Process AI-generated meals (lunch will be automatically enhanced for run days)
       const aiMealItems = processAIMealsForDay(
         meals,
@@ -89,15 +92,19 @@ export async function processAIMealPlan(
       );
       mealPlanItems.push(...aiMealItems);
       
-      // Add pre-run snack for run days
-      if (isRunDay) {
+      // Only add pre-run snack if it's a run day AND AI didn't already include it
+      if (isRunDay && !hasAIPreRunSnack) {
         const preRunSnack = selectSnackRecipe(allRecipes, 'pre_run_snack', diversityManager);
         if (preRunSnack) {
           console.log(`Adding pre-run snack recipe: ${preRunSnack.title}`);
           const preRunItem = createSnackMealPlanItem(preRunSnack, mealPlan.id, date, 'pre_run_snack');
           mealPlanItems.push(preRunItem);
         }
-        
+      } else if (hasAIPreRunSnack) {
+        console.log(`AI already included pre-run snack for ${date}, skipping manual addition`);
+      }
+      
+      if (isRunDay) {
         console.log(`Lunch will serve as post-run recovery meal for this run day`);
       }
       
