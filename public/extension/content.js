@@ -162,20 +162,48 @@ class QuantityParser {
 
   calculateRequiredQuantityFromElement(itemName, requiredQuantity, productElement) {
     const parsed = this.parseQuantity(requiredQuantity);
+    console.log('=== Enhanced Quantity Calculation Debug ===');
+    console.log('Item:', itemName);
+    console.log('Required quantity:', requiredQuantity);
+    console.log('Parsed required:', parsed);
+    console.log('Product element:', productElement);
+    
+    // Try to extract package size from the DOM
     const packageSize = this.extractMigrosPackageSize(productElement);
+    console.log('Extracted package size:', packageSize);
 
-    if (packageSize && ['g', 'ml'].includes(packageSize.unit)) {
-      const requiredInBase = this.convertToBaseUnits(parsed.amount, parsed.unit);
-      const unitsMatch = (packageSize.unit === 'g' && parsed.unit.includes('g')) ||
-                         (packageSize.unit === 'ml' && parsed.unit.includes('l') || parsed.unit.includes('ml'));
+    if (
+      packageSize &&
+      (parsed.unit === 'g' || parsed.unit === 'kg' || parsed.unit === 'ml' || parsed.unit === 'l')
+    ) {
+      const requiredInBaseUnits = this.convertToBaseUnits(parsed.amount, parsed.unit);
+      console.log(`Required in base units: ${requiredInBaseUnits}, package size: ${packageSize.amount} ${packageSize.unit}`);
 
-      if (unitsMatch) {
-        return Math.max(1, Math.ceil(requiredInBase / packageSize.amount));
+      const unitsMatch = (
+        (packageSize.unit === 'g' && (parsed.unit.includes('g') || parsed.unit.includes('kg'))) ||
+        (packageSize.unit === 'ml' && (parsed.unit.includes('ml') || parsed.unit.includes('l')))
+      );
+
+      if (unitsMatch && packageSize.amount > 0) {
+        const packagesNeeded =
+          requiredInBaseUnits > packageSize.amount
+            ? Math.ceil(requiredInBaseUnits / packageSize.amount)
+            : 1;
+
+        console.log(`Calculated packages needed: ${packagesNeeded}`);
+        return packagesNeeded;
+      } else {
+        console.log('Units do not match or invalid package size');
       }
+    } else {
+      console.log('No compatible package size found or invalid required quantity format');
     }
 
+    // Fallback to legacy method
+    console.log('Using legacy calculation method');
     return this.calculateRequiredQuantity(itemName, requiredQuantity, productElement.textContent || '');
   }
+
 
   calculateRequiredQuantity(itemName, requiredQuantity, productDescription) {
     const parsed = this.parseQuantity(requiredQuantity);
