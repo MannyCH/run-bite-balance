@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -215,55 +216,4 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
       </div>
     </div>
   );
-};
-
-const handleAutomatedShopping = (site: 'migros' | 'coop') => {
-  const exportData = formatShoppingListForExport(shoppingList);
-  console.log('Starting automation for:', site, 'with items:', exportData);
-
-  if (extensionAvailable && window.runBiteFitExtension) {
-    // Use our custom extension API
-    console.log('Using runBiteFitExtension API');
-    window.runBiteFitExtension.startAutomation(site, exportData);
-    toast.success(`Starting automated shopping on ${site.charAt(0).toUpperCase() + site.slice(1)}`);
-  } else if (extensionAvailable && window.chrome?.runtime) {
-    // Fallback to chrome.runtime API
-    console.log('Using chrome.runtime API');
-    window.chrome.runtime.sendMessage({
-      action: 'startAutomation',
-      site: site,
-      items: exportData
-    }, (response) => {
-      console.log('Extension response:', response);
-      if (response?.error) {
-        toast.error(`Automation failed: ${response.error}`);
-      } else {
-        toast.success(`Starting automated shopping on ${site.charAt(0).toUpperCase() + site.slice(1)}`);
-      }
-    });
-  } else {
-    // Extension not available, show installation instructions
-    console.log('Extension not available, showing alert');
-    setShowExtensionAlert(true);
-  }
-};
-
-const handleManualExport = (site: 'migros' | 'coop') => {
-  const exportData = formatShoppingListForExport(shoppingList);
-  const exportText = exportData.map(item => `${item.quantity} ${item.name}`).join('\n');
-  
-  navigator.clipboard.writeText(exportText).then(() => {
-    toast.success(`Shopping list copied to clipboard for ${site.charAt(0).toUpperCase() + site.slice(1)}`);
-  }).catch(() => {
-    toast.error('Failed to copy to clipboard');
-  });
-
-  // Open the site
-  const siteUrl = site === 'migros' ? 'https://www.migros.ch' : 'https://www.coop.ch';
-  window.open(siteUrl, '_blank');
-};
-
-const downloadExtension = () => {
-  // Create a zip file with extension files or provide download link
-  toast.info('Extension download will be available soon. Use manual export for now.');
 };
