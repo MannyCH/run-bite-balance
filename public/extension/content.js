@@ -183,29 +183,41 @@ async addToMigros(item) {
 
 
 
-    async setQuantityAndAddToCart(productElement, targetQuantity) {
-      try {
-        const quantityInput = productElement.querySelector('input[type="number"]');
-        if (quantityInput) {
-          quantityInput.focus();
-          quantityInput.value = targetQuantity.toString();
-          quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
-          quantityInput.dispatchEvent(new Event('change', { bubbles: true }));
-          await this.delay(300);
-        }
+async setQuantityAndAddToCart(productElement, targetQuantity) {
+  try {
+    const quantityInput = productElement.querySelector('input[type="number"]');
 
-        const addToCartButton = productElement.querySelector('button.btn-add-to-basket') ||
-                                productElement.querySelector('button[data-cy*="add-to-cart"]');
+    if (quantityInput) {
+      quantityInput.focus();
+      quantityInput.value = ''; // clear any existing value
+      quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-        if (!addToCartButton || addToCartButton.disabled) return false;
+      quantityInput.value = targetQuantity.toString();
+      quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
+      quantityInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-        addToCartButton.click();
-        await this.delay(1000);
-        return true;
-      } catch {
-        return false;
-      }
+      await this.delay(500); // give Migros site time to register quantity
     }
+
+    const addToCartButton =
+      productElement.querySelector('button.btn-add-to-basket') ||
+      productElement.querySelector('button[data-cy*="add-to-cart"]');
+
+    if (!addToCartButton) {
+      console.warn('[Migros] ❌ Add to cart button not found.');
+      return false;
+    }
+
+    addToCartButton.click();
+    await this.delay(1000); // wait for cart update to process
+
+    return true;
+  } catch (error) {
+    console.error('[Migros] ❌ Failed to add to cart:', error);
+    return false;
+  }
+}
+
 
     delay(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
