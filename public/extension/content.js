@@ -1,6 +1,3 @@
-let isAutomationRunning = false;
-
-
 (function () {
   if (window.__runBiteFitContentScriptInjected) {
     console.log('RunBiteFit content.js already injected. Skipping...');
@@ -290,14 +287,34 @@ async addToMigros(item) {
 
   const automation = new ShoppingAutomation();
 
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'startAutomation') {
-      automation.addItemsToCart(request.items)
-        .then(results => sendResponse(results))
-        .catch(error => sendResponse({ error: error.message }));
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'startAutomation') {
+    if (isAutomationRunning) {
+      console.warn('🛑 Automation already running. Skipping duplicate trigger.');
+      sendResponse({ error: 'Automation already running' });
       return true;
     }
-  });
+
+    isAutomationRunning = true;
+
+    console.log('🧾 Full items list:', request.items);
+
+    setTimeout(() => {
+      automation.addItemsToCart(request.items)
+        .then(results => {
+          isAutomationRunning = false;
+          sendResponse(results);
+        })
+        .catch(error => {
+          isAutomationRunning = false;
+          sendResponse({ error: error.message });
+        });
+    }, 3000);
+
+    return true;
+  }
+});
+
 
   console.log('Content script setup complete');
 })();
