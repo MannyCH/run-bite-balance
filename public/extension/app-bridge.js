@@ -3,6 +3,7 @@
 // This bridges communication between the web page and the extension
 
 console.log('RunBiteFit Shopping Assistant: App bridge loaded on:', window.location.href);
+console.log('Extension manifest version check:', chrome.runtime.getManifest?.()?.version || 'undefined');
 
 // Initialize the extension bridge with retry mechanism
 function initializeExtensionBridge() {
@@ -39,6 +40,7 @@ function initializeExtensionBridge() {
     script.textContent = `
       (function() {
         console.log('Injecting RunBiteFit extension API on:', window.location.href);
+        console.log('Chrome runtime available:', typeof chrome !== 'undefined' && typeof chrome.runtime !== 'undefined');
         
         // Make extension available to the web app
         window.runBiteFitExtension = {
@@ -64,10 +66,12 @@ function initializeExtensionBridge() {
         };
         
         // Also expose a chrome-like API for compatibility
-        if (!window.chrome) {
+        if (typeof chrome === 'undefined') {
+          console.log('Creating chrome object since it does not exist');
           window.chrome = {};
         }
         if (!window.chrome.runtime) {
+          console.log('Creating chrome.runtime object');
           window.chrome.runtime = {
             sendMessage: function(message, callback) {
               console.log('chrome.runtime.sendMessage called:', message);
@@ -88,9 +92,13 @@ function initializeExtensionBridge() {
               window.addEventListener('message', responseListener);
             }
           };
+        } else {
+          console.log('chrome.runtime already exists');
         }
         
         console.log('RunBiteFit extension API injected successfully');
+        console.log('Final chrome object:', typeof chrome !== 'undefined' ? 'exists' : 'undefined');
+        console.log('Final chrome.runtime:', typeof chrome !== 'undefined' && typeof chrome.runtime !== 'undefined' ? 'exists' : 'undefined');
         
         // Dispatch custom events to let the page know the extension is ready
         window.dispatchEvent(new CustomEvent('runBiteFitExtensionReady'));
@@ -98,6 +106,8 @@ function initializeExtensionBridge() {
         
         // Also set a flag on window for immediate detection
         window.__runBiteFitExtensionReady = true;
+        
+        console.log('Extension initialization complete - all APIs should be available now');
       })();
     `;
     
