@@ -1,260 +1,305 @@
-if (window.__runBiteFitContentScriptInjected) {
-  console.log('RunBiteFit content.js already injected. Skipping...');
-  return;
-}
-window.__runBiteFitContentScriptInjected = true;
 
+(function () {
+  if (window.__runBiteFitContentScriptInjected) {
+    console.log('RunBiteFit content.js already injected. Skipping...');
+    return;
+  }
+  window.__runBiteFitContentScriptInjected = true;
 
-// Content script for Migros and Coop automation
-console.log('Content script loading on:', window.location.href);
+  console.log('Content script loading on:', window.location.href);
 
-// === PART 1: QuantityParser Class (Setup and Constructor) ===
 class QuantityParser {
   constructor() {
     this.unitMappings = {
-      'g': 1, 'gr': 1, 'gram': 1, 'gramm': 1,
+      'g': 1, 'gram': 1, 'gramm': 1, 'gr': 1,
       'kg': 1000, 'kilo': 1000, 'kilogram': 1000,
       'ml': 1, 'milliliter': 1,
       'l': 1000, 'liter': 1000, 'litre': 1000,
       'dl': 100, 'deciliter': 100,
       'cl': 10, 'centiliter': 10,
       'stk': 1, 'stück': 1, 'piece': 1, 'pieces': 1, 'pc': 1, 'pcs': 1, 'x': 1,
-      'pkg': 1, 'package': 1, 'pack': 1, 'packs': 1, 'packet': 1, 'packets': 1,
-      'box': 1, 'boxes': 1, 'can': 1, 'cans': 1, 'bottle': 1, 'bottles': 1,
-      'jar': 1, 'jars': 1, 'bag': 1, 'bags': 1, 'bunch': 1, 'bunches': 1,
+      'pkg': 1, 'package': 1, 'pack': 1, 'packs': 1,
+      'packet': 1, 'packets': 1,
+      'box': 1, 'boxes': 1, 'can': 1, 'cans': 1,
+      'bottle': 1, 'bottles': 1, 'jar': 1, 'jars': 1,
+      'bag': 1, 'bags': 1, 'bunch': 1, 'bunches': 1,
       'head': 1, 'heads': 1
     };
 
     this.defaultWeights = {
-      'broccoli': 500, 'karotten': 150, 'rüebli': 150, 'zwiebeln': 100,
-      'salat': 300, 'gurken': 300, 'zucchini': 250, 'tomaten': 150,
-      'paprika': 200, 'blumenkohl': 800, 'äpfel': 180, 'bananen': 120,
-      'kartoffeln': 200
+      'banana': 120, 'bananas': 120,
+      'apple': 180, 'apples': 180,
+      'carrot': 150, 'karotten': 150, 'rüebli': 150,
+      'broccoli': 500, 'cauliflower': 800,
+      'onion': 100, 'onions': 100, 'zwiebel': 100,
+      'pepper': 200, 'paprika': 200,
+      'tomato': 150, 'tomaten': 150,
+      'zucchini': 250, 'cucumber': 300, 'salad': 300
     };
-
-    this.freshItems = [
-      'tomaten', 'kartoffeln', 'zwiebeln', 'karotten', 'rüebli', 'äpfel', 'bananen', 
-      'orangen', 'zitronen', 'trauben', 'beeren', 'salat', 'broccoli', 'blumenkohl', 
-      'paprika', 'gurken', 'zucchini', 'auberginen', 'fleisch', 'fisch', 'hackfleisch', 
-      'rindfleisch', 'schweinefleisch', 'poulet', 'chicken', 'lachs', 'forelle', 
-      'kabeljau', 'thunfisch', 'garnelen', 'crevetten'
-    ];
-
-    this.packagedItems = [
-      'sahne', 'cream', 'sauerrahm', 'sour cream', 'joghurt', 'yogurt', 'milch', 'milk',
-      'butter', 'käse', 'cheese', 'quark', 'frischkäse', 'mozzarella', 'parmesan',
-      'reis', 'rice', 'pasta', 'nudeln', 'spaghetti', 'mehl', 'flour', 'zucker', 'sugar',
-      'öl', 'oil', 'essig', 'vinegar', 'honig', 'honey', 'marmelade', 'jam'
-    ];
-
-    console.log('QuantityParser initialized');
-  }
-  parseQuantity(quantityStr) {
-    if (!quantityStr || typeof quantityStr !== 'string') {
-      return { amount: 1, unit: 'piece', originalText: quantityStr || '' };
-    }
-
-    const cleanStr = quantityStr.toLowerCase().trim();
-    console.log('Parsing quantity:', cleanStr);
-
-    const patterns = [
-      /^(\d+(?:[.,]\d+)?)\s*([a-zA-Z]+)$/,
-      /^(\d+(?:[.,]\d+)?)\s+([a-zA-Z]+)$/,
-      /^(\d+(?:[.,]\d+)?)\s*x\s*$/,
-      /^(\d+(?:[.,]\d+)?)\s*$/
-    ];
-
-    for (const pattern of patterns) {
-      const match = cleanStr.match(pattern);
-      if (match) {
-        const amount = parseFloat(match[1].replace(',', '.'));
-        const unit = match[2] || 'piece';
-        return { amount, unit: unit.toLowerCase(), originalText: quantityStr };
-      }
-    }
-
-    const numberMatch = cleanStr.match(/(\d+(?:[.,]\d+)?)/);
-    if (numberMatch) {
-      const amount = parseFloat(numberMatch[1].replace(',', '.'));
-      return { amount, unit: 'piece', originalText: quantityStr };
-    }
-
-    return { amount: 1, unit: 'piece', originalText: quantityStr };
   }
 
-  convertToBaseUnits(quantity, unit) {
-    const unitMappings = this.unitMappings;
-    const multiplier = unitMappings[unit.toLowerCase()] || 1;
-    return quantity * multiplier;
+  parseQuantity(str) {
+    if (!str || typeof str !== 'string') return { amount: 1, unit: 'piece', originalText: str };
+    const match = str.toLowerCase().match(/(\d+(?:[.,]\d+)?)(\s*[a-zA-Z]*)?/);
+    const amount = match ? parseFloat(match[1].replace(',', '.')) : 1;
+    const unit = match && match[2] ? match[2].trim().toLowerCase() || 'piece' : 'piece';
+    return { amount, unit, originalText: str };
   }
 
-  parsePackageSizeText(text) {
-    if (!text) return null;
-    const cleanText = text.toLowerCase().trim();
-    const patterns = [
-      /(\d+(?:[.,]\d+)?)\s+(kg|g|gram|gr|l|ml|dl|cl)/g,
-      /(\d+(?:[.,]\d+)?)(kg|g|gram|gr|l|ml|dl|cl)\b/g
-    ];
-
-    for (const pattern of patterns) {
-      const matches = [...cleanText.matchAll(pattern)];
-      if (matches.length > 0) {
-        const match = matches[0];
-        const amount = parseFloat(match[1].replace(',', '.'));
-        const unit = match[2];
-        let normalized = amount;
-
-        if (unit.includes('kg')) normalized *= 1000;
-        else if (unit.includes('l')) normalized *= 1000;
-        else if (unit.includes('dl')) normalized *= 100;
-        else if (unit.includes('cl')) normalized *= 10;
-
-        return {
-          amount: normalized,
-          unit: unit.includes('l') ? 'ml' : 'g',
-          originalText: match[0]
-        };
-      }
-    }
-
-    return null;
+  convertToBaseUnits(amount, unit) {
+    const normalized = unit.toLowerCase();
+    const factor = this.unitMappings[normalized];
+    return factor ? amount * factor : amount;
   }
 
   extractMigrosPackageSize(productElement) {
-    const text = productElement.textContent;
-    return this.parsePackageSizeText(text);
-  }
+    if (!productElement) return null;
+    const weightNode = productElement.querySelector('.weight-priceUnit');
+    if (!weightNode) return null;
 
+    const text = weightNode.textContent.trim().replace(',', '.');
+    const match = text.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|dl|cl)/i);
+    if (!match) return null;
+
+    let [_, number, unit] = match;
+    number = parseFloat(number);
+    unit = unit.toLowerCase();
+
+    const mappedUnit = ['kg', 'g'].includes(unit) ? 'g' : 'ml';
+    const factor = this.unitMappings[unit] || 1;
+    return { amount: number * factor, unit: mappedUnit };
+  }
 
   calculateRequiredQuantityFromElement(itemName, requiredQuantity, productElement) {
     const parsed = this.parseQuantity(requiredQuantity);
+    console.log('=== Enhanced Quantity Calculation Debug ===');
+    console.log('Item:', itemName);
+    console.log('Required quantity:', requiredQuantity);
+    console.log('Parsed required:', parsed);
+    console.log('Product element:', productElement);
+
     const packageSize = this.extractMigrosPackageSize(productElement);
+    console.log('Extracted package size:', packageSize);
 
-    if (packageSize && ['g', 'kg', 'ml', 'l'].includes(parsed.unit)) {
-      const requiredInBase = this.convertToBaseUnits(parsed.amount, parsed.unit);
-      const unitsMatch = (
-        (packageSize.unit === 'g' && ['g', 'kg'].includes(parsed.unit)) ||
-        (packageSize.unit === 'ml' && ['ml', 'l'].includes(parsed.unit))
-      );
+    const requiredGrams = this.convertToBaseUnits(parsed.amount, parsed.unit);
 
-      if (unitsMatch && packageSize.amount > 0) {
-        const packagesNeeded = Math.ceil(requiredInBase / packageSize.amount);
-        return packagesNeeded < 1 ? 1 : packagesNeeded;
+    if (packageSize && packageSize.amount > 0) {
+      const compatible =
+        (packageSize.unit === 'g' && ['g', 'kg', 'ml', 'l', 'dl', 'cl'].includes(parsed.unit)) ||
+        (packageSize.unit === 'ml' && ['ml', 'l', 'dl', 'cl', 'g', 'kg'].includes(parsed.unit));
+
+      if (compatible) {
+        const packagesNeeded =
+          requiredGrams > packageSize.amount
+            ? Math.ceil(requiredGrams / packageSize.amount)
+            : 1;
+
+        console.log(`Required in base units: ${requiredGrams}, package size: ${packageSize.amount}`);
+        console.log('Calculated packages needed:', packagesNeeded);
+        return packagesNeeded;
       }
     }
 
-    return this.calculateRequiredQuantity(itemName, requiredQuantity, productElement.textContent || '');
+    console.log('No compatible package size found or invalid required quantity format');
+    return this.calculateFallbackPackages(itemName, parsed, packageSize?.amount || 150);
   }
 
-  calculateRequiredQuantity(itemName, requiredQuantity, productDescription) {
-    const parsed = this.parseQuantity(requiredQuantity);
-    const isPackaged = this.isPackagedItem(itemName, productDescription);
+  calculateFallbackPackages(itemName, parsed, packageWeight) {
+    const itemKey = Object.keys(this.defaultWeights).find(k =>
+      itemName.toLowerCase().includes(k)
+    );
+    const assumedWeight = itemKey ? this.defaultWeights[itemKey] : 150;
 
-    if (isPackaged) {
-      const packageSize = this.parsePackageSizeText(productDescription);
-      if (packageSize && ['g', 'kg', 'ml', 'l'].includes(parsed.unit)) {
-        const required = this.convertToBaseUnits(parsed.amount, parsed.unit);
-        const unitsMatch = (
-          (packageSize.unit === 'g' && ['g', 'kg'].includes(parsed.unit)) ||
-          (packageSize.unit === 'ml' && ['ml', 'l'].includes(parsed.unit))
-        );
-        if (unitsMatch) {
-          const packagesNeeded = Math.ceil(required / packageSize.amount);
-          return packagesNeeded < 1 ? 1 : packagesNeeded;
+    const estimatedWeight =
+      parsed.unit === 'piece'
+        ? parsed.amount * assumedWeight
+        : this.convertToBaseUnits(parsed.amount, parsed.unit);
+
+    const packagesNeeded =
+      estimatedWeight > packageWeight
+        ? Math.ceil(estimatedWeight / packageWeight)
+        : 1;
+
+    console.log('Fallback: estimatedWeight:', estimatedWeight, 'packageWeight:', packageWeight);
+    console.log('Fallback: packagesNeeded:', packagesNeeded);
+    return packagesNeeded;
+  }
+}
+
+
+// MigrosAutomation class
+class MigrosAutomation {
+  constructor(quantityParser) {
+    this.quantityParser = quantityParser;
+  }
+
+  async addToMigros(item) {
+    try {
+      const searchInput = document.querySelector('input#autocompleteSearchInput') ||
+                          document.querySelector('input[data-cy="autocompleteSearchInput"]');
+
+      if (!searchInput) return false;
+
+      searchInput.focus();
+      searchInput.value = '';
+      await this.delay(200);
+      searchInput.value = item.name;
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+      await this.delay(1500);
+
+      const suggestedProducts = document.querySelector('ul#suggestedProducts[data-cy="suggested-products"]');
+      if (!suggestedProducts) return false;
+
+      const firstProduct = suggestedProducts.querySelector('li:first-child article[mo-instant-search-product-item]');
+      if (!firstProduct) return false;
+
+      let targetQuantity = 1;
+      if (this.quantityParser) {
+        try {
+          targetQuantity = this.quantityParser.calculateRequiredQuantityFromElement(item.name, item.quantity, firstProduct);
+        } catch {
+          targetQuantity = 1;
         }
       }
-    }
 
-    const estimate = this.estimateWeight(itemName, requiredQuantity);
-    if (estimate) return Math.max(1, estimate.pieces);
-    return Math.max(1, Math.round(parsed.amount));
+      const success = await this.setQuantityAndAddToCart(firstProduct, targetQuantity);
+
+      if (success) {
+        searchInput.value = '';
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
   }
 
-  estimateWeight(itemName, quantity) {
-    const parsed = this.parseQuantity(quantity);
-    const estimates = {
-      'tomaten': 150, 'kartoffeln': 200, 'zwiebeln': 100, 'äpfel': 180, 'bananen': 120,
-      'paprika': 200, 'gurken': 300, 'zucchini': 250
-    };
+  async setQuantityAndAddToCart(productElement, targetQuantity) {
+    try {
+      const quantityInput = productElement.querySelector('input[type="number"]');
+      if (quantityInput) {
+        quantityInput.focus();
+        quantityInput.value = targetQuantity.toString();
+        quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
+        quantityInput.dispatchEvent(new Event('change', { bubbles: true }));
+        await this.delay(500);
+      }
 
-    const key = Object.keys(estimates).find(k => itemName.toLowerCase().includes(k));
-    if (key) {
-      const totalWeight = parsed.amount * estimates[key];
-      return { pieces: Math.ceil(totalWeight / estimates[key]), unit: 'g' };
+      const addToCartButton = productElement.querySelector('button.btn-add-to-basket') ||
+                              productElement.querySelector('button[data-cy*="add-to-cart"]');
+
+      if (!addToCartButton) return false;
+
+      addToCartButton.click();
+      await this.delay(1000);
+      return true;
+    } catch {
+      return false;
     }
+  }
 
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+
+// Main ShoppingAutomation class
+class ShoppingAutomation {
+  constructor() {
+    this.currentSite = this.detectSite();
+    this.quantityParser = new QuantityParser();
+    this.migrosAutomation = new MigrosAutomation(this.quantityParser);
+    this.isReady = true;
+  }
+
+  detectSite() {
+    const hostname = window.location.hostname;
+    if (hostname.includes('migros')) return 'migros';
+    if (hostname.includes('coop')) return 'coop';
     return null;
   }
 
-  isPackagedItem(itemName, productDescription) {
-    const name = itemName.toLowerCase();
-    const desc = productDescription.toLowerCase();
-    const isPackaged = this.packagedItems.some(k => name.includes(k) || desc.includes(k));
-    const isFresh = this.freshItems.some(k => name.includes(k) || desc.includes(k));
-    if (!isPackaged && !isFresh) {
-      const indicators = ['pack', 'dose', 'bottle', 'flasche', 'jar', 'becher', 'cup'];
-      return indicators.some(k => desc.includes(k));
+  async addItemsToCart(items) {
+    if (!this.isReady) return { success: [], failed: items, error: 'Automation not ready' };
+
+    const results = { success: [], failed: [] };
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+
+      try {
+        const success = await this.addSingleItem(item);
+        if (success) {
+          results.success.push(item);
+        } else {
+          results.failed.push(item);
+        }
+      } catch {
+        results.failed.push(item);
+      }
+
+      await this.delay(2000);
     }
-    return isPackaged;
+
+    return results;
   }
-}
 
-// === ONE-TIME GUARD to prevent duplicate execution ===
-if (window.__runBiteFitContentScriptInjected) {
-  console.log('RunBiteFit content.js already injected. Skipping...');
-  return;
-}
-window.__runBiteFitContentScriptInjected = true;
-
-// === Main automation logic ===
-const parser = new QuantityParser();
-
-window.addEventListener('message', async (event) => {
-  if (event.data?.source !== 'runbitefit-app' || event.data.action !== 'startAutomation') return;
-
-  const items = event.data.items || [];
-  console.log('[RunBiteFit] Automation started with items:', items);
-
-  for (const item of items) {
-    const query = item.name;
-    const requiredQty = item.quantity;
-    console.log('Searching for item:', query);
-
-    const searchBox = document.querySelector('input[type="search"], input[type="text"]');
-    if (!searchBox) {
-      console.warn('No search input found on page');
-      continue;
+  async addSingleItem(item) {
+    if (this.currentSite === 'migros') {
+      return await this.migrosAutomation.addToMigros(item);
+    } else if (this.currentSite === 'coop') {
+      return await this.addToCoop(item);
     }
+    return false;
+  }
 
-    searchBox.value = query;
-    searchBox.dispatchEvent(new Event('input', { bubbles: true }));
-    await new Promise(r => setTimeout(r, 1500)); // wait for results to load
+  async addToCoop(item) {
+    try {
+      const input = document.querySelector('input[placeholder*="Suchen"]') || document.querySelector('input[name="search"]');
+      if (!input) return false;
 
-    const resultItem = document.querySelector('[data-cy^="product-list-item"]:not([data-cy*="sponsored"])');
-    if (!resultItem) {
-      console.warn('No product found for:', query);
-      continue;
-    }
+      input.focus();
+      input.value = item.name;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
 
-    const qty = parser.calculateRequiredQuantityFromElement(query, requiredQty, resultItem);
-    console.log(`Adding ${qty}x of:`, query);
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await this.delay(3000);
 
-    const plusBtn = resultItem.querySelector('button[data-cy*="add-button"]');
-    if (!plusBtn) {
-      console.warn('No add button found for:', query);
-      continue;
-    }
+      const addToCartButton = document.querySelector('button[data-cy="add-to-cart"]');
+      if (addToCartButton && !addToCartButton.disabled) {
+        addToCartButton.click();
+        await this.delay(1000);
+        return true;
+      }
 
-    for (let i = 0; i < qty; i++) {
-      plusBtn.click();
-      await new Promise(r => setTimeout(r, 300));
+      return false;
+    } catch {
+      return false;
     }
   }
 
-  console.log('[RunBiteFit] Automation finished');
-  window.postMessage({
-    source: 'runbitefit-extension',
-    action: 'automationResponse',
-    response: { success: true }
-  }, window.location.origin);
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+
+const automation = new ShoppingAutomation();
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'startAutomation') {
+    automation.addItemsToCart(request.items)
+      .then(results => sendResponse(results))
+      .catch(error => sendResponse({ error: error.message }));
+    return true;
+  }
 });
+
+console.log('Content script setup complete');
+
+})();
+
