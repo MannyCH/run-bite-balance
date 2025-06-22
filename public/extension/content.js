@@ -107,98 +107,73 @@
 
 async addToMigros(item) {
   try {
-    console.log('[Migros] Attempting to add:', item.name, item.quantity);
-
-    // Init tracking set & list if not already present
     this.addedItemNames = this.addedItemNames || new Set();
-    this.addedItemLog = this.addedItemLog || [];
 
-    const lowerName = item.name.toLowerCase();
-    if (this.addedItemNames.has(lowerName)) {
-      console.warn('[Migros] Skipping duplicate item:', item.name);
+    if (this.addedItemNames.has(item.name)) {
+      console.log('[Migros] Skipping duplicate item:', item.name);
+      return true;
+    }
+
+    console.log('[Migros] Attempting to add:', item.name, item.quantity || '');
+
+    const searchInput = document.querySelector('input#autocompleteSearchInput') ||
+                        document.querySelector('input[data-cy="autocompleteSearchInput"]');
+
+    if (!searchInput) {
+      console.warn('[Migros] Search input not found');
       return false;
     }
-    this.addedItemNames.add(lowerName);
 
-    let searchInput = null;
-for (let i = 0; i < 10; i++) {
-  searchInput = document.querySelector('input#autocompleteSearchInput') ||
-                document.querySelector('input[data-cy="autocompleteSearchInput"]');
-  if (searchInput) break;
-  console.log('[Migros] Waiting for search input...');
-  await this.delay(500); // wait 0.5s
-}
-
-if (!searchInput) {
-  console.warn('[Migros] Search input not found after waiting');
-  return false;
-}
-
-
-    // Clear input first
     searchInput.focus();
     searchInput.value = '';
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-    await this.delay(300);
+    searchInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-    // Enter item name
+    await this.delay(300); // Small pause before typing
     searchInput.value = item.name;
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     searchInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-    await this.delay(3000); // Allow time for results to update
+    let firstProduct = null;
+    for (let tries = 0; tries < 10; tries++) {
+      await this.delay(300); // Check every 300ms
+      const suggestedProducts = document.querySelector('ul#suggestedProducts[data-cy="suggested-products"]');
+      if (suggestedProducts) {
+        firstProduct = suggestedProducts.querySelector('li:first-child article[mo-instant-search-product-item]');
+        if (firstProduct) break;
+      }
+    }
 
-    const suggestedProducts = document.querySelector('ul#suggestedProducts[data-cy="suggested-products"]');
-    if (!suggestedProducts) {
+    if (!firstProduct) {
       console.warn('[Migros] No suggested products list');
       return false;
     }
 
-    const firstProduct = suggestedProducts.querySelector('li:first-child article[mo-instant-search-product-item]');
-    if (!firstProduct) {
-      console.warn('[Migros] No first product found');
-      return false;
-    }
 
-    console.log('[Migros] Found product:', firstProduct.textContent.trim().slice(0, 100));
 
-    // Quantity calculation
+    // Calculate quantity
     let targetQuantity = 1;
-    if (this.quantityParser) {
-      try {
-        targetQuantity = this.quantityParser.calculateRequiredQuantityFromElement(
-          item.name,
-          item.quantity,
-          firstProduct
-        );
-      } catch (err) {
-        console.warn('[Migros] Quantity parsing failed, defaulting to 1');
-        targetQuantity = 1;
-      }
+    try {
+      targetQuantity = this.quantityParser.calculateRequiredQuantityFromElement(item.name, item.quantity, firstProduct);
+    } catch (e) {
+      console.warn('[Migros] Quantity calculation failed:', e);
     }
 
     const success = await this.setQuantityAndAddToCart(firstProduct, targetQuantity);
-
     if (success) {
-      this.addedItemLog.push({
-        name: item.name,
-        quantity: item.quantity,
-        addedQuantity: targetQuantity,
-        time: new Date().toISOString()
-      });
+      this.addedItemNames.add(item.name); // ✅ Only mark as added after success
       console.log('[Migros] ✅ Added:', item.name, '| Quantity:', targetQuantity);
+
+      // Clear input after success
+      searchInput.value = '';
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
     } else {
       console.warn('[Migros] ❌ Failed to add:', item.name);
+      return false;
     }
-
-    // Clear search for next item
-    searchInput.value = '';
-    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-    await this.delay(500);
-
-    return success;
   } catch (err) {
-    console.error('[Migros] Error in addToMigros:', err);
+    console.error('[Migros] Unexpected error adding item:', item.name, err);
     return false;
   }
 }
