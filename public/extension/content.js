@@ -1,163 +1,358 @@
+
 // Content script for Migros and Coop automation
 console.log('Content script loading on:', window.location.href);
 
+// QuantityParser class - moved directly into content.js
+class QuantityParser {
+  constructor() {
+    this.unitMappings = {
+      // Weight units (grams)
+      'g': 1,
+      'gr': 1,
+      'gram': 1,
+      'gramm': 1,
+      'kg': 1000,
+      'kilo': 1000,
+      'kilogram': 1000,
+      
+      // Volume units (ml)
+      'ml': 1,
+      'milliliter': 1,
+      'l': 1000,
+      'liter': 1000,
+      'litre': 1000,
+      'dl': 100,
+      'deciliter': 100,
+      'cl': 10,
+      'centiliter': 10,
+      
+      // Piece units
+      'stk': 1,
+      'stück': 1,
+      'piece': 1,
+      'pieces': 1,
+      'pc': 1,
+      'pcs': 1,
+      'x': 1,
+      
+      // Package units
+      'pkg': 1,
+      'package': 1,
+      'pack': 1,
+      'packs': 1,
+      'packet': 1,
+      'packets': 1,
+      'box': 1,
+      'boxes': 1,
+      'can': 1,
+      'cans': 1,
+      'bottle': 1,
+      'bottles': 1,
+      'jar': 1,
+      'jars': 1,
+      'bag': 1,
+      'bags': 1,
+      'bunch': 1,
+      'bunches': 1,
+      'head': 1,
+      'heads': 1
+    };
+
+    this.weightKeywords = [
+      'tomaten', 'kartoffeln', 'zwiebeln', 'karotten', 'rüebli', 'fleisch', 'fisch',
+      'äpfel', 'bananen', 'orangen', 'zitronen', 'trauben', 'beeren', 'salat',
+      'broccoli', 'blumenkohl', 'paprika', 'gurken', 'zucchini', 'auberginen',
+      'hackfleisch', 'rindfleisch', 'schweinefleisch', 'poulet', 'chicken',
+      'lachs', 'forelle', 'kabeljau', 'thunfisch', 'garnelen', 'crevetten'
+    ];
+
+    console.log('QuantityParser initialized');
+  }
+
+  parseQuantity(quantityStr) {
+    if (!quantityStr || typeof quantityStr !== 'string') {
+      return { amount: 1, unit: 'piece', originalText: quantityStr || '' };
+    }
+
+    const cleanStr = quantityStr.toLowerCase().trim();
+    console.log('Parsing quantity:', cleanStr);
+
+    // Match patterns like "2kg", "500g", "3 stk", "1.5 l", etc.
+    const patterns = [
+      /^(\d+(?:[.,]\d+)?)\s*([a-zA-Z]+)$/,
+      /^(\d+(?:[.,]\d+)?)\s+([a-zA-Z]+)$/,
+      /^(\d+(?:[.,]\d+)?)\s*x\s*$/,
+      /^(\d+(?:[.,]\d+)?)\s*$/
+    ];
+
+    for (const pattern of patterns) {
+      const match = cleanStr.match(pattern);
+      if (match) {
+        const amount = parseFloat(match[1].replace(',', '.'));
+        const unit = match[2] || 'piece';
+        
+        console.log('Parsed:', { amount, unit, originalText: quantityStr });
+        return { amount, unit: unit.toLowerCase(), originalText: quantityStr };
+      }
+    }
+
+    // If no pattern matches, try to extract just numbers
+    const numberMatch = cleanStr.match(/(\d+(?:[.,]\d+)?)/);
+    if (numberMatch) {
+      const amount = parseFloat(numberMatch[1].replace(',', '.'));
+      console.log('Extracted number:', { amount, unit: 'piece', originalText: quantityStr });
+      return { amount, unit: 'piece', originalText: quantityStr };
+    }
+
+    console.log('Using fallback:', { amount: 1, unit: 'piece', originalText: quantityStr });
+    return { amount: 1, unit: 'piece', originalText: quantityStr };
+  }
+
+  shouldUseWeightCalculation(itemName, productDescription) {
+    const itemLower = itemName.toLowerCase();
+    const descLower = productDescription.toLowerCase();
+    
+    // Check if item name contains weight-related keywords
+    const hasWeightKeyword = this.weightKeywords.some(keyword => 
+      itemLower.includes(keyword) || descLower.includes(keyword)
+    );
+
+    // Check if product description mentions weight units
+    const hasWeightUnit = /\b\d+\s*(g|gr|kg|gram|gramm)\b/i.test(descLower);
+
+    const result = hasWeightKeyword || hasWeightUnit;
+    console.log('Should use weight calculation:', result, 'for:', itemName);
+    return result;
+  }
+
+  estimateWeight(itemName, quantity) {
+    const parsed = this.parseQuantity(quantity);
+    
+    // Simple weight estimation based on common items
+    const weightEstimates = {
+      'tomaten': { perPiece: 150, unit: 'g' },
+      'kartoffeln': { perPiece: 200, unit: 'g' },
+      'zwiebeln': { perPiece: 100, unit: 'g' },
+      'äpfel': { perPiece: 180, unit: 'g' },
+      'bananen': { perPiece: 120, unit: 'g' },
+      'paprika': { perPiece: 200, unit: 'g' },
+      'gurken': { perPiece: 300, unit: 'g' },
+      'zucchini': { perPiece: 250, unit: 'g' }
+    };
+
+    const itemLower = itemName.toLowerCase();
+    for (const [key, estimate] of Object.entries(weightEstimates)) {
+      if (itemLower.includes(key)) {
+        const totalWeight = estimate.perPiece * parsed.amount;
+        const pieces = Math.max(1, Math.round(totalWeight / estimate.perPiece));
+        
+        console.log('Weight estimate for', itemName, ':', {
+          totalWeight: totalWeight + estimate.unit,
+          pieces
+        });
+        
+        return {
+          totalWeight,
+          unit: estimate.unit,
+          pieces
+        };
+      }
+    }
+
+    return null;
+  }
+}
+
+// MigrosAutomation class - moved directly into content.js
+class MigrosAutomation {
+  constructor(quantityParser) {
+    this.quantityParser = quantityParser;
+    console.log('MigrosAutomation initialized with QuantityParser:', !!this.quantityParser);
+  }
+
+  async addToMigros(item) {
+    try {
+      console.log('Adding to Migros with quantity:', item.name, item.quantity);
+      
+      // Find the search input
+      const searchInput = document.querySelector('input#autocompleteSearchInput') || 
+                         document.querySelector('input[data-cy="autocompleteSearchInput"]');
+      
+      if (!searchInput) {
+        console.error('Could not find Migros search input');
+        return false;
+      }
+
+      // Clear and search for the item
+      searchInput.focus();
+      searchInput.value = '';
+      await this.delay(200);
+      
+      searchInput.value = item.name;
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+      
+      console.log('Searching for:', item.name);
+      await this.delay(1500);
+      
+      // Find the suggestions dropdown
+      const suggestedProducts = document.querySelector('ul#suggestedProducts[data-cy="suggested-products"]');
+      
+      if (!suggestedProducts) {
+        console.error('No search results dropdown found for:', item.name);
+        return false;
+      }
+
+      // Get the first product
+      const firstProduct = suggestedProducts.querySelector('li:first-child article[mo-instant-search-product-item]');
+      
+      if (!firstProduct) {
+        console.error('No products found in dropdown for:', item.name);
+        return false;
+      }
+
+      // Get product description for weight detection
+      const productDescription = firstProduct.textContent || '';
+      console.log('Product description:', productDescription);
+
+      let targetQuantity = 1; // Default fallback
+
+      // Use quantity parsing if QuantityParser is available
+      if (this.quantityParser) {
+        try {
+          // Parse the quantity and determine if we need weight calculation
+          const shouldUseWeight = this.quantityParser.shouldUseWeightCalculation(item.name, productDescription);
+          const parsedQuantity = this.quantityParser.parseQuantity(item.quantity);
+          
+          console.log('Parsed quantity:', parsedQuantity);
+          console.log('Should use weight calculation:', shouldUseWeight);
+
+          if (shouldUseWeight) {
+            const weightEstimate = this.quantityParser.estimateWeight(item.name, item.quantity);
+            if (weightEstimate) {
+              console.log('Weight estimate:', weightEstimate);
+              // For weight-based items, try to get close to the estimated weight
+              // Migros usually sells in ranges, so we'll use pieces as approximation
+              targetQuantity = Math.max(1, Math.round(weightEstimate.pieces));
+            }
+          } else {
+            // For non-weight items, use the parsed amount directly
+            targetQuantity = Math.max(1, Math.round(parsedQuantity.amount));
+          }
+        } catch (quantityError) {
+          console.warn('Error parsing quantity, using default:', quantityError);
+          targetQuantity = 1;
+        }
+      } else {
+        console.warn('QuantityParser not available, using default quantity of 1');
+      }
+
+      console.log('Target quantity to add:', targetQuantity);
+
+      // Try to set the quantity before adding to cart
+      const success = await this.setQuantityAndAddToCart(firstProduct, targetQuantity);
+      
+      if (success) {
+        // Clear the search
+        searchInput.value = '';
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      }
+
+      return false;
+
+    } catch (error) {
+      console.error('Migros automation error:', error);
+      return false;
+    }
+  }
+
+  async setQuantityAndAddToCart(productElement, targetQuantity) {
+    try {
+      // Method 1: Look for quantity input field
+      const quantityInput = productElement.querySelector('input[type="number"]') ||
+                           productElement.querySelector('input.quantity-input') ||
+                           productElement.querySelector('[data-cy*="quantity"]');
+
+      if (quantityInput) {
+        console.log('Found quantity input, setting value to:', targetQuantity);
+        quantityInput.focus();
+        quantityInput.value = targetQuantity.toString();
+        quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
+        quantityInput.dispatchEvent(new Event('change', { bubbles: true }));
+        await this.delay(500);
+      } else {
+        // Method 2: Look for + button and click it multiple times
+        const plusButton = productElement.querySelector('button[data-cy*="increase"]') ||
+                          productElement.querySelector('button[aria-label*="+"]') ||
+                          productElement.querySelector('button.btn-increase') ||
+                          productElement.querySelector('button:contains("+")');
+
+        if (plusButton && targetQuantity > 1) {
+          console.log('Found plus button, clicking', (targetQuantity - 1), 'times');
+          for (let i = 1; i < targetQuantity; i++) {
+            plusButton.click();
+            await this.delay(300);
+          }
+        } else {
+          console.log('No quantity controls found, using default quantity');
+        }
+      }
+
+      // Now find and click the add to cart button
+      const addToCartButton = productElement.querySelector('button.btn-add-to-basket') ||
+                             productElement.querySelector('button[data-cy*="add-to-cart"]') ||
+                             productElement.querySelector('button[data-cy*="add-to-basket"]');
+      
+      if (!addToCartButton) {
+        console.error('No add to cart button found');
+        return false;
+      }
+
+      console.log('Clicking add to cart button...');
+      addToCartButton.click();
+      
+      await this.delay(1000);
+      return true;
+
+    } catch (error) {
+      console.error('Error setting quantity and adding to cart:', error);
+      return false;
+    }
+  }
+
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+
+// Main ShoppingAutomation class
 class ShoppingAutomation {
   constructor() {
     this.currentSite = this.detectSite();
     this.progress = 0;
     this.totalItems = 0;
     this.isReady = false;
-    this.quantityParser = null;
-    this.migrosAutomation = null;
-    this.initializationAttempts = 0;
-    this.maxInitializationAttempts = 3;
     
     console.log('ShoppingAutomation initialized for site:', this.currentSite);
-    this.initializeWhenReady();
+    this.initializeAutomation();
   }
 
-  async initializeWhenReady() {
-    console.log('Starting initialization attempt:', this.initializationAttempts + 1);
-    this.initializationAttempts++;
-    
+  initializeAutomation() {
     try {
-      // Wait for DOM to be ready
-      if (document.readyState !== 'complete') {
-        console.log('Waiting for DOM to be ready...');
-        await new Promise(resolve => {
-          if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', resolve);
-          } else {
-            window.addEventListener('load', resolve);
-          }
-        });
-      }
+      console.log('Initializing automation classes...');
       
-      console.log('DOM ready, loading scripts sequentially...');
+      // Create instances directly - no more dynamic loading
+      this.quantityParser = new QuantityParser();
+      this.migrosAutomation = new MigrosAutomation(this.quantityParser);
       
-      // Load scripts sequentially to ensure proper dependency order
-      await this.loadScript('quantity-parser.js');
-      console.log('QuantityParser script loaded');
-      
-      // Wait for QuantityParser to be available
-      await this.waitForModule('QuantityParser', 'QuantityParser class');
-      
-      await this.loadScript('migros-automation.js');
-      console.log('MigrosAutomation script loaded');
-      
-      // Wait for MigrosAutomation to be available
-      await this.waitForModule('MigrosAutomation', 'MigrosAutomation class');
-      
-      // Initialize modules with proper dependency injection
-      console.log('Initializing QuantityParser...');
-      this.quantityParser = new window.QuantityParser();
-      console.log('QuantityParser initialized successfully:', !!this.quantityParser);
-      
-      console.log('Initializing MigrosAutomation with QuantityParser dependency...');
-      this.migrosAutomation = new window.MigrosAutomation(this.quantityParser);
-      console.log('MigrosAutomation initialized successfully:', !!this.migrosAutomation);
-      
-      // Validate that all required methods are available
-      const isValid = this.validateModules();
-      if (!isValid) {
-        throw new Error('Module validation failed');
-      }
-      
-      console.log('All modules initialized and validated successfully');
-      
-      // Give additional time for any dynamic content to load
-      setTimeout(() => {
-        this.isReady = true;
-        console.log('ShoppingAutomation ready for use');
-      }, 1000);
+      console.log('All automation classes initialized successfully');
+      this.isReady = true;
       
     } catch (error) {
-      console.error('Initialization failed:', error);
-      
-      if (this.initializationAttempts < this.maxInitializationAttempts) {
-        console.log(`Retrying initialization in 2 seconds... (attempt ${this.initializationAttempts + 1}/${this.maxInitializationAttempts})`);
-        setTimeout(() => {
-          this.initializeWhenReady();
-        }, 2000);
-      } else {
-        console.error('Maximum initialization attempts reached. Automation will not be available.');
-      }
+      console.error('Failed to initialize automation:', error);
+      this.isReady = false;
     }
-  }
-
-  loadScript(filename) {
-    return new Promise((resolve, reject) => {
-      // Check if script is already loaded
-      if (document.querySelector(`script[src*="${filename}"]`)) {
-        console.log(`Script ${filename} already loaded`);
-        resolve();
-        return;
-      }
-      
-      const script = document.createElement('script');
-      script.src = chrome.runtime.getURL(filename);
-      script.onload = () => {
-        console.log(`Script loaded successfully: ${filename}`);
-        resolve();
-      };
-      script.onerror = (error) => {
-        console.error(`Failed to load script: ${filename}`, error);
-        reject(new Error(`Failed to load ${filename}`));
-      };
-      document.head.appendChild(script);
-    });
-  }
-
-  async waitForModule(moduleName, description) {
-    console.log(`Waiting for ${description} to be available...`);
-    let retries = 0;
-    const maxRetries = 30;
-    const retryDelay = 200;
-    
-    while (retries < maxRetries) {
-      if (window[moduleName] && typeof window[moduleName] === 'function') {
-        console.log(`${description} is now available`);
-        return;
-      }
-      
-      if (retries % 5 === 0) {
-        console.log(`${description} not ready yet, retry ${retries + 1}/${maxRetries}`);
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, retryDelay));
-      retries++;
-    }
-    
-    throw new Error(`${description} failed to load after ${maxRetries} retries`);
-  }
-
-  validateModules() {
-    console.log('Validating modules...');
-    
-    // Check QuantityParser
-    if (!this.quantityParser) {
-      console.error('QuantityParser is not initialized');
-      return false;
-    }
-    
-    if (typeof this.quantityParser.parseQuantity !== 'function') {
-      console.error('QuantityParser.parseQuantity method is not available');
-      return false;
-    }
-    
-    // Check MigrosAutomation
-    if (!this.migrosAutomation) {
-      console.error('MigrosAutomation is not initialized');
-      return false;
-    }
-    
-    if (typeof this.migrosAutomation.addToMigros !== 'function') {
-      console.error('MigrosAutomation.addToMigros method is not available');
-      return false;
-    }
-    
-    console.log('All modules validated successfully');
-    return true;
   }
 
   detectSite() {
@@ -171,24 +366,12 @@ class ShoppingAutomation {
     console.log('addItemsToCart called with items:', items);
     
     if (!this.isReady) {
-      console.log('Automation not ready yet, waiting...');
-      let waitRetries = 0;
-      const maxWaitRetries = 30;
-      
-      while (!this.isReady && waitRetries < maxWaitRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        waitRetries++;
-        console.log(`Waiting for automation to be ready... ${waitRetries}/${maxWaitRetries}`);
-      }
-      
-      if (!this.isReady) {
-        console.error('Automation failed to become ready after waiting');
-        return { 
-          success: [], 
-          failed: items,
-          error: 'Automation modules failed to initialize. Please refresh the page and try again.'
-        };
-      }
+      console.error('Automation not ready');
+      return { 
+        success: [], 
+        failed: items,
+        error: 'Automation failed to initialize properly'
+      };
     }
     
     console.log(`Starting automation for ${items.length} items on ${this.currentSite}`);
