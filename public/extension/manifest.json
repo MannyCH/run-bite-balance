@@ -43,7 +43,14 @@
   "web_accessible_resources": [
     {
       "resources": ["injected.js"],
-      "matches": ["https://www.migros.ch/*", "https://www.coop.ch/*"]
+      "matches": [
+        "https://www.migros.ch/*", 
+        "https://www.coop.ch/*",
+        "https://*.lovable.app/*",
+        "https://preview--run-bite-balance.lovable.app/*",
+        "http://localhost:*/*",
+        "https://localhost:*/*"
+      ]
     }
   ]
 }
