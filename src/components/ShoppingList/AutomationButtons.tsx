@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,48 +23,87 @@ declare global {
         sendMessage: (message: any, callback?: (response: any) => void) => void;
       };
     };
+    __runBiteFitExtensionReady?: boolean;
   }
 }
 
 export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingList }) => {
   const [showExtensionAlert, setShowExtensionAlert] = useState(false);
   const [extensionAvailable, setExtensionAvailable] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   const uncompletedItems = shoppingList.filter(item => !item.isBought);
 
-  // Check for extension availability
+  // Enhanced extension detection with retry mechanism
   useEffect(() => {
+    let retryCount = 0;
+    const maxRetries = 10;
+    const retryDelay = 500;
+
     const checkExtension = () => {
-      // Check for our custom extension API
-      const hasExtension = typeof window !== 'undefined' && 
-        (!!window.runBiteFitExtension || !!window.chrome?.runtime);
+      const currentDomain = window.location.href;
+      const hasRunBiteFitExtension = !!window.runBiteFitExtension;
+      const hasChromeRuntime = !!window.chrome?.runtime;
+      const hasReadyFlag = !!window.__runBiteFitExtensionReady;
+      const hasExtension = hasRunBiteFitExtension || hasChromeRuntime || hasReadyFlag;
       
-      console.log('Extension check:', {
-        runBiteFitExtension: !!window.runBiteFitExtension,
-        chromeRuntime: !!window.chrome?.runtime,
-        hasExtension
-      });
+      const debugData = {
+        domain: currentDomain,
+        runBiteFitExtension: hasRunBiteFitExtension,
+        chromeRuntime: hasChromeRuntime,
+        readyFlag: hasReadyFlag,
+        hasExtension,
+        retryCount,
+        timestamp: new Date().toISOString()
+      };
       
-      setExtensionAvailable(hasExtension);
+      console.log('Extension check:', debugData);
+      setDebugInfo(JSON.stringify(debugData, null, 2));
+      
+      if (hasExtension) {
+        setExtensionAvailable(true);
+        console.log('Extension detected successfully!');
+        return true;
+      }
+      
+      return false;
     };
 
-    // Check immediately
-    checkExtension();
+    const retryCheck = () => {
+      if (checkExtension()) {
+        return; // Extension found, stop retrying
+      }
+      
+      retryCount++;
+      if (retryCount < maxRetries) {
+        console.log(`Extension not detected, retrying (${retryCount}/${maxRetries})...`);
+        setTimeout(retryCheck, retryDelay * Math.pow(1.5, retryCount)); // Exponential backoff
+      } else {
+        console.log('Extension detection failed after maximum retries');
+        setExtensionAvailable(false);
+      }
+    };
 
-    // Also check after a short delay to allow the content script to load
-    const timer = setTimeout(checkExtension, 2000);
+    // Start initial check
+    retryCheck();
 
-    // Listen for extension ready event
+    // Listen for extension ready events
     const handleExtensionReady = () => {
       console.log('Extension ready event received');
-      checkExtension();
+      if (checkExtension()) {
+        setExtensionAvailable(true);
+      }
     };
 
-    window.addEventListener('runBiteFitExtensionReady', handleExtensionReady);
+    const events = ['runBiteFitExtensionReady', 'runBiteFitExtensionLoaded'];
+    events.forEach(event => {
+      window.addEventListener(event, handleExtensionReady);
+    });
 
     return () => {
-      clearTimeout(timer);
-      window.removeEventListener('runBiteFitExtensionReady', handleExtensionReady);
+      events.forEach(event => {
+        window.removeEventListener(event, handleExtensionReady);
+      });
     };
   }, []);
 
@@ -126,12 +164,29 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
 
   return (
     <div className="space-y-4">
-      {/* Debug info for development */}
+      {/* Enhanced debug info for development */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
-          Extension Status: {extensionAvailable ? 'Available' : 'Not Available'} | 
-          runBiteFitExtension: {window.runBiteFitExtension ? 'Yes' : 'No'} | 
-          chrome.runtime: {window.chrome?.runtime ? 'Yes' : 'No'}
+        <div className="text-xs text-gray-500 p-3 bg-gray-50 rounded border">
+          <div className="font-semibold mb-2">Extension Debug Info:</div>
+          <div className="whitespace-pre-wrap font-mono text-xs">
+            Extension Available: {extensionAvailable ? '✅ YES' : '❌ NO'}
+            <br />
+            Current Domain: {window.location.href}
+            <br />
+            runBiteFitExtension: {window.runBiteFitExtension ? '✅' : '❌'}
+            <br />
+            chrome.runtime: {window.chrome?.runtime ? '✅' : '❌'}
+            <br />
+            Ready Flag: {window.__runBiteFitExtensionReady ? '✅' : '❌'}
+          </div>
+          {debugInfo && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs font-semibold">Full Debug Data</summary>
+              <pre className="text-xs mt-1 p-2 bg-white rounded border overflow-auto max-h-32">
+                {debugInfo}
+              </pre>
+            </details>
+          )}
         </div>
       )}
 
