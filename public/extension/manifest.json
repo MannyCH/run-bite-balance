@@ -13,7 +13,7 @@
     "https://www.migros.ch/*",
     "https://www.coop.ch/*",
     "https://*.lovable.app/*",
-    "https://preview--*.lovable.app/*",
+    "https://preview--run-bite-balance.lovable.app/*",
     "http://localhost:*/*",
     "https://localhost:*/*"
   ],
@@ -28,7 +28,7 @@
     {
       "matches": [
         "https://*.lovable.app/*", 
-        "https://preview--*.lovable.app/*",
+        "https://preview--run-bite-balance.lovable.app/*",
         "http://localhost:*/*",
         "https://localhost:*/*"
       ],
