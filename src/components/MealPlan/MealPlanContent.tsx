@@ -12,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import { useRunCalories } from "@/hooks/useRunCalories";
+import { useProfile } from "@/context/ProfileContext";
 
 interface MealPlanContentProps {
   selectedDate: Date;
@@ -25,6 +26,7 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
   recipes
 }) => {
   const { generateShoppingList } = useShoppingList();
+  const { profile } = useProfile();
   const navigate = useNavigate();
   const { runs } = useApp();
 
@@ -73,10 +75,15 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
       return;
     }
     
+    // Get batch cooking people setting from profile, default to 1
+    const batchCookingPeople = profile?.batch_cooking_people || 1;
+    
     console.log("Generating shopping list from recipes:", recipesInPlan);
     console.log("Using meal plan items:", mealPlanItems);
-    await generateShoppingList(recipesInPlan, mealPlanItems);
-    toast.success("Shopping list generated successfully");
+    console.log("Batch cooking for:", batchCookingPeople, "people");
+    
+    await generateShoppingList(recipesInPlan, mealPlanItems, batchCookingPeople);
+    toast.success(`Shopping list generated for ${batchCookingPeople} people`);
     navigate("/shopping-list");
   };
 
@@ -159,6 +166,11 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
           >
             <ShoppingCart className="h-4 w-4 mr-2" />
             Generate Shopping List
+            {profile?.batch_cooking_people && profile.batch_cooking_people > 1 && (
+              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                {profile.batch_cooking_people} people
+              </span>
+            )}
           </Button>
         </CardFooter>
       )}

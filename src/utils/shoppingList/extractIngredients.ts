@@ -2,13 +2,16 @@
 import { Recipe } from "@/context/types";
 import { MealPlanItem } from "@/types/profile";
 import { multiplyIngredientQuantity } from "./quantityMultiplier";
+import { parseRecipeServings } from "./servingsParser";
 
 /**
  * Extract raw ingredients from recipes with frequency multipliers based on meal plan occurrences
+ * and user's batch cooking people setting
  */
 export function extractRawIngredientsWithFrequency(
   recipes: Recipe[], 
-  mealPlanItems: MealPlanItem[]
+  mealPlanItems: MealPlanItem[],
+  batchCookingPeople: number = 1
 ): string[] {
   const allIngredients: string[] = [];
   
@@ -21,18 +24,21 @@ export function extractRawIngredientsWithFrequency(
     }
   });
   
-  // Extract ingredients and multiply by frequency
+  // Extract ingredients and multiply by frequency and people scaling
   recipes.forEach(recipe => {
     if (!recipe.ingredients || !recipe.id) return;
     
     const frequency = recipeFrequency.get(recipe.id) || 1;
+    const recipeServings = parseRecipeServings(recipe);
+    
+    // Calculate scaling factor: (people_to_cook_for / recipe_servings) * frequency
+    const scalingFactor = (batchCookingPeople / recipeServings) * frequency;
     
     recipe.ingredients.forEach(ingredient => {
       if (ingredient && ingredient.trim()) {
-        // If frequency > 1, we need to multiply the quantity in the ingredient string
-        if (frequency > 1) {
-          const multipliedIngredient = multiplyIngredientQuantity(ingredient.trim(), frequency);
-          allIngredients.push(multipliedIngredient);
+        if (scalingFactor !== 1) {
+          const scaledIngredient = multiplyIngredientQuantity(ingredient.trim(), scalingFactor);
+          allIngredients.push(scaledIngredient);
         } else {
           allIngredients.push(ingredient.trim());
         }

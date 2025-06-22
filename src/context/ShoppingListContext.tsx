@@ -8,7 +8,7 @@ import { summarizeWithAI } from "@/utils/shoppingList/summarizeIngredients";
 interface ShoppingListContextType {
   shoppingList: ShoppingList;
   setShoppingList: React.Dispatch<React.SetStateAction<ShoppingList>>;
-  generateShoppingList: (recipes: Recipe[], mealPlanItems: MealPlanItem[]) => void;
+  generateShoppingList: (recipes: Recipe[], mealPlanItems: MealPlanItem[], batchCookingPeople?: number) => void;
   toggleItemBought: (id: string) => void;
   clearShoppingList: () => void;
 }
@@ -45,9 +45,9 @@ export const ShoppingListProvider: React.FC<{ children: React.ReactNode }> = ({ 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(shoppingList));
   }, [shoppingList]);
 
-  const generateShoppingList = async (recipes: Recipe[], mealPlanItems: MealPlanItem[]) => {
-    console.log("Generating shopping list from recipes:", recipes.length, "with meal plan items:", mealPlanItems.length);
-    const newList = await summarizeWithAI(recipes, mealPlanItems);
+  const generateShoppingList = async (recipes: Recipe[], mealPlanItems: MealPlanItem[], batchCookingPeople: number = 1) => {
+    console.log("Generating shopping list from recipes:", recipes.length, "with meal plan items:", mealPlanItems.length, "for", batchCookingPeople, "people");
+    const newList = await summarizeWithAI(recipes, mealPlanItems, batchCookingPeople);
     console.log("Generated shopping list:", newList);
     setShoppingList(newList);
   };

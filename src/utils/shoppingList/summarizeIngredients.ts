@@ -1,47 +1,64 @@
 
-import { ShoppingListItem } from "@/types/shoppingList";
-import { supabase } from "@/integrations/supabase/client";
-import { extractRawIngredientsWithFrequency, convertCategorizedToShoppingList } from "./extractIngredients";
+import { supabase } from "@/lib/supabase";
 import { Recipe } from "@/context/types";
 import { MealPlanItem } from "@/types/profile";
-import { groupBasicIngredients, convertRecipesToItems } from "./basicIngredientGrouper";
+import { extractRawIngredientsWithFrequency } from "./extractIngredients";
+import { ShoppingList } from "@/types/shoppingList";
 
 /**
- * Use OpenAI via Supabase Edge Function to create a categorized shopping list
+ * Summarize ingredients using AI and return a categorized shopping list
  */
-export async function summarizeWithAI(recipes: Recipe[], mealPlanItems: MealPlanItem[]): Promise<ShoppingListItem[]> {
-  if (recipes.length === 0) return [];
-  
+export async function summarizeWithAI(
+  recipes: Recipe[], 
+  mealPlanItems: MealPlanItem[],
+  batchCookingPeople: number = 1
+): Promise<ShoppingList> {
   try {
-    // Extract raw ingredients from all recipes with frequency multipliers
-    const rawIngredients = extractRawIngredientsWithFrequency(recipes, mealPlanItems);
+    // Extract ingredients with proper scaling for batch cooking people
+    const ingredients = extractRawIngredientsWithFrequency(recipes, mealPlanItems, batchCookingPeople);
     
-    if (rawIngredients.length === 0) {
-      console.log("No ingredients found in recipes");
+    if (ingredients.length === 0) {
+      console.log('No ingredients found to summarize');
       return [];
     }
-    
-    console.log("Sending raw ingredients to AI:", rawIngredients);
+
+    console.log(`Summarizing ${ingredients.length} ingredients for ${batchCookingPeople} people with AI...`);
     
     const { data, error } = await supabase.functions.invoke('summarize-shopping-list', {
-      body: { ingredients: rawIngredients }
+      body: { ingredients }
     });
-    
+
     if (error) {
-      console.error("Error calling summarize-shopping-list function:", error);
-      // Fall back to simple aggregation if the edge function fails
-      return groupBasicIngredients(convertRecipesToItems(recipes, mealPlanItems));
+      console.error('Error calling summarize-shopping-list function:', error);
+      throw error;
     }
-    
-    if (data && data.categories) {
-      console.log("Received categorized data from AI:", data);
-      return convertCategorizedToShoppingList(data);
+
+    if (!data || !data.categories) {
+      console.error('Invalid response from summarize-shopping-list function:', data);
+      return [];
     }
+
+    // Convert categorized data to flat shopping list
+    const shoppingList: ShoppingList = [];
     
-    throw new Error("Invalid response from summarize-shopping-list function");
-  } catch (err) {
-    console.error("Error summarizing shopping list with AI:", err);
-    // Fall back to simple aggregation
-    return groupBasicIngredients(convertRecipesToItems(recipes, mealPlanItems));
+    Object.entries(data.categories).forEach(([category, items]) => {
+      if (Array.isArray(items)) {
+        items.forEach((item: any) => {
+          shoppingList.push({
+            id: item.id || Math.random().toString(36).substr(2, 9),
+            name: item.name,
+            quantity: item.quantity || '',
+            isBought: item.isBought || false,
+            category: category
+          });
+        });
+      }
+    });
+
+    console.log(`Generated shopping list with ${shoppingList.length} items`);
+    return shoppingList;
+  } catch (error) {
+    console.error('Error in summarizeWithAI:', error);
+    return [];
   }
 }
