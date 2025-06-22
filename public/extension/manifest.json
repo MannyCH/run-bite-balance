@@ -23,7 +23,8 @@
   "content_scripts": [
     {
       "matches": ["https://www.migros.ch/*", "https://www.coop.ch/*"],
-      "js": ["content.js"]
+      "js": ["content.js"],
+      "type": "module"
     },
     {
       "matches": [
@@ -42,7 +43,12 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["injected.js"],
+      "resources": [
+        "injected.js",
+        "modules/QuantityParser.js",
+        "modules/MigrosAutomation.js", 
+        "modules/ShoppingAutomation.js"
+      ],
       "matches": [
         "https://www.migros.ch/*", 
         "https://www.coop.ch/*",
