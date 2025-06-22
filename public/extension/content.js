@@ -58,12 +58,21 @@ class QuantityParser {
       'heads': 1
     };
 
-    this.weightKeywords = [
-      'tomaten', 'kartoffeln', 'zwiebeln', 'karotten', 'rüebli', 'fleisch', 'fisch',
-      'äpfel', 'bananen', 'orangen', 'zitronen', 'trauben', 'beeren', 'salat',
-      'broccoli', 'blumenkohl', 'paprika', 'gurken', 'zucchini', 'auberginen',
-      'hackfleisch', 'rindfleisch', 'schweinefleisch', 'poulet', 'chicken',
-      'lachs', 'forelle', 'kabeljau', 'thunfisch', 'garnelen', 'crevetten'
+    // Items that are typically sold fresh/loose (by weight)
+    this.freshItems = [
+      'tomaten', 'kartoffeln', 'zwiebeln', 'karotten', 'rüebli', 'äpfel', 'bananen', 
+      'orangen', 'zitronen', 'trauben', 'beeren', 'salat', 'broccoli', 'blumenkohl', 
+      'paprika', 'gurken', 'zucchini', 'auberginen', 'fleisch', 'fisch', 'hackfleisch', 
+      'rindfleisch', 'schweinefleisch', 'poulet', 'chicken', 'lachs', 'forelle', 
+      'kabeljau', 'thunfisch', 'garnelen', 'crevetten'
+    ];
+
+    // Items that are typically sold in packages
+    this.packagedItems = [
+      'sahne', 'cream', 'sauerrahm', 'sour cream', 'joghurt', 'yogurt', 'milch', 'milk',
+      'butter', 'käse', 'cheese', 'quark', 'frischkäse', 'mozzarella', 'parmesan',
+      'reis', 'rice', 'pasta', 'nudeln', 'spaghetti', 'mehl', 'flour', 'zucker', 'sugar',
+      'öl', 'oil', 'essig', 'vinegar', 'honig', 'honey', 'marmelade', 'jam'
     ];
 
     console.log('QuantityParser initialized');
@@ -108,12 +117,159 @@ class QuantityParser {
     return { amount: 1, unit: 'piece', originalText: quantityStr };
   }
 
+  // Extract package size from product description
+  extractPackageSize(productDescription) {
+    const desc = productDescription.toLowerCase();
+    console.log('Extracting package size from:', desc);
+    
+    // Look for weight patterns: "500g", "2.5kg", "1,5kg", etc.
+    const weightPatterns = [
+      /(\d+(?:[.,]\d+)?)\s*(kg|kilo|kilogram)/g,
+      /(\d+(?:[.,]\d+)?)\s*(g|gr|gram|gramm)/g,
+      /(\d+(?:[.,]\d+)?)\s*(ml|l|liter|litre|dl|cl)/g
+    ];
+
+    for (const pattern of weightPatterns) {
+      const matches = [...desc.matchAll(pattern)];
+      if (matches.length > 0) {
+        // Use the first match found
+        const match = matches[0];
+        const amount = parseFloat(match[1].replace(',', '.'));
+        const unit = match[2];
+        
+        // Convert to grams or ml for consistency
+        let normalizedAmount = amount;
+        if (unit.includes('kg') || unit.includes('kilo')) {
+          normalizedAmount = amount * 1000; // Convert kg to g
+        }
+        if (unit.includes('l') && !unit.includes('ml')) {
+          normalizedAmount = amount * 1000; // Convert l to ml
+        }
+        if (unit.includes('dl')) {
+          normalizedAmount = amount * 100; // Convert dl to ml
+        }
+        if (unit.includes('cl')) {
+          normalizedAmount = amount * 10; // Convert cl to ml
+        }
+        
+        const result = {
+          amount: normalizedAmount,
+          unit: unit.includes('kg') || unit.includes('g') || unit.includes('gram') ? 'g' : 'ml',
+          originalText: match[0]
+        };
+        
+        console.log('Extracted package size:', result);
+        return result;
+      }
+    }
+    
+    console.log('No package size found in description');
+    return null;
+  }
+
+  // Convert required quantity to base units (grams or ml)
+  convertToBaseUnits(quantity, unit) {
+    const unitMappings = {
+      'g': 1, 'gr': 1, 'gram': 1, 'gramm': 1,
+      'kg': 1000, 'kilo': 1000, 'kilogram': 1000,
+      'ml': 1, 'milliliter': 1,
+      'l': 1000, 'liter': 1000, 'litre': 1000,
+      'dl': 100, 'deciliter': 100,
+      'cl': 10, 'centiliter': 10
+    };
+    
+    const multiplier = unitMappings[unit.toLowerCase()] || 1;
+    return quantity * multiplier;
+  }
+
+  // Determine if item should be treated as fresh/loose or packaged
+  isPackagedItem(itemName, productDescription) {
+    const itemLower = itemName.toLowerCase();
+    const descLower = productDescription.toLowerCase();
+    
+    // Check if it's in the packaged items list
+    const isPackaged = this.packagedItems.some(keyword => 
+      itemLower.includes(keyword) || descLower.includes(keyword)
+    );
+    
+    // Check if it's in the fresh items list
+    const isFresh = this.freshItems.some(keyword => 
+      itemLower.includes(keyword) || descLower.includes(keyword)
+    );
+    
+    // If both or neither match, try to detect from description
+    if (!isPackaged && !isFresh) {
+      // If description contains package indicators, treat as packaged
+      const packageIndicators = ['pack', 'dose', 'flasche', 'bottle', 'becher', 'cup', 'glas', 'jar'];
+      const hasPackageIndicator = packageIndicators.some(indicator => 
+        descLower.includes(indicator)
+      );
+      
+      return hasPackageIndicator;
+    }
+    
+    console.log('Item classification:', itemName, '-> packaged:', isPackaged, 'fresh:', isFresh);
+    return isPackaged;
+  }
+
+  // Calculate the correct quantity to add to cart
+  calculateRequiredQuantity(itemName, requiredQuantity, productDescription) {
+    const parsed = this.parseQuantity(requiredQuantity);
+    console.log('=== Quantity Calculation Debug ===');
+    console.log('Item:', itemName);
+    console.log('Required quantity:', requiredQuantity);
+    console.log('Parsed required:', parsed);
+    console.log('Product description:', productDescription);
+    
+    // Check if this is a packaged item
+    const isPackaged = this.isPackagedItem(itemName, productDescription);
+    console.log('Is packaged item:', isPackaged);
+    
+    if (isPackaged) {
+      // Extract package size from product description
+      const packageSize = this.extractPackageSize(productDescription);
+      console.log('Package size:', packageSize);
+      
+      if (packageSize && (parsed.unit === 'g' || parsed.unit === 'kg' || parsed.unit === 'ml' || parsed.unit === 'l')) {
+        // Convert required amount to same units as package
+        const requiredInBaseUnits = this.convertToBaseUnits(parsed.amount, parsed.unit);
+        console.log('Required in base units:', requiredInBaseUnits, packageSize.unit);
+        
+        // Only calculate if units match (both weight or both volume)
+        const unitsMatch = (
+          (packageSize.unit === 'g' && (parsed.unit.includes('g') || parsed.unit.includes('kg'))) ||
+          (packageSize.unit === 'ml' && (parsed.unit.includes('ml') || parsed.unit.includes('l')))
+        );
+        
+        if (unitsMatch) {
+          const packagesNeeded = Math.ceil(requiredInBaseUnits / packageSize.amount);
+          console.log('Calculation: ceil(', requiredInBaseUnits, '/', packageSize.amount, ') =', packagesNeeded);
+          console.log('Final quantity:', packagesNeeded);
+          return packagesNeeded;
+        }
+      }
+    }
+    
+    // For fresh items or when package calculation fails, use piece-based estimation
+    console.log('Using piece-based calculation');
+    const weightEstimate = this.estimateWeight(itemName, requiredQuantity);
+    if (weightEstimate) {
+      console.log('Weight estimate result:', weightEstimate.pieces);
+      return Math.max(1, weightEstimate.pieces);
+    }
+    
+    // Final fallback - use parsed amount or 1
+    const fallbackQuantity = Math.max(1, Math.round(parsed.amount));
+    console.log('Using fallback quantity:', fallbackQuantity);
+    return fallbackQuantity;
+  }
+
   shouldUseWeightCalculation(itemName, productDescription) {
     const itemLower = itemName.toLowerCase();
     const descLower = productDescription.toLowerCase();
     
     // Check if item name contains weight-related keywords
-    const hasWeightKeyword = this.weightKeywords.some(keyword => 
+    const hasWeightKeyword = this.freshItems.some(keyword => 
       itemLower.includes(keyword) || descLower.includes(keyword)
     );
 
@@ -211,36 +367,22 @@ class MigrosAutomation {
         return false;
       }
 
-      // Get product description for weight detection
+      // Get product description for quantity calculation
       const productDescription = firstProduct.textContent || '';
       console.log('Product description:', productDescription);
 
       let targetQuantity = 1; // Default fallback
 
-      // Use quantity parsing if QuantityParser is available
+      // Use improved quantity calculation
       if (this.quantityParser) {
         try {
-          // Parse the quantity and determine if we need weight calculation
-          const shouldUseWeight = this.quantityParser.shouldUseWeightCalculation(item.name, productDescription);
-          const parsedQuantity = this.quantityParser.parseQuantity(item.quantity);
-          
-          console.log('Parsed quantity:', parsedQuantity);
-          console.log('Should use weight calculation:', shouldUseWeight);
-
-          if (shouldUseWeight) {
-            const weightEstimate = this.quantityParser.estimateWeight(item.name, item.quantity);
-            if (weightEstimate) {
-              console.log('Weight estimate:', weightEstimate);
-              // For weight-based items, try to get close to the estimated weight
-              // Migros usually sells in ranges, so we'll use pieces as approximation
-              targetQuantity = Math.max(1, Math.round(weightEstimate.pieces));
-            }
-          } else {
-            // For non-weight items, use the parsed amount directly
-            targetQuantity = Math.max(1, Math.round(parsedQuantity.amount));
-          }
+          targetQuantity = this.quantityParser.calculateRequiredQuantity(
+            item.name, 
+            item.quantity, 
+            productDescription
+          );
         } catch (quantityError) {
-          console.warn('Error parsing quantity, using default:', quantityError);
+          console.warn('Error calculating quantity, using default:', quantityError);
           targetQuantity = 1;
         }
       } else {
