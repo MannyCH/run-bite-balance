@@ -121,7 +121,19 @@ class QuantityParser {
     console.log('=== Extracting Migros Package Size ===');
     console.log('Product element:', productElement);
     
-    // Method 1: Look for mo-product-quantity element (most specific)
+    // Method 1: Look for weight-priceUnit class (most common in search results)
+    const priceUnitElements = productElement.querySelectorAll('.weight-priceUnit, [class*="weight"], [class*="price"]');
+    for (const element of priceUnitElements) {
+      const text = element.textContent.trim();
+      console.log('Found weight-priceUnit element:', text);
+      const parsed = this.parsePackageSizeText(text);
+      if (parsed) {
+        console.log('Successfully extracted from weight-priceUnit:', parsed);
+        return parsed;
+      }
+    }
+    
+    // Method 2: Look for mo-product-quantity element
     const moQuantityElement = productElement.querySelector('mo-product-quantity');
     if (moQuantityElement) {
       console.log('Found mo-product-quantity element:', moQuantityElement);
@@ -156,15 +168,6 @@ class QuantityParser {
       }
     }
     
-    // Method 2: Look for weight-priceUnit class (fallback)
-    const priceUnitElement = productElement.querySelector('.weight-priceUnit');
-    if (priceUnitElement) {
-      const sizeText = priceUnitElement.textContent.trim();
-      console.log('Found weight-priceUnit:', sizeText);
-      const parsed = this.parsePackageSizeText(sizeText);
-      if (parsed) return parsed;
-    }
-    
     // Method 3: Look for data-testid attributes (broader search)
     const testIdElements = productElement.querySelectorAll('[data-testid*="product-size"], [data-testid*="weight"], [data-testid*="quantity"]');
     for (const element of testIdElements) {
@@ -184,19 +187,21 @@ class QuantityParser {
     return null;
   }
 
-  // Parse package size from text content
+  // Enhanced parse package size from text content
   parsePackageSizeText(text) {
     if (!text) return null;
     
     const cleanText = text.toLowerCase().trim();
     console.log('Parsing package size from text:', cleanText);
     
-    // Enhanced patterns for Migros format
+    // Enhanced patterns for Migros format - more specific patterns first
     const patterns = [
-      // "2.5 kg", "500 g", "1.2 l", etc.
-      /(\d+(?:[.,]\d+)?)\s*(kg|kilo|kilogram|g|gr|gram|gramm|l|liter|litre|ml|milliliter|dl|cl)\b/g,
-      // "2,5kg", "500g", "1,2l", etc. (no space)
-      /(\d+(?:[.,]\d+)?)(kg|kilo|kilogram|g|gr|gram|gramm|l|liter|litre|ml|milliliter|dl|cl)\b/g
+      // "1 kg", "2.5 kg", "500 g", "1.2 l", etc. (with space)
+      /(\d+(?:[.,]\d+)?)\s+(kg|kilo|kilogram|g|gr|gram|gramm|l|liter|litre|ml|milliliter|dl|cl)\b/g,
+      // "1kg", "2.5kg", "500g", "1.2l", etc. (without space)
+      /(\d+(?:[.,]\d+)?)(kg|kilo|kilogram|g|gr|gram|gramm|l|liter|litre|ml|milliliter|dl|cl)\b/g,
+      // Handle cases with extra characters around
+      /.*?(\d+(?:[.,]\d+)?)\s*(kg|kilo|kilogram|g|gr|gram|gramm|l|liter|litre|ml|milliliter|dl|cl)\b.*?/g
     ];
 
     for (const pattern of patterns) {
@@ -206,6 +211,8 @@ class QuantityParser {
         const match = matches[0];
         const amount = parseFloat(match[1].replace(',', '.'));
         const unit = match[2];
+        
+        console.log('Raw extraction:', { amount, unit, fromText: match[0] });
         
         // Convert to base units (grams or ml)
         let normalizedAmount = amount;
@@ -239,7 +246,7 @@ class QuantityParser {
           originalUnit: unit
         };
         
-        console.log('Extracted package size:', result);
+        console.log('Extracted and normalized package size:', result);
         return result;
       }
     }
@@ -264,37 +271,9 @@ class QuantityParser {
     };
     
     const multiplier = unitMappings[unit.toLowerCase()] || 1;
-    return quantity * multiplier;
-  }
-
-  // Determine if item should be treated as fresh/loose or packaged
-  isPackagedItem(itemName, productDescription) {
-    const itemLower = itemName.toLowerCase();
-    const descLower = productDescription.toLowerCase();
-    
-    // Check if it's in the packaged items list
-    const isPackaged = this.packagedItems.some(keyword => 
-      itemLower.includes(keyword) || descLower.includes(keyword)
-    );
-    
-    // Check if it's in the fresh items list
-    const isFresh = this.freshItems.some(keyword => 
-      itemLower.includes(keyword) || descLower.includes(keyword)
-    );
-    
-    // If both or neither match, try to detect from description
-    if (!isPackaged && !isFresh) {
-      // If description contains package indicators, treat as packaged
-      const packageIndicators = ['pack', 'dose', 'flasche', 'bottle', 'becher', 'cup', 'glas', 'jar'];
-      const hasPackageIndicator = packageIndicators.some(indicator => 
-        descLower.includes(indicator)
-      );
-      
-      return hasPackageIndicator;
-    }
-    
-    console.log('Item classification:', itemName, '-> packaged:', isPackaged, 'fresh:', isFresh);
-    return isPackaged;
+    const result = quantity * multiplier;
+    console.log(`Converting ${quantity} ${unit} to base units: ${result}`);
+    return result;
   }
 
   // Enhanced calculation method that uses DOM element
@@ -306,14 +285,16 @@ class QuantityParser {
     console.log('Parsed required:', parsed);
     console.log('Product element:', productElement);
     
-    // Try to extract package size from the actual DOM element
+    // Always try to extract package size from the actual DOM element first
     const packageSize = this.extractMigrosPackageSize(productElement);
     console.log('Extracted package size:', packageSize);
     
+    // Check if we have both required quantity and package size with compatible units
     if (packageSize && (parsed.unit === 'g' || parsed.unit === 'kg' || parsed.unit === 'ml' || parsed.unit === 'l')) {
       // Convert required amount to same base units as package
       const requiredInBaseUnits = this.convertToBaseUnits(parsed.amount, parsed.unit);
-      console.log('Required in base units:', requiredInBaseUnits, packageSize.unit);
+      console.log(`Required: ${requiredInBaseUnits} ${packageSize.unit}`);
+      console.log(`Package: ${packageSize.amount} ${packageSize.unit}`);
       
       // Check if units are compatible (both weight or both volume)
       const unitsMatch = (
@@ -321,12 +302,16 @@ class QuantityParser {
         (packageSize.unit === 'ml' && (parsed.unit.includes('ml') || parsed.unit.includes('l')))
       );
       
-      if (unitsMatch) {
+      if (unitsMatch && packageSize.amount > 0) {
         const packagesNeeded = Math.ceil(requiredInBaseUnits / packageSize.amount);
-        console.log('Calculation: ceil(', requiredInBaseUnits, '/', packageSize.amount, ') =', packagesNeeded);
-        console.log('Final quantity:', packagesNeeded);
+        console.log(`CALCULATION: ceil(${requiredInBaseUnits} ÷ ${packageSize.amount}) = ${packagesNeeded} packages`);
+        console.log(`Final quantity to add to cart: ${packagesNeeded}`);
         return packagesNeeded;
+      } else {
+        console.log('Units do not match or invalid package size');
       }
+    } else {
+      console.log('No compatible package size found or invalid required quantity format');
     }
     
     // Fallback to legacy method
@@ -337,7 +322,7 @@ class QuantityParser {
   // Calculate the correct quantity to add to cart (legacy method)
   calculateRequiredQuantity(itemName, requiredQuantity, productDescription) {
     const parsed = this.parseQuantity(requiredQuantity);
-    console.log('=== Quantity Calculation Debug ===');
+    console.log('=== Legacy Quantity Calculation Debug ===');
     console.log('Item:', itemName);
     console.log('Required quantity:', requiredQuantity);
     console.log('Parsed required:', parsed);
@@ -438,6 +423,36 @@ class QuantityParser {
     }
 
     return null;
+  }
+
+  // Determine if item should be treated as fresh/loose or packaged
+  isPackagedItem(itemName, productDescription) {
+    const itemLower = itemName.toLowerCase();
+    const descLower = productDescription.toLowerCase();
+    
+    // Check if it's in the packaged items list
+    const isPackaged = this.packagedItems.some(keyword => 
+      itemLower.includes(keyword) || descLower.includes(keyword)
+    );
+    
+    // Check if it's in the fresh items list
+    const isFresh = this.freshItems.some(keyword => 
+      itemLower.includes(keyword) || descLower.includes(keyword)
+    );
+    
+    // If both or neither match, try to detect from description
+    if (!isPackaged && !isFresh) {
+      // If description contains package indicators, treat as packaged
+      const packageIndicators = ['pack', 'dose', 'flasche', 'bottle', 'becher', 'cup', 'glas', 'jar'];
+      const hasPackageIndicator = packageIndicators.some(indicator => 
+        descLower.includes(indicator)
+      );
+      
+      return hasPackageIndicator;
+    }
+    
+    console.log('Item classification:', itemName, '-> packaged:', isPackaged, 'fresh:', isFresh);
+    return isPackaged;
   }
 }
 
