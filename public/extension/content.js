@@ -1,3 +1,6 @@
+let isAutomationRunning = false;
+
+
 (function () {
   if (window.__runBiteFitContentScriptInjected) {
     console.log('RunBiteFit content.js already injected. Skipping...');
@@ -288,17 +291,12 @@ async addToMigros(item) {
   const automation = new ShoppingAutomation();
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-if (request.action === 'startAutomation') {
-  console.log('🧾 Full items list:', request.items);
-
-  // ⏱️ Add this to wait before anything starts
-  await new Promise(resolve => setTimeout(resolve, 3000));
-
-  automation.addItemsToCart(request.items)
-    .then(results => sendResponse(results))
-    .catch(error => sendResponse({ error: error.message }));
-  return true;
-}
+    if (request.action === 'startAutomation') {
+      automation.addItemsToCart(request.items)
+        .then(results => sendResponse(results))
+        .catch(error => sendResponse({ error: error.message }));
+      return true;
+    }
   });
 
   console.log('Content script setup complete');
