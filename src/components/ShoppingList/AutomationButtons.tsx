@@ -12,6 +12,17 @@ interface AutomationButtonsProps {
   shoppingList: ShoppingList;
 }
 
+// Type declaration for chrome extension API
+declare global {
+  interface Window {
+    chrome?: {
+      runtime?: {
+        sendMessage: (message: any, callback?: (response: any) => void) => void;
+      };
+    };
+  }
+}
+
 export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingList }) => {
   const [showExtensionAlert, setShowExtensionAlert] = useState(false);
 
@@ -19,9 +30,9 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
 
   const handleAutomatedShopping = (site: 'migros' | 'coop') => {
     // Check if browser extension is available
-    if (typeof chrome !== 'undefined' && chrome.runtime) {
+    if (typeof window !== 'undefined' && window.chrome?.runtime) {
       // Extension is available, trigger automation
-      chrome.runtime.sendMessage({
+      window.chrome.runtime.sendMessage({
         action: 'startAutomation',
         site: site,
         items: formatShoppingListForExport(shoppingList)
