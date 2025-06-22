@@ -2,6 +2,15 @@
 // Content script for Migros and Coop automation
 console.log('Content script loading on:', window.location.href);
 
+// Load the quantity parser and automation modules
+const script1 = document.createElement('script');
+script1.src = chrome.runtime.getURL('quantity-parser.js');
+document.head.appendChild(script1);
+
+const script2 = document.createElement('script');
+script2.src = chrome.runtime.getURL('migros-automation.js');
+document.head.appendChild(script2);
+
 class ShoppingAutomation {
   constructor() {
     this.currentSite = this.detectSite();
@@ -23,6 +32,22 @@ class ShoppingAutomation {
           window.addEventListener('load', resolve);
         }
       });
+    }
+    
+    // Wait for our automation modules to load
+    let retries = 0;
+    const maxRetries = 10;
+    
+    while (retries < maxRetries && (!window.QuantityParser || !window.MigrosAutomation)) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      retries++;
+    }
+    
+    if (window.QuantityParser && window.MigrosAutomation) {
+      this.migrosAutomation = new window.MigrosAutomation();
+      console.log('Automation modules loaded successfully');
+    } else {
+      console.error('Failed to load automation modules');
     }
     
     // Give additional time for any dynamic content to load
@@ -63,22 +88,22 @@ class ShoppingAutomation {
       const item = items[i];
       this.progress = ((i + 1) / this.totalItems) * 100;
       
-      console.log(`Processing item ${i + 1}/${this.totalItems}: ${item.name}`);
+      console.log(`Processing item ${i + 1}/${this.totalItems}: ${item.name} (${item.quantity})`);
       
       chrome.runtime.sendMessage({
         action: 'updateProgress',
         progress: this.progress,
-        message: `Adding ${item.name}...`
+        message: `Adding ${item.quantity} ${item.name}...`
       });
 
       try {
         const success = await this.addSingleItem(item);
         if (success) {
           results.success.push(item);
-          console.log(`Successfully added: ${item.name}`);
+          console.log(`Successfully added: ${item.quantity} ${item.name}`);
         } else {
           results.failed.push(item);
-          console.log(`Failed to add: ${item.name}`);
+          console.log(`Failed to add: ${item.quantity} ${item.name}`);
         }
       } catch (error) {
         console.error('Error adding item:', item.name, error);
@@ -94,95 +119,17 @@ class ShoppingAutomation {
   }
 
   async addSingleItem(item) {
-    if (this.currentSite === 'migros') {
-      return await this.addToMigros(item);
+    if (this.currentSite === 'migros' && this.migrosAutomation) {
+      return await this.migrosAutomation.addToMigros(item);
     } else if (this.currentSite === 'coop') {
       return await this.addToCoop(item);
     }
     return false;
   }
 
-  async addToMigros(item) {
-    try {
-      console.log('Adding to Migros:', item.name);
-      
-      // Find the correct search input
-      const searchInput = document.querySelector('input#autocompleteSearchInput') || 
-                         document.querySelector('input[data-cy="autocompleteSearchInput"]');
-      
-      if (!searchInput) {
-        console.error('Could not find Migros search input');
-        return false;
-      }
-
-      console.log('Found Migros search input:', searchInput);
-
-      // Clear and set search value
-      searchInput.focus();
-      searchInput.value = '';
-      await this.delay(200);
-      
-      // Type the search term
-      searchInput.value = item.name;
-      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      searchInput.dispatchEvent(new Event('change', { bubbles: true }));
-      
-      console.log('Typed search term:', item.name);
-
-      // Wait for the dropdown to appear
-      await this.delay(1500);
-      
-      // Look for the suggestions dropdown
-      const suggestedProducts = document.querySelector('ul#suggestedProducts[data-cy="suggested-products"]');
-      
-      if (!suggestedProducts) {
-        console.error('No search results dropdown found for:', item.name);
-        return false;
-      }
-
-      console.log('Found suggestions dropdown');
-
-      // Get the first product item
-      const firstProduct = suggestedProducts.querySelector('li:first-child article[mo-instant-search-product-item]');
-      
-      if (!firstProduct) {
-        console.error('No products found in dropdown for:', item.name);
-        return false;
-      }
-
-      console.log('Found first product in dropdown');
-
-      // Find the add to cart button in the first product
-      const addToCartButton = firstProduct.querySelector('button.btn-add-to-basket');
-      
-      if (!addToCartButton) {
-        console.error('No add to cart button found in first product');
-        return false;
-      }
-
-      console.log('Found add to cart button, clicking...');
-
-      // Click the add to cart button
-      addToCartButton.click();
-      
-      // Wait for the action to complete
-      await this.delay(1000);
-      
-      // Clear the search to close dropdown for next item
-      searchInput.value = '';
-      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      
-      return true;
-
-    } catch (error) {
-      console.error('Migros automation error:', error);
-      return false;
-    }
-  }
-
   async addToCoop(item) {
     try {
-      console.log('Adding to Coop:', item.name);
+      console.log('Adding to Coop:', item.name, 'quantity:', item.quantity);
       
       // This is a placeholder - we need the actual Coop HTML structure
       // Similar implementation for Coop with flexible selectors

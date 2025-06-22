@@ -42,7 +42,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["injected.js"],
+      "resources": ["injected.js", "quantity-parser.js", "migros-automation.js"],
       "matches": [
         "https://www.migros.ch/*", 
         "https://www.coop.ch/*",
