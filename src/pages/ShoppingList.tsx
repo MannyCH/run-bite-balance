@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/Layout/MainLayout";
 import { useShoppingList } from "@/context/ShoppingListContext";
@@ -10,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ListChecks, Search, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { ShoppingListItem } from "@/types/shoppingList";
+import { AutomationButtons } from "@/components/ShoppingList/AutomationButtons";
 
 const ShoppingList: React.FC = () => {
   const { shoppingList, toggleItemBought, clearShoppingList } = useShoppingList();
@@ -55,6 +55,11 @@ const ShoppingList: React.FC = () => {
         <p className="text-gray-600">
           Items from your meal plan recipes, organized by category
         </p>
+      </div>
+
+      {/* Add automation buttons before the main card */}
+      <div className="mb-6">
+        <AutomationButtons shoppingList={shoppingList} />
       </div>
 
       <Card>

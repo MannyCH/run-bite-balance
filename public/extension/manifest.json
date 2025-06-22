@@ -1,0 +1,36 @@
+
+{
+  "manifest_version": 3,
+  "name": "RunBiteFit Shopping Assistant",
+  "version": "1.0.0",
+  "description": "Automatically add shopping list items to Migros and Coop",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://www.migros.ch/*",
+    "https://www.coop.ch/*",
+    "https://*.lovable.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.migros.ch/*", "https://www.coop.ch/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Shopping Assistant"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["https://www.migros.ch/*", "https://www.coop.ch/*"]
+    }
+  ]
+}
