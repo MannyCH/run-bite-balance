@@ -1,4 +1,3 @@
-
 // Content script for Migros and Coop automation
 console.log('Content script loading on:', window.location.href);
 
@@ -117,45 +116,127 @@ class QuantityParser {
     return { amount: 1, unit: 'piece', originalText: quantityStr };
   }
 
-  // Extract package size from product description
-  extractPackageSize(productDescription) {
-    const desc = productDescription.toLowerCase();
-    console.log('Extracting package size from:', desc);
+  // Enhanced method to extract package size from Migros DOM elements
+  extractMigrosPackageSize(productElement) {
+    console.log('=== Extracting Migros Package Size ===');
+    console.log('Product element:', productElement);
     
-    // Look for weight patterns: "500g", "2.5kg", "1,5kg", etc.
-    const weightPatterns = [
-      /(\d+(?:[.,]\d+)?)\s*(kg|kilo|kilogram)/g,
-      /(\d+(?:[.,]\d+)?)\s*(g|gr|gram|gramm)/g,
-      /(\d+(?:[.,]\d+)?)\s*(ml|l|liter|litre|dl|cl)/g
+    // Method 1: Look for mo-product-quantity element (most specific)
+    const moQuantityElement = productElement.querySelector('mo-product-quantity');
+    if (moQuantityElement) {
+      console.log('Found mo-product-quantity element:', moQuantityElement);
+      
+      // Try accessible product size first
+      const accessibleSize = moQuantityElement.querySelector('span[data-testid="accessible-product-size"]');
+      if (accessibleSize) {
+        const sizeText = accessibleSize.textContent.trim();
+        console.log('Found accessible product size:', sizeText);
+        const parsed = this.parsePackageSizeText(sizeText);
+        if (parsed) return parsed;
+      }
+      
+      // Try default product size
+      const defaultSize = moQuantityElement.querySelector('span[data-testid="default-product-size"]');
+      if (defaultSize) {
+        const sizeText = defaultSize.textContent.trim();
+        console.log('Found default product size:', sizeText);
+        const parsed = this.parsePackageSizeText(sizeText);
+        if (parsed) return parsed;
+      }
+      
+      // Try any span with weight/volume info
+      const weightSpans = moQuantityElement.querySelectorAll('span');
+      for (const span of weightSpans) {
+        const text = span.textContent.trim();
+        if (text && /\d+/.test(text)) {
+          console.log('Checking span text:', text);
+          const parsed = this.parsePackageSizeText(text);
+          if (parsed) return parsed;
+        }
+      }
+    }
+    
+    // Method 2: Look for weight-priceUnit class (fallback)
+    const priceUnitElement = productElement.querySelector('.weight-priceUnit');
+    if (priceUnitElement) {
+      const sizeText = priceUnitElement.textContent.trim();
+      console.log('Found weight-priceUnit:', sizeText);
+      const parsed = this.parsePackageSizeText(sizeText);
+      if (parsed) return parsed;
+    }
+    
+    // Method 3: Look for data-testid attributes (broader search)
+    const testIdElements = productElement.querySelectorAll('[data-testid*="product-size"], [data-testid*="weight"], [data-testid*="quantity"]');
+    for (const element of testIdElements) {
+      const text = element.textContent.trim();
+      console.log('Checking testid element:', element.getAttribute('data-testid'), text);
+      const parsed = this.parsePackageSizeText(text);
+      if (parsed) return parsed;
+    }
+    
+    // Method 4: Search in all text content for weight patterns
+    const allText = productElement.textContent || '';
+    console.log('Searching in all product text:', allText.substring(0, 200) + '...');
+    const parsed = this.parsePackageSizeText(allText);
+    if (parsed) return parsed;
+    
+    console.log('No package size found in Migros product element');
+    return null;
+  }
+
+  // Parse package size from text content
+  parsePackageSizeText(text) {
+    if (!text) return null;
+    
+    const cleanText = text.toLowerCase().trim();
+    console.log('Parsing package size from text:', cleanText);
+    
+    // Enhanced patterns for Migros format
+    const patterns = [
+      // "2.5 kg", "500 g", "1.2 l", etc.
+      /(\d+(?:[.,]\d+)?)\s*(kg|kilo|kilogram|g|gr|gram|gramm|l|liter|litre|ml|milliliter|dl|cl)\b/g,
+      // "2,5kg", "500g", "1,2l", etc. (no space)
+      /(\d+(?:[.,]\d+)?)(kg|kilo|kilogram|g|gr|gram|gramm|l|liter|litre|ml|milliliter|dl|cl)\b/g
     ];
 
-    for (const pattern of weightPatterns) {
-      const matches = [...desc.matchAll(pattern)];
+    for (const pattern of patterns) {
+      const matches = [...cleanText.matchAll(pattern)];
       if (matches.length > 0) {
-        // Use the first match found
+        // Use the first meaningful match
         const match = matches[0];
         const amount = parseFloat(match[1].replace(',', '.'));
         const unit = match[2];
         
-        // Convert to grams or ml for consistency
+        // Convert to base units (grams or ml)
         let normalizedAmount = amount;
+        let normalizedUnit = 'g';
+        
         if (unit.includes('kg') || unit.includes('kilo')) {
-          normalizedAmount = amount * 1000; // Convert kg to g
-        }
-        if (unit.includes('l') && !unit.includes('ml')) {
-          normalizedAmount = amount * 1000; // Convert l to ml
-        }
-        if (unit.includes('dl')) {
-          normalizedAmount = amount * 100; // Convert dl to ml
-        }
-        if (unit.includes('cl')) {
-          normalizedAmount = amount * 10; // Convert cl to ml
+          normalizedAmount = amount * 1000;
+          normalizedUnit = 'g';
+        } else if (unit.includes('g') || unit.includes('gram')) {
+          normalizedAmount = amount;
+          normalizedUnit = 'g';
+        } else if (unit.includes('l') && !unit.includes('ml')) {
+          normalizedAmount = amount * 1000;
+          normalizedUnit = 'ml';
+        } else if (unit.includes('dl')) {
+          normalizedAmount = amount * 100;
+          normalizedUnit = 'ml';
+        } else if (unit.includes('cl')) {
+          normalizedAmount = amount * 10;
+          normalizedUnit = 'ml';
+        } else if (unit.includes('ml')) {
+          normalizedAmount = amount;
+          normalizedUnit = 'ml';
         }
         
         const result = {
           amount: normalizedAmount,
-          unit: unit.includes('kg') || unit.includes('g') || unit.includes('gram') ? 'g' : 'ml',
-          originalText: match[0]
+          unit: normalizedUnit,
+          originalText: match[0],
+          originalAmount: amount,
+          originalUnit: unit
         };
         
         console.log('Extracted package size:', result);
@@ -163,8 +244,12 @@ class QuantityParser {
       }
     }
     
-    console.log('No package size found in description');
     return null;
+  }
+
+  // Legacy method for backward compatibility
+  extractPackageSize(productDescription) {
+    return this.parsePackageSizeText(productDescription);
   }
 
   // Convert required quantity to base units (grams or ml)
@@ -212,7 +297,44 @@ class QuantityParser {
     return isPackaged;
   }
 
-  // Calculate the correct quantity to add to cart
+  // Enhanced calculation method that uses DOM element
+  calculateRequiredQuantityFromElement(itemName, requiredQuantity, productElement) {
+    const parsed = this.parseQuantity(requiredQuantity);
+    console.log('=== Enhanced Quantity Calculation Debug ===');
+    console.log('Item:', itemName);
+    console.log('Required quantity:', requiredQuantity);
+    console.log('Parsed required:', parsed);
+    console.log('Product element:', productElement);
+    
+    // Try to extract package size from the actual DOM element
+    const packageSize = this.extractMigrosPackageSize(productElement);
+    console.log('Extracted package size:', packageSize);
+    
+    if (packageSize && (parsed.unit === 'g' || parsed.unit === 'kg' || parsed.unit === 'ml' || parsed.unit === 'l')) {
+      // Convert required amount to same base units as package
+      const requiredInBaseUnits = this.convertToBaseUnits(parsed.amount, parsed.unit);
+      console.log('Required in base units:', requiredInBaseUnits, packageSize.unit);
+      
+      // Check if units are compatible (both weight or both volume)
+      const unitsMatch = (
+        (packageSize.unit === 'g' && (parsed.unit.includes('g') || parsed.unit.includes('kg'))) ||
+        (packageSize.unit === 'ml' && (parsed.unit.includes('ml') || parsed.unit.includes('l')))
+      );
+      
+      if (unitsMatch) {
+        const packagesNeeded = Math.ceil(requiredInBaseUnits / packageSize.amount);
+        console.log('Calculation: ceil(', requiredInBaseUnits, '/', packageSize.amount, ') =', packagesNeeded);
+        console.log('Final quantity:', packagesNeeded);
+        return packagesNeeded;
+      }
+    }
+    
+    // Fallback to legacy method
+    console.log('Using legacy calculation method');
+    return this.calculateRequiredQuantity(itemName, requiredQuantity, productElement.textContent || '');
+  }
+
+  // Calculate the correct quantity to add to cart (legacy method)
   calculateRequiredQuantity(itemName, requiredQuantity, productDescription) {
     const parsed = this.parseQuantity(requiredQuantity);
     console.log('=== Quantity Calculation Debug ===');
@@ -367,19 +489,17 @@ class MigrosAutomation {
         return false;
       }
 
-      // Get product description for quantity calculation
-      const productDescription = firstProduct.textContent || '';
-      console.log('Product description:', productDescription);
+      console.log('Found product element:', firstProduct);
 
       let targetQuantity = 1; // Default fallback
 
-      // Use improved quantity calculation
+      // Use enhanced quantity calculation with DOM element
       if (this.quantityParser) {
         try {
-          targetQuantity = this.quantityParser.calculateRequiredQuantity(
+          targetQuantity = this.quantityParser.calculateRequiredQuantityFromElement(
             item.name, 
             item.quantity, 
-            productDescription
+            firstProduct
           );
         } catch (quantityError) {
           console.warn('Error calculating quantity, using default:', quantityError);
