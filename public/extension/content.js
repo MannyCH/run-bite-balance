@@ -185,20 +185,6 @@ async addToMigros(item) {
 
 async setQuantityAndAddToCart(productElement, targetQuantity) {
   try {
-    const quantityInput = productElement.querySelector('input[type="number"]');
-
-    if (quantityInput) {
-      quantityInput.focus();
-      quantityInput.value = ''; // clear any existing value
-      quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
-
-      quantityInput.value = targetQuantity.toString();
-      quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
-      quantityInput.dispatchEvent(new Event('change', { bubbles: true }));
-
-      await this.delay(500); // give Migros site time to register quantity
-    }
-
     const addToCartButton =
       productElement.querySelector('button.btn-add-to-basket') ||
       productElement.querySelector('button[data-cy*="add-to-cart"]');
@@ -208,8 +194,11 @@ async setQuantityAndAddToCart(productElement, targetQuantity) {
       return false;
     }
 
-    addToCartButton.click();
-    await this.delay(1000); // wait for cart update to process
+    for (let i = 0; i < targetQuantity; i++) {
+      addToCartButton.click();
+      console.log(`[Migros] 🛒 Clicked "Add to cart" (${i + 1}/${targetQuantity})`);
+      await this.delay(1000); // wait for UI to react
+    }
 
     return true;
   } catch (error) {
@@ -217,6 +206,7 @@ async setQuantityAndAddToCart(productElement, targetQuantity) {
     return false;
   }
 }
+
 
 
     delay(ms) {
