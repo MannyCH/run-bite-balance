@@ -86,7 +86,7 @@ class ShoppingAutomation {
       }
 
       // Wait between requests to avoid being blocked
-      await this.delay(1000);
+      await this.delay(2000);
     }
 
     console.log('Automation complete:', results);
@@ -106,86 +106,74 @@ class ShoppingAutomation {
     try {
       console.log('Adding to Migros:', item.name);
       
-      // Search for the item with more flexible selectors
-      const searchSelectors = [
-        'input[data-testid="search-input"]',
-        'input[name="search"]',
-        '.search-input input',
-        'input[placeholder*="Suchen"]',
-        'input[placeholder*="Search"]',
-        '.search-field input'
-      ];
-      
-      let searchInput = null;
-      for (const selector of searchSelectors) {
-        searchInput = document.querySelector(selector);
-        if (searchInput) {
-          console.log('Found search input with selector:', selector);
-          break;
-        }
-      }
+      // Find the correct search input
+      const searchInput = document.querySelector('input#autocompleteSearchInput') || 
+                         document.querySelector('input[data-cy="autocompleteSearchInput"]');
       
       if (!searchInput) {
-        console.error('Could not find search input');
+        console.error('Could not find Migros search input');
         return false;
       }
+
+      console.log('Found Migros search input:', searchInput);
 
       // Clear and set search value
       searchInput.focus();
       searchInput.value = '';
+      await this.delay(200);
+      
+      // Type the search term
       searchInput.value = item.name;
       searchInput.dispatchEvent(new Event('input', { bubbles: true }));
       searchInput.dispatchEvent(new Event('change', { bubbles: true }));
       
-      // Trigger search
-      const searchButtonSelectors = [
-        'button[data-testid="search-button"]',
-        '.search-button',
-        'button[type="submit"]',
-        '[role="search"] button'
-      ];
+      console.log('Typed search term:', item.name);
+
+      // Wait for the dropdown to appear
+      await this.delay(1500);
       
-      let searchTriggered = false;
-      for (const selector of searchButtonSelectors) {
-        const searchButton = document.querySelector(selector);
-        if (searchButton && !searchButton.disabled) {
-          console.log('Clicking search button:', selector);
-          searchButton.click();
-          searchTriggered = true;
-          break;
-        }
-      }
+      // Look for the suggestions dropdown
+      const suggestedProducts = document.querySelector('ul#suggestedProducts[data-cy="suggested-products"]');
       
-      if (!searchTriggered) {
-        console.log('No search button found, using Enter key');
-        searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-        searchInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', bubbles: true }));
+      if (!suggestedProducts) {
+        console.error('No search results dropdown found for:', item.name);
+        return false;
       }
 
-      // Wait for search results
-      await this.delay(3000);
+      console.log('Found suggestions dropdown');
 
-      // Find and click first add to cart button
-      const addToCartSelectors = [
-        'button[data-testid*="add-to-cart"]',
-        'button[aria-label*="Add to cart"]',
-        '.add-to-cart-button',
-        'button:contains("In den Warenkorb")',
-        'button[title*="Warenkorb"]'
-      ];
+      // Get the first product item
+      const firstProduct = suggestedProducts.querySelector('li:first-child article[mo-instant-search-product-item]');
       
-      for (const selector of addToCartSelectors) {
-        const addToCartButton = document.querySelector(selector);
-        if (addToCartButton && !addToCartButton.disabled) {
-          console.log('Clicking add to cart button:', selector);
-          addToCartButton.click();
-          await this.delay(1000);
-          return true;
-        }
+      if (!firstProduct) {
+        console.error('No products found in dropdown for:', item.name);
+        return false;
       }
 
-      console.log('No add to cart button found');
-      return false;
+      console.log('Found first product in dropdown');
+
+      // Find the add to cart button in the first product
+      const addToCartButton = firstProduct.querySelector('button.btn-add-to-basket');
+      
+      if (!addToCartButton) {
+        console.error('No add to cart button found in first product');
+        return false;
+      }
+
+      console.log('Found add to cart button, clicking...');
+
+      // Click the add to cart button
+      addToCartButton.click();
+      
+      // Wait for the action to complete
+      await this.delay(1000);
+      
+      // Clear the search to close dropdown for next item
+      searchInput.value = '';
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      return true;
+
     } catch (error) {
       console.error('Migros automation error:', error);
       return false;
@@ -196,6 +184,7 @@ class ShoppingAutomation {
     try {
       console.log('Adding to Coop:', item.name);
       
+      // This is a placeholder - we need the actual Coop HTML structure
       // Similar implementation for Coop with flexible selectors
       const searchSelectors = [
         'input[placeholder*="Suchen"]',
