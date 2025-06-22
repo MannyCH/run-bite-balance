@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +53,18 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
     // Also check after a short delay to allow the content script to load
     const timer = setTimeout(checkExtension, 2000);
 
-    return () => clearTimeout(timer);
+    // Listen for extension ready event
+    const handleExtensionReady = () => {
+      console.log('Extension ready event received');
+      checkExtension();
+    };
+
+    window.addEventListener('runBiteFitExtensionReady', handleExtensionReady);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('runBiteFitExtensionReady', handleExtensionReady);
+    };
   }, []);
 
   const handleAutomatedShopping = (site: 'migros' | 'coop') => {
