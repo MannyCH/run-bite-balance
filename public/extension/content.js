@@ -6,6 +6,8 @@
   window.__runBiteFitContentScriptInjected = true;
 
   console.log('Content script loading on:', window.location.href);
+  
+let isAutomationRunning = false;
 
   class QuantityParser {
     constructor() {
