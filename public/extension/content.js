@@ -6,73 +6,40 @@ class QuantityParser {
   constructor() {
     this.unitMappings = {
       // Weight units (grams)
-      'g': 1,
-      'gr': 1,
-      'gram': 1,
-      'gramm': 1,
-      'kg': 1000,
-      'kilo': 1000,
-      'kilogram': 1000,
-      
+      'g': 1, 'gr': 1, 'gram': 1, 'gramm': 1, 'kg': 1000, 'kilo': 1000, 'kilogram': 1000,
       // Volume units (ml)
-      'ml': 1,
-      'milliliter': 1,
-      'l': 1000,
-      'liter': 1000,
-      'litre': 1000,
-      'dl': 100,
-      'deciliter': 100,
-      'cl': 10,
-      'centiliter': 10,
-      
+      'ml': 1, 'milliliter': 1, 'l': 1000, 'liter': 1000, 'litre': 1000, 'dl': 100, 'deciliter': 100, 'cl': 10, 'centiliter': 10,
       // Piece units
-      'stk': 1,
-      'stück': 1,
-      'piece': 1,
-      'pieces': 1,
-      'pc': 1,
-      'pcs': 1,
-      'x': 1,
-      
+      'stk': 1, 'stück': 1, 'piece': 1, 'pieces': 1, 'pc': 1, 'pcs': 1, 'x': 1,
       // Package units
-      'pkg': 1,
-      'package': 1,
-      'pack': 1,
-      'packs': 1,
-      'packet': 1,
-      'packets': 1,
-      'box': 1,
-      'boxes': 1,
-      'can': 1,
-      'cans': 1,
-      'bottle': 1,
-      'bottles': 1,
-      'jar': 1,
-      'jars': 1,
-      'bag': 1,
-      'bags': 1,
-      'bunch': 1,
-      'bunches': 1,
-      'head': 1,
-      'heads': 1
+      'pkg': 1, 'package': 1, 'pack': 1, 'packs': 1, 'packet': 1, 'packets': 1,
+      'box': 1, 'boxes': 1, 'can': 1, 'cans': 1, 'bottle': 1, 'bottles': 1,
+      'jar': 1, 'jars': 1, 'bag': 1, 'bags': 1, 'bunch': 1, 'bunches': 1,
+      'head': 1, 'heads': 1
     };
 
-    // Items that are typically sold fresh/loose (by weight)
+    // Items sold fresh/loose
     this.freshItems = [
-      'tomaten', 'kartoffeln', 'zwiebeln', 'karotten', 'rüebli', 'äpfel', 'bananen', 
-      'orangen', 'zitronen', 'trauben', 'beeren', 'salat', 'broccoli', 'blumenkohl', 
-      'paprika', 'gurken', 'zucchini', 'auberginen', 'fleisch', 'fisch', 'hackfleisch', 
-      'rindfleisch', 'schweinefleisch', 'poulet', 'chicken', 'lachs', 'forelle', 
+      'tomaten', 'kartoffeln', 'zwiebeln', 'karotten', 'rüebli', 'äpfel', 'bananen',
+      'orangen', 'zitronen', 'trauben', 'beeren', 'salat', 'broccoli', 'blumenkohl',
+      'paprika', 'gurken', 'zucchini', 'auberginen', 'fleisch', 'fisch', 'hackfleisch',
+      'rindfleisch', 'schweinefleisch', 'poulet', 'chicken', 'lachs', 'forelle',
       'kabeljau', 'thunfisch', 'garnelen', 'crevetten'
     ];
 
-    // Items that are typically sold in packages
+    // Items typically sold in packages
     this.packagedItems = [
       'sahne', 'cream', 'sauerrahm', 'sour cream', 'joghurt', 'yogurt', 'milch', 'milk',
       'butter', 'käse', 'cheese', 'quark', 'frischkäse', 'mozzarella', 'parmesan',
       'reis', 'rice', 'pasta', 'nudeln', 'spaghetti', 'mehl', 'flour', 'zucker', 'sugar',
       'öl', 'oil', 'essig', 'vinegar', 'honig', 'honey', 'marmelade', 'jam'
     ];
+
+    // Weight estimates per piece (used in fallback logic)
+    this.defaultWeights = {
+      'tomaten': 150, 'kartoffeln': 200, 'zwiebeln': 100, 'karotten': 150, 'rüebli': 150,
+      'äpfel': 180, 'bananen': 120, 'paprika': 200, 'gurken': 300, 'zucchini': 250
+    };
 
     console.log('QuantityParser initialized');
   }
@@ -83,9 +50,6 @@ class QuantityParser {
     }
 
     const cleanStr = quantityStr.toLowerCase().trim();
-    console.log('Parsing quantity:', cleanStr);
-
-    // Match patterns like "2kg", "500g", "3 stk", "1.5 l", etc.
     const patterns = [
       /^(\d+(?:[.,]\d+)?)\s*([a-zA-Z]+)$/,
       /^(\d+(?:[.,]\d+)?)\s+([a-zA-Z]+)$/,
@@ -98,134 +62,41 @@ class QuantityParser {
       if (match) {
         const amount = parseFloat(match[1].replace(',', '.'));
         const unit = match[2] || 'piece';
-        
-        console.log('Parsed:', { amount, unit, originalText: quantityStr });
         return { amount, unit: unit.toLowerCase(), originalText: quantityStr };
       }
     }
 
-    // If no pattern matches, try to extract just numbers
     const numberMatch = cleanStr.match(/(\d+(?:[.,]\d+)?)/);
     if (numberMatch) {
       const amount = parseFloat(numberMatch[1].replace(',', '.'));
-      console.log('Extracted number:', { amount, unit: 'piece', originalText: quantityStr });
       return { amount, unit: 'piece', originalText: quantityStr };
     }
 
-    console.log('Using fallback:', { amount: 1, unit: 'piece', originalText: quantityStr });
     return { amount: 1, unit: 'piece', originalText: quantityStr };
   }
 
-  // Enhanced method to extract package size from Migros DOM elements
-  extractMigrosPackageSize(productElement) {
-    console.log('=== Extracting Migros Package Size ===');
-    console.log('Product element:', productElement);
-    
-    // Method 1: Look for weight-priceUnit class (most common in search results)
-    const priceUnitElements = productElement.querySelectorAll('.weight-priceUnit, [class*="weight"], [class*="price"]');
-    for (const element of priceUnitElements) {
-      const text = element.textContent.trim();
-      console.log('Found weight-priceUnit element:', text);
-      const parsed = this.parsePackageSizeText(text);
-      if (parsed) {
-        console.log('Successfully extracted from weight-priceUnit:', parsed);
-        return parsed;
-      }
-    }
-    
-    // Method 2: Look for mo-product-quantity element
-    const moQuantityElement = productElement.querySelector('mo-product-quantity');
-    if (moQuantityElement) {
-      console.log('Found mo-product-quantity element:', moQuantityElement);
-      
-      // Try accessible product size first
-      const accessibleSize = moQuantityElement.querySelector('span[data-testid="accessible-product-size"]');
-      if (accessibleSize) {
-        const sizeText = accessibleSize.textContent.trim();
-        console.log('Found accessible product size:', sizeText);
-        const parsed = this.parsePackageSizeText(sizeText);
-        if (parsed) return parsed;
-      }
-      
-      // Try default product size
-      const defaultSize = moQuantityElement.querySelector('span[data-testid="default-product-size"]');
-      if (defaultSize) {
-        const sizeText = defaultSize.textContent.trim();
-        console.log('Found default product size:', sizeText);
-        const parsed = this.parsePackageSizeText(sizeText);
-        if (parsed) return parsed;
-      }
-      
-      // Try any span with weight/volume info
-      const weightSpans = moQuantityElement.querySelectorAll('span');
-      for (const span of weightSpans) {
-        const text = span.textContent.trim();
-        if (text && /\d+/.test(text)) {
-          console.log('Checking span text:', text);
-          const parsed = this.parsePackageSizeText(text);
-          if (parsed) return parsed;
-        }
-      }
-    }
-    
-    // Method 3: Look for data-testid attributes (broader search)
-    const testIdElements = productElement.querySelectorAll('[data-testid*="product-size"], [data-testid*="weight"], [data-testid*="quantity"]');
-    for (const element of testIdElements) {
-      const text = element.textContent.trim();
-      console.log('Checking testid element:', element.getAttribute('data-testid'), text);
-      const parsed = this.parsePackageSizeText(text);
-      if (parsed) return parsed;
-    }
-    
-    // Method 4: Search in all text content for weight patterns
-    const allText = productElement.textContent || '';
-    console.log('Searching in all product text:', allText.substring(0, 200) + '...');
-    const parsed = this.parsePackageSizeText(allText);
-    if (parsed) return parsed;
-    
-    console.log('No package size found in Migros product element');
-    return null;
-  }
-
-  // Enhanced parse package size from text content
   parsePackageSizeText(text) {
     if (!text) return null;
-    
     const cleanText = text.toLowerCase().trim();
-    console.log('Parsing package size from text:', cleanText);
-    
-    // Enhanced patterns for Migros format - more specific patterns first
     const patterns = [
-      // "1 kg", "2.5 kg", "500 g", "1.2 l", etc. (with space)
       /(\d+(?:[.,]\d+)?)\s+(kg|kilo|kilogram|g|gr|gram|gramm|l|liter|litre|ml|milliliter|dl|cl)\b/g,
-      // "1kg", "2.5kg", "500g", "1.2l", etc. (without space)
       /(\d+(?:[.,]\d+)?)(kg|kilo|kilogram|g|gr|gram|gramm|l|liter|litre|ml|milliliter|dl|cl)\b/g,
-      // Handle cases with extra characters around
       /.*?(\d+(?:[.,]\d+)?)\s*(kg|kilo|kilogram|g|gr|gram|gramm|l|liter|litre|ml|milliliter|dl|cl)\b.*?/g
     ];
 
     for (const pattern of patterns) {
       const matches = [...cleanText.matchAll(pattern)];
       if (matches.length > 0) {
-        // Use the first meaningful match
         const match = matches[0];
         const amount = parseFloat(match[1].replace(',', '.'));
         const unit = match[2];
-        
-        console.log('Raw extraction:', { amount, unit, fromText: match[0] });
-        
-        // Convert to base units (grams or ml)
         let normalizedAmount = amount;
         let normalizedUnit = 'g';
-        
+
         if (unit.includes('kg') || unit.includes('kilo')) {
           normalizedAmount = amount * 1000;
-          normalizedUnit = 'g';
-        } else if (unit.includes('g') || unit.includes('gram')) {
+        } else if (unit.includes('ml')) {
           normalizedAmount = amount;
-          normalizedUnit = 'g';
-        } else if (unit.includes('l') && !unit.includes('ml')) {
-          normalizedAmount = amount * 1000;
           normalizedUnit = 'ml';
         } else if (unit.includes('dl')) {
           normalizedAmount = amount * 100;
@@ -233,367 +104,203 @@ class QuantityParser {
         } else if (unit.includes('cl')) {
           normalizedAmount = amount * 10;
           normalizedUnit = 'ml';
-        } else if (unit.includes('ml')) {
-          normalizedAmount = amount;
+        } else if (unit.includes('l')) {
+          normalizedAmount = amount * 1000;
           normalizedUnit = 'ml';
         }
-        
-        const result = {
+
+        return {
           amount: normalizedAmount,
           unit: normalizedUnit,
-          originalText: match[0],
-          originalAmount: amount,
-          originalUnit: unit
+          originalText: match[0]
         };
-        
-        console.log('Extracted and normalized package size:', result);
-        return result;
       }
     }
-    
     return null;
   }
 
-  // Legacy method for backward compatibility
-  extractPackageSize(productDescription) {
-    return this.parsePackageSizeText(productDescription);
+    extractMigrosPackageSize(productElement) {
+    const priceUnitElements = productElement.querySelectorAll('.weight-priceUnit, [class*="weight"], [class*="price"]');
+    for (const element of priceUnitElements) {
+      const parsed = this.parsePackageSizeText(element.textContent.trim());
+      if (parsed) return parsed;
+    }
+
+    const moQuantityElement = productElement.querySelector('mo-product-quantity');
+    if (moQuantityElement) {
+      const accessibleSize = moQuantityElement.querySelector('span[data-testid="accessible-product-size"]');
+      if (accessibleSize) {
+        const parsed = this.parsePackageSizeText(accessibleSize.textContent.trim());
+        if (parsed) return parsed;
+      }
+      const defaultSize = moQuantityElement.querySelector('span[data-testid="default-product-size"]');
+      if (defaultSize) {
+        const parsed = this.parsePackageSizeText(defaultSize.textContent.trim());
+        if (parsed) return parsed;
+      }
+      const weightSpans = moQuantityElement.querySelectorAll('span');
+      for (const span of weightSpans) {
+        const parsed = this.parsePackageSizeText(span.textContent.trim());
+        if (parsed) return parsed;
+      }
+    }
+
+    const testIdElements = productElement.querySelectorAll('[data-testid*="product-size"], [data-testid*="weight"], [data-testid*="quantity"]');
+    for (const element of testIdElements) {
+      const parsed = this.parsePackageSizeText(element.textContent.trim());
+      if (parsed) return parsed;
+    }
+
+    const allText = productElement.textContent || '';
+    return this.parsePackageSizeText(allText);
   }
 
-  // Convert required quantity to base units (grams or ml)
-  convertToBaseUnits(quantity, unit) {
-    const unitMappings = {
-      'g': 1, 'gr': 1, 'gram': 1, 'gramm': 1,
-      'kg': 1000, 'kilo': 1000, 'kilogram': 1000,
-      'ml': 1, 'milliliter': 1,
-      'l': 1000, 'liter': 1000, 'litre': 1000,
-      'dl': 100, 'deciliter': 100,
-      'cl': 10, 'centiliter': 10
-    };
-    
-    const multiplier = unitMappings[unit.toLowerCase()] || 1;
-    const result = quantity * multiplier;
-    console.log(`Converting ${quantity} ${unit} to base units: ${result}`);
-    return result;
+  convertToBaseUnits(amount, unit) {
+    const factor = this.unitMappings[unit] || 1;
+    return amount * factor;
   }
 
-  // Enhanced calculation method that uses DOM element
   calculateRequiredQuantityFromElement(itemName, requiredQuantity, productElement) {
     const parsed = this.parseQuantity(requiredQuantity);
-    console.log('=== Enhanced Quantity Calculation Debug ===');
-    console.log('Item:', itemName);
-    console.log('Required quantity:', requiredQuantity);
-    console.log('Parsed required:', parsed);
-    console.log('Product element:', productElement);
-    
-    // Always try to extract package size from the actual DOM element first
     const packageSize = this.extractMigrosPackageSize(productElement);
-    console.log('Extracted package size:', packageSize);
-    
-    // Check if we have both required quantity and package size with compatible units
-    if (packageSize && (parsed.unit === 'g' || parsed.unit === 'kg' || parsed.unit === 'ml' || parsed.unit === 'l')) {
-      // Convert required amount to same base units as package
-      const requiredInBaseUnits = this.convertToBaseUnits(parsed.amount, parsed.unit);
-      console.log(`Required: ${requiredInBaseUnits} ${packageSize.unit}`);
-      console.log(`Package: ${packageSize.amount} ${packageSize.unit}`);
-      
-      // Check if units are compatible (both weight or both volume)
-      const unitsMatch = (
-        (packageSize.unit === 'g' && (parsed.unit.includes('g') || parsed.unit.includes('kg'))) ||
-        (packageSize.unit === 'ml' && (parsed.unit.includes('ml') || parsed.unit.includes('l')))
-      );
-      
-      if (unitsMatch && packageSize.amount > 0) {
-        const packagesNeeded = Math.ceil(requiredInBaseUnits / packageSize.amount);
-        console.log(`CALCULATION: ceil(${requiredInBaseUnits} ÷ ${packageSize.amount}) = ${packagesNeeded} packages`);
-        console.log(`Final quantity to add to cart: ${packagesNeeded}`);
-        return packagesNeeded;
-      } else {
-        console.log('Units do not match or invalid package size');
+
+    if (packageSize && ['g', 'ml'].includes(packageSize.unit)) {
+      const requiredInBase = this.convertToBaseUnits(parsed.amount, parsed.unit);
+      const unitsMatch = (packageSize.unit === 'g' && parsed.unit.includes('g')) ||
+                         (packageSize.unit === 'ml' && parsed.unit.includes('l') || parsed.unit.includes('ml'));
+
+      if (unitsMatch) {
+        return Math.max(1, Math.ceil(requiredInBase / packageSize.amount));
       }
-    } else {
-      console.log('No compatible package size found or invalid required quantity format');
     }
-    
-    // Fallback to legacy method
-    console.log('Using legacy calculation method');
+
     return this.calculateRequiredQuantity(itemName, requiredQuantity, productElement.textContent || '');
   }
 
-  // Calculate the correct quantity to add to cart (legacy method)
   calculateRequiredQuantity(itemName, requiredQuantity, productDescription) {
     const parsed = this.parseQuantity(requiredQuantity);
-    console.log('=== Legacy Quantity Calculation Debug ===');
-    console.log('Item:', itemName);
-    console.log('Required quantity:', requiredQuantity);
-    console.log('Parsed required:', parsed);
-    console.log('Product description:', productDescription);
-    
-    // Check if this is a packaged item
     const isPackaged = this.isPackagedItem(itemName, productDescription);
-    console.log('Is packaged item:', isPackaged);
-    
+
     if (isPackaged) {
-      // Extract package size from product description
-      const packageSize = this.extractPackageSize(productDescription);
-      console.log('Package size:', packageSize);
-      
-      if (packageSize && (parsed.unit === 'g' || parsed.unit === 'kg' || parsed.unit === 'ml' || parsed.unit === 'l')) {
-        // Convert required amount to same units as package
-        const requiredInBaseUnits = this.convertToBaseUnits(parsed.amount, parsed.unit);
-        console.log('Required in base units:', requiredInBaseUnits, packageSize.unit);
-        
-        // Only calculate if units match (both weight or both volume)
-        const unitsMatch = (
-          (packageSize.unit === 'g' && (parsed.unit.includes('g') || parsed.unit.includes('kg'))) ||
-          (packageSize.unit === 'ml' && (parsed.unit.includes('ml') || parsed.unit.includes('l')))
-        );
-        
+      const packageSize = this.parsePackageSizeText(productDescription);
+      if (packageSize && ['g', 'ml'].includes(packageSize.unit)) {
+        const requiredInBase = this.convertToBaseUnits(parsed.amount, parsed.unit);
+        const unitsMatch = (packageSize.unit === 'g' && parsed.unit.includes('g')) ||
+                           (packageSize.unit === 'ml' && parsed.unit.includes('l') || parsed.unit.includes('ml'));
+
         if (unitsMatch) {
-          const packagesNeeded = Math.ceil(requiredInBaseUnits / packageSize.amount);
-          console.log('Calculation: ceil(', requiredInBaseUnits, '/', packageSize.amount, ') =', packagesNeeded);
-          console.log('Final quantity:', packagesNeeded);
-          return packagesNeeded;
+          return Math.max(1, Math.ceil(requiredInBase / packageSize.amount));
         }
       }
     }
-    
-    // For fresh items or when package calculation fails, use piece-based estimation
-    console.log('Using piece-based calculation');
+
     const weightEstimate = this.estimateWeight(itemName, requiredQuantity);
     if (weightEstimate) {
-      console.log('Weight estimate result:', weightEstimate.pieces);
       return Math.max(1, weightEstimate.pieces);
     }
-    
-    // Final fallback - use parsed amount or 1
-    const fallbackQuantity = Math.max(1, Math.round(parsed.amount));
-    console.log('Using fallback quantity:', fallbackQuantity);
-    return fallbackQuantity;
-  }
 
-  shouldUseWeightCalculation(itemName, productDescription) {
-    const itemLower = itemName.toLowerCase();
-    const descLower = productDescription.toLowerCase();
-    
-    // Check if item name contains weight-related keywords
-    const hasWeightKeyword = this.freshItems.some(keyword => 
-      itemLower.includes(keyword) || descLower.includes(keyword)
-    );
-
-    // Check if product description mentions weight units
-    const hasWeightUnit = /\b\d+\s*(g|gr|kg|gram|gramm)\b/i.test(descLower);
-
-    const result = hasWeightKeyword || hasWeightUnit;
-    console.log('Should use weight calculation:', result, 'for:', itemName);
-    return result;
+    return Math.max(1, Math.round(parsed.amount));
   }
 
   estimateWeight(itemName, quantity) {
     const parsed = this.parseQuantity(quantity);
-    
-    // Simple weight estimation based on common items
-    const weightEstimates = {
-      'tomaten': { perPiece: 150, unit: 'g' },
-      'kartoffeln': { perPiece: 200, unit: 'g' },
-      'zwiebeln': { perPiece: 100, unit: 'g' },
-      'äpfel': { perPiece: 180, unit: 'g' },
-      'bananen': { perPiece: 120, unit: 'g' },
-      'paprika': { perPiece: 200, unit: 'g' },
-      'gurken': { perPiece: 300, unit: 'g' },
-      'zucchini': { perPiece: 250, unit: 'g' }
-    };
-
-    const itemLower = itemName.toLowerCase();
-    for (const [key, estimate] of Object.entries(weightEstimates)) {
-      if (itemLower.includes(key)) {
-        const totalWeight = estimate.perPiece * parsed.amount;
-        const pieces = Math.max(1, Math.round(totalWeight / estimate.perPiece));
-        
-        console.log('Weight estimate for', itemName, ':', {
-          totalWeight: totalWeight + estimate.unit,
-          pieces
-        });
-        
-        return {
-          totalWeight,
-          unit: estimate.unit,
-          pieces
-        };
-      }
+    const itemKey = Object.keys(this.defaultWeights).find(k => itemName.toLowerCase().includes(k));
+    if (itemKey) {
+      const perPiece = this.defaultWeights[itemKey];
+      const totalWeight = parsed.amount * perPiece;
+      const pieces = Math.ceil(totalWeight / perPiece);
+      return { totalWeight, unit: 'g', pieces };
     }
-
     return null;
   }
 
-  // Determine if item should be treated as fresh/loose or packaged
-  isPackagedItem(itemName, productDescription) {
+    isPackagedItem(itemName, productDescription) {
     const itemLower = itemName.toLowerCase();
     const descLower = productDescription.toLowerCase();
-    
-    // Check if it's in the packaged items list
-    const isPackaged = this.packagedItems.some(keyword => 
-      itemLower.includes(keyword) || descLower.includes(keyword)
-    );
-    
-    // Check if it's in the fresh items list
-    const isFresh = this.freshItems.some(keyword => 
-      itemLower.includes(keyword) || descLower.includes(keyword)
-    );
-    
-    // If both or neither match, try to detect from description
+
+    const isPackaged = this.packagedItems.some(keyword => itemLower.includes(keyword) || descLower.includes(keyword));
+    const isFresh = this.freshItems.some(keyword => itemLower.includes(keyword) || descLower.includes(keyword));
+
     if (!isPackaged && !isFresh) {
-      // If description contains package indicators, treat as packaged
       const packageIndicators = ['pack', 'dose', 'flasche', 'bottle', 'becher', 'cup', 'glas', 'jar'];
-      const hasPackageIndicator = packageIndicators.some(indicator => 
-        descLower.includes(indicator)
-      );
-      
-      return hasPackageIndicator;
+      return packageIndicators.some(indicator => descLower.includes(indicator));
     }
-    
-    console.log('Item classification:', itemName, '-> packaged:', isPackaged, 'fresh:', isFresh);
+
     return isPackaged;
   }
 }
 
-// MigrosAutomation class - moved directly into content.js
+// MigrosAutomation class
 class MigrosAutomation {
   constructor(quantityParser) {
     this.quantityParser = quantityParser;
-    console.log('MigrosAutomation initialized with QuantityParser:', !!this.quantityParser);
   }
 
   async addToMigros(item) {
     try {
-      console.log('Adding to Migros with quantity:', item.name, item.quantity);
-      
-      // Find the search input
-      const searchInput = document.querySelector('input#autocompleteSearchInput') || 
-                         document.querySelector('input[data-cy="autocompleteSearchInput"]');
-      
-      if (!searchInput) {
-        console.error('Could not find Migros search input');
-        return false;
-      }
+      const searchInput = document.querySelector('input#autocompleteSearchInput') ||
+                          document.querySelector('input[data-cy="autocompleteSearchInput"]');
 
-      // Clear and search for the item
+      if (!searchInput) return false;
+
       searchInput.focus();
       searchInput.value = '';
       await this.delay(200);
-      
       searchInput.value = item.name;
       searchInput.dispatchEvent(new Event('input', { bubbles: true }));
       searchInput.dispatchEvent(new Event('change', { bubbles: true }));
-      
-      console.log('Searching for:', item.name);
+
       await this.delay(1500);
-      
-      // Find the suggestions dropdown
+
       const suggestedProducts = document.querySelector('ul#suggestedProducts[data-cy="suggested-products"]');
-      
-      if (!suggestedProducts) {
-        console.error('No search results dropdown found for:', item.name);
-        return false;
-      }
+      if (!suggestedProducts) return false;
 
-      // Get the first product
       const firstProduct = suggestedProducts.querySelector('li:first-child article[mo-instant-search-product-item]');
-      
-      if (!firstProduct) {
-        console.error('No products found in dropdown for:', item.name);
-        return false;
-      }
+      if (!firstProduct) return false;
 
-      console.log('Found product element:', firstProduct);
-
-      let targetQuantity = 1; // Default fallback
-
-      // Use enhanced quantity calculation with DOM element
+      let targetQuantity = 1;
       if (this.quantityParser) {
         try {
-          targetQuantity = this.quantityParser.calculateRequiredQuantityFromElement(
-            item.name, 
-            item.quantity, 
-            firstProduct
-          );
-        } catch (quantityError) {
-          console.warn('Error calculating quantity, using default:', quantityError);
+          targetQuantity = this.quantityParser.calculateRequiredQuantityFromElement(item.name, item.quantity, firstProduct);
+        } catch {
           targetQuantity = 1;
         }
-      } else {
-        console.warn('QuantityParser not available, using default quantity of 1');
       }
 
-      console.log('Target quantity to add:', targetQuantity);
-
-      // Try to set the quantity before adding to cart
       const success = await this.setQuantityAndAddToCart(firstProduct, targetQuantity);
-      
+
       if (success) {
-        // Clear the search
         searchInput.value = '';
         searchInput.dispatchEvent(new Event('input', { bubbles: true }));
         return true;
       }
 
       return false;
-
-    } catch (error) {
-      console.error('Migros automation error:', error);
+    } catch {
       return false;
     }
   }
 
   async setQuantityAndAddToCart(productElement, targetQuantity) {
     try {
-      // Method 1: Look for quantity input field
-      const quantityInput = productElement.querySelector('input[type="number"]') ||
-                           productElement.querySelector('input.quantity-input') ||
-                           productElement.querySelector('[data-cy*="quantity"]');
-
+      const quantityInput = productElement.querySelector('input[type="number"]');
       if (quantityInput) {
-        console.log('Found quantity input, setting value to:', targetQuantity);
         quantityInput.focus();
         quantityInput.value = targetQuantity.toString();
         quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
         quantityInput.dispatchEvent(new Event('change', { bubbles: true }));
         await this.delay(500);
-      } else {
-        // Method 2: Look for + button and click it multiple times
-        const plusButton = productElement.querySelector('button[data-cy*="increase"]') ||
-                          productElement.querySelector('button[aria-label*="+"]') ||
-                          productElement.querySelector('button.btn-increase') ||
-                          productElement.querySelector('button:contains("+")');
-
-        if (plusButton && targetQuantity > 1) {
-          console.log('Found plus button, clicking', (targetQuantity - 1), 'times');
-          for (let i = 1; i < targetQuantity; i++) {
-            plusButton.click();
-            await this.delay(300);
-          }
-        } else {
-          console.log('No quantity controls found, using default quantity');
-        }
       }
 
-      // Now find and click the add to cart button
       const addToCartButton = productElement.querySelector('button.btn-add-to-basket') ||
-                             productElement.querySelector('button[data-cy*="add-to-cart"]') ||
-                             productElement.querySelector('button[data-cy*="add-to-basket"]');
-      
-      if (!addToCartButton) {
-        console.error('No add to cart button found');
-        return false;
-      }
+                              productElement.querySelector('button[data-cy*="add-to-cart"]');
 
-      console.log('Clicking add to cart button...');
+      if (!addToCartButton) return false;
+
       addToCartButton.click();
-      
       await this.delay(1000);
       return true;
-
-    } catch (error) {
-      console.error('Error setting quantity and adding to cart:', error);
+    } catch {
       return false;
     }
   }
@@ -607,29 +314,9 @@ class MigrosAutomation {
 class ShoppingAutomation {
   constructor() {
     this.currentSite = this.detectSite();
-    this.progress = 0;
-    this.totalItems = 0;
-    this.isReady = false;
-    
-    console.log('ShoppingAutomation initialized for site:', this.currentSite);
-    this.initializeAutomation();
-  }
-
-  initializeAutomation() {
-    try {
-      console.log('Initializing automation classes...');
-      
-      // Create instances directly - no more dynamic loading
-      this.quantityParser = new QuantityParser();
-      this.migrosAutomation = new MigrosAutomation(this.quantityParser);
-      
-      console.log('All automation classes initialized successfully');
-      this.isReady = true;
-      
-    } catch (error) {
-      console.error('Failed to initialize automation:', error);
-      this.isReady = false;
-    }
+    this.quantityParser = new QuantityParser();
+    this.migrosAutomation = new MigrosAutomation(this.quantityParser);
+    this.isReady = true;
   }
 
   detectSite() {
@@ -640,58 +327,32 @@ class ShoppingAutomation {
   }
 
   async addItemsToCart(items) {
-    console.log('addItemsToCart called with items:', items);
-    
-    if (!this.isReady) {
-      console.error('Automation not ready');
-      return { 
-        success: [], 
-        failed: items,
-        error: 'Automation failed to initialize properly'
-      };
-    }
-    
-    console.log(`Starting automation for ${items.length} items on ${this.currentSite}`);
-    
-    this.totalItems = items.length;
+    if (!this.isReady) return { success: [], failed: items, error: 'Automation not ready' };
+
     const results = { success: [], failed: [] };
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      this.progress = ((i + 1) / this.totalItems) * 100;
-      
-      console.log(`Processing item ${i + 1}/${this.totalItems}: ${item.name} (${item.quantity})`);
-      
-      chrome.runtime.sendMessage({
-        action: 'updateProgress',
-        progress: this.progress,
-        message: `Adding ${item.quantity} ${item.name}...`
-      });
 
       try {
         const success = await this.addSingleItem(item);
         if (success) {
           results.success.push(item);
-          console.log(`Successfully added: ${item.quantity} ${item.name}`);
         } else {
           results.failed.push(item);
-          console.log(`Failed to add: ${item.quantity} ${item.name}`);
         }
-      } catch (error) {
-        console.error('Error adding item:', item.name, error);
+      } catch {
         results.failed.push(item);
       }
 
-      // Wait between requests to avoid being blocked
       await this.delay(2000);
     }
 
-    console.log('Automation complete:', results);
     return results;
   }
 
   async addSingleItem(item) {
-    if (this.currentSite === 'migros' && this.migrosAutomation) {
+    if (this.currentSite === 'migros') {
       return await this.migrosAutomation.addToMigros(item);
     } else if (this.currentSite === 'coop') {
       return await this.addToCoop(item);
@@ -701,70 +362,26 @@ class ShoppingAutomation {
 
   async addToCoop(item) {
     try {
-      console.log('Adding to Coop:', item.name, 'quantity:', item.quantity);
-      
-      const searchSelectors = [
-        'input[placeholder*="Suchen"]',
-        'input[name="search"]',
-        '.search-field input',
-        'input[data-testid*="search"]'
-      ];
-      
-      let searchInput = null;
-      for (const selector of searchSelectors) {
-        searchInput = document.querySelector(selector);
-        if (searchInput) {
-          console.log('Found Coop search input with selector:', selector);
-          break;
-        }
-      }
-      
-      if (!searchInput) {
-        console.error('Could not find Coop search input');
-        return false;
-      }
+      const input = document.querySelector('input[placeholder*="Suchen"]') || document.querySelector('input[name="search"]');
+      if (!input) return false;
 
-      searchInput.focus();
-      searchInput.value = '';
-      searchInput.value = item.name;
-      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      searchInput.dispatchEvent(new Event('change', { bubbles: true }));
-      
-      // Trigger search
-      const searchForm = searchInput.closest('form');
-      if (searchForm) {
-        console.log('Submitting Coop search form');
-        searchForm.dispatchEvent(new Event('submit'));
-      } else {
-        console.log('Using Enter key for Coop search');
-        searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      }
+      input.focus();
+      input.value = item.name;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
 
-      // Wait for search results
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       await this.delay(3000);
 
-      // Find and click first add to cart button
-      const addToCartSelectors = [
-        'button[data-cy="add-to-cart"]',
-        '.add-to-cart',
-        'button:contains("In den Warenkorb")',
-        'button[title*="Warenkorb"]'
-      ];
-      
-      for (const selector of addToCartSelectors) {
-        const addToCartButton = document.querySelector(selector);
-        if (addToCartButton && !addToCartButton.disabled) {
-          console.log('Clicking Coop add to cart button:', selector);
-          addToCartButton.click();
-          await this.delay(1000);
-          return true;
-        }
+      const addToCartButton = document.querySelector('button[data-cy="add-to-cart"]');
+      if (addToCartButton && !addToCartButton.disabled) {
+        addToCartButton.click();
+        await this.delay(1000);
+        return true;
       }
 
-      console.log('No Coop add to cart button found');
       return false;
-    } catch (error) {
-      console.error('Coop automation error:', error);
+    } catch {
       return false;
     }
   }
@@ -774,27 +391,14 @@ class ShoppingAutomation {
   }
 }
 
-// Initialize automation
 const automation = new ShoppingAutomation();
 
-// Listen for messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Content script received message:', request);
-  
   if (request.action === 'startAutomation') {
-    console.log('Starting automation with items:', request.items);
-    
     automation.addItemsToCart(request.items)
-      .then(results => {
-        console.log('Automation completed:', results);
-        sendResponse(results);
-      })
-      .catch(error => {
-        console.error('Automation failed:', error);
-        sendResponse({ error: error.message });
-      });
-    
-    return true; // Keep message channel open
+      .then(results => sendResponse(results))
+      .catch(error => sendResponse({ error: error.message }));
+    return true;
   }
 });
 
