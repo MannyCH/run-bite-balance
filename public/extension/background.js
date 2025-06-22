@@ -75,7 +75,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               
               setTimeout(() => {
                 sendAutomationMessage(tab.id);
-              }, 2000);
+              }, 4000);
             }
           };
           
