@@ -1,8 +1,20 @@
-
 // Enhanced Migros automation with quantity handling
 class MigrosAutomation {
-  constructor() {
-    this.quantityParser = new QuantityParser();
+  constructor(quantityParser = null) {
+    this.quantityParser = quantityParser;
+    
+    if (!this.quantityParser) {
+      console.warn('MigrosAutomation initialized without QuantityParser dependency');
+      // Create a fallback instance if none provided
+      if (window.QuantityParser) {
+        this.quantityParser = new window.QuantityParser();
+        console.log('Created fallback QuantityParser instance');
+      } else {
+        console.error('QuantityParser not available for fallback');
+      }
+    }
+    
+    console.log('MigrosAutomation initialized with QuantityParser:', !!this.quantityParser);
   }
 
   async addToMigros(item) {
@@ -50,26 +62,36 @@ class MigrosAutomation {
       const productDescription = firstProduct.textContent || '';
       console.log('Product description:', productDescription);
 
-      // Parse the quantity and determine if we need weight calculation
-      const shouldUseWeight = this.quantityParser.shouldUseWeightCalculation(item.name, productDescription);
-      const parsedQuantity = this.quantityParser.parseQuantity(item.quantity);
-      
-      console.log('Parsed quantity:', parsedQuantity);
-      console.log('Should use weight calculation:', shouldUseWeight);
-
       let targetQuantity = 1; // Default fallback
 
-      if (shouldUseWeight) {
-        const weightEstimate = this.quantityParser.estimateWeight(item.name, item.quantity);
-        if (weightEstimate) {
-          console.log('Weight estimate:', weightEstimate);
-          // For weight-based items, try to get close to the estimated weight
-          // Migros usually sells in ranges, so we'll use pieces as approximation
-          targetQuantity = Math.max(1, Math.round(weightEstimate.pieces));
+      // Only use quantity parsing if QuantityParser is available
+      if (this.quantityParser) {
+        try {
+          // Parse the quantity and determine if we need weight calculation
+          const shouldUseWeight = this.quantityParser.shouldUseWeightCalculation(item.name, productDescription);
+          const parsedQuantity = this.quantityParser.parseQuantity(item.quantity);
+          
+          console.log('Parsed quantity:', parsedQuantity);
+          console.log('Should use weight calculation:', shouldUseWeight);
+
+          if (shouldUseWeight) {
+            const weightEstimate = this.quantityParser.estimateWeight(item.name, item.quantity);
+            if (weightEstimate) {
+              console.log('Weight estimate:', weightEstimate);
+              // For weight-based items, try to get close to the estimated weight
+              // Migros usually sells in ranges, so we'll use pieces as approximation
+              targetQuantity = Math.max(1, Math.round(weightEstimate.pieces));
+            }
+          } else {
+            // For non-weight items, use the parsed amount directly
+            targetQuantity = Math.max(1, Math.round(parsedQuantity.amount));
+          }
+        } catch (quantityError) {
+          console.warn('Error parsing quantity, using default:', quantityError);
+          targetQuantity = 1;
         }
       } else {
-        // For non-weight items, use the parsed amount directly
-        targetQuantity = Math.max(1, Math.round(parsedQuantity.amount));
+        console.warn('QuantityParser not available, using default quantity of 1');
       }
 
       console.log('Target quantity to add:', targetQuantity);

@@ -1,4 +1,3 @@
-
 // Content script for Migros and Coop automation
 console.log('Content script loading on:', window.location.href);
 
@@ -10,94 +9,155 @@ class ShoppingAutomation {
     this.isReady = false;
     this.quantityParser = null;
     this.migrosAutomation = null;
+    this.initializationAttempts = 0;
+    this.maxInitializationAttempts = 3;
     
     console.log('ShoppingAutomation initialized for site:', this.currentSite);
     this.initializeWhenReady();
   }
 
   async initializeWhenReady() {
-    console.log('Starting initialization...');
+    console.log('Starting initialization attempt:', this.initializationAttempts + 1);
+    this.initializationAttempts++;
     
-    // Wait for DOM to be ready
-    if (document.readyState !== 'complete') {
-      console.log('Waiting for DOM to be ready...');
-      await new Promise(resolve => {
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', resolve);
-        } else {
-          window.addEventListener('load', resolve);
-        }
-      });
-    }
-    
-    console.log('DOM ready, loading scripts...');
-    
-    // Load scripts sequentially to ensure proper dependency order
     try {
+      // Wait for DOM to be ready
+      if (document.readyState !== 'complete') {
+        console.log('Waiting for DOM to be ready...');
+        await new Promise(resolve => {
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', resolve);
+          } else {
+            window.addEventListener('load', resolve);
+          }
+        });
+      }
+      
+      console.log('DOM ready, loading scripts sequentially...');
+      
+      // Load scripts sequentially to ensure proper dependency order
       await this.loadScript('quantity-parser.js');
       console.log('QuantityParser script loaded');
+      
+      // Wait for QuantityParser to be available
+      await this.waitForModule('QuantityParser', 'QuantityParser class');
       
       await this.loadScript('migros-automation.js');
       console.log('MigrosAutomation script loaded');
       
-      // Wait for modules to be available
-      await this.waitForModules();
+      // Wait for MigrosAutomation to be available
+      await this.waitForModule('MigrosAutomation', 'MigrosAutomation class');
       
-      // Initialize modules
+      // Initialize modules with proper dependency injection
+      console.log('Initializing QuantityParser...');
       this.quantityParser = new window.QuantityParser();
-      this.migrosAutomation = new window.MigrosAutomation();
+      console.log('QuantityParser initialized successfully:', !!this.quantityParser);
       
-      console.log('All modules initialized successfully');
+      console.log('Initializing MigrosAutomation with QuantityParser dependency...');
+      this.migrosAutomation = new window.MigrosAutomation(this.quantityParser);
+      console.log('MigrosAutomation initialized successfully:', !!this.migrosAutomation);
+      
+      // Validate that all required methods are available
+      const isValid = this.validateModules();
+      if (!isValid) {
+        throw new Error('Module validation failed');
+      }
+      
+      console.log('All modules initialized and validated successfully');
+      
+      // Give additional time for any dynamic content to load
+      setTimeout(() => {
+        this.isReady = true;
+        console.log('ShoppingAutomation ready for use');
+      }, 1000);
       
     } catch (error) {
-      console.error('Failed to load scripts:', error);
-      return;
+      console.error('Initialization failed:', error);
+      
+      if (this.initializationAttempts < this.maxInitializationAttempts) {
+        console.log(`Retrying initialization in 2 seconds... (attempt ${this.initializationAttempts + 1}/${this.maxInitializationAttempts})`);
+        setTimeout(() => {
+          this.initializeWhenReady();
+        }, 2000);
+      } else {
+        console.error('Maximum initialization attempts reached. Automation will not be available.');
+      }
     }
-    
-    // Give additional time for any dynamic content to load
-    setTimeout(() => {
-      this.isReady = true;
-      console.log('ShoppingAutomation ready');
-    }, 1000);
   }
 
   loadScript(filename) {
     return new Promise((resolve, reject) => {
+      // Check if script is already loaded
+      if (document.querySelector(`script[src*="${filename}"]`)) {
+        console.log(`Script ${filename} already loaded`);
+        resolve();
+        return;
+      }
+      
       const script = document.createElement('script');
       script.src = chrome.runtime.getURL(filename);
       script.onload = () => {
-        console.log(`Script loaded: ${filename}`);
+        console.log(`Script loaded successfully: ${filename}`);
         resolve();
       };
       script.onerror = (error) => {
         console.error(`Failed to load script: ${filename}`, error);
-        reject(error);
+        reject(new Error(`Failed to load ${filename}`));
       };
       document.head.appendChild(script);
     });
   }
 
-  async waitForModules() {
-    console.log('Waiting for modules to be available...');
+  async waitForModule(moduleName, description) {
+    console.log(`Waiting for ${description} to be available...`);
     let retries = 0;
-    const maxRetries = 20;
-    const retryDelay = 250;
+    const maxRetries = 30;
+    const retryDelay = 200;
     
     while (retries < maxRetries) {
-      if (window.QuantityParser && window.MigrosAutomation) {
-        console.log('All modules are available');
+      if (window[moduleName] && typeof window[moduleName] === 'function') {
+        console.log(`${description} is now available`);
         return;
       }
       
-      console.log(`Modules not ready yet, retry ${retries + 1}/${maxRetries}`);
-      console.log('QuantityParser available:', !!window.QuantityParser);
-      console.log('MigrosAutomation available:', !!window.MigrosAutomation);
+      if (retries % 5 === 0) {
+        console.log(`${description} not ready yet, retry ${retries + 1}/${maxRetries}`);
+      }
       
       await new Promise(resolve => setTimeout(resolve, retryDelay));
       retries++;
     }
     
-    throw new Error('Modules failed to load after maximum retries');
+    throw new Error(`${description} failed to load after ${maxRetries} retries`);
+  }
+
+  validateModules() {
+    console.log('Validating modules...');
+    
+    // Check QuantityParser
+    if (!this.quantityParser) {
+      console.error('QuantityParser is not initialized');
+      return false;
+    }
+    
+    if (typeof this.quantityParser.parseQuantity !== 'function') {
+      console.error('QuantityParser.parseQuantity method is not available');
+      return false;
+    }
+    
+    // Check MigrosAutomation
+    if (!this.migrosAutomation) {
+      console.error('MigrosAutomation is not initialized');
+      return false;
+    }
+    
+    if (typeof this.migrosAutomation.addToMigros !== 'function') {
+      console.error('MigrosAutomation.addToMigros method is not available');
+      return false;
+    }
+    
+    console.log('All modules validated successfully');
+    return true;
   }
 
   detectSite() {
@@ -113,17 +173,21 @@ class ShoppingAutomation {
     if (!this.isReady) {
       console.log('Automation not ready yet, waiting...');
       let waitRetries = 0;
-      const maxWaitRetries = 20;
+      const maxWaitRetries = 30;
       
       while (!this.isReady && waitRetries < maxWaitRetries) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         waitRetries++;
         console.log(`Waiting for automation to be ready... ${waitRetries}/${maxWaitRetries}`);
       }
       
       if (!this.isReady) {
-        console.error('Automation failed to become ready');
-        return { success: [], failed: items };
+        console.error('Automation failed to become ready after waiting');
+        return { 
+          success: [], 
+          failed: items,
+          error: 'Automation modules failed to initialize. Please refresh the page and try again.'
+        };
       }
     }
     
