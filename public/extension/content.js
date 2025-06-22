@@ -120,13 +120,20 @@ async addToMigros(item) {
     }
     this.addedItemNames.add(lowerName);
 
-    const searchInput = document.querySelector('input#autocompleteSearchInput') ||
-                        document.querySelector('input[data-cy="autocompleteSearchInput"]');
+    let searchInput = null;
+for (let i = 0; i < 10; i++) {
+  searchInput = document.querySelector('input#autocompleteSearchInput') ||
+                document.querySelector('input[data-cy="autocompleteSearchInput"]');
+  if (searchInput) break;
+  console.log('[Migros] Waiting for search input...');
+  await this.delay(500); // wait 0.5s
+}
 
-    if (!searchInput) {
-      console.warn('[Migros] Search input not found');
-      return false;
-    }
+if (!searchInput) {
+  console.warn('[Migros] Search input not found after waiting');
+  return false;
+}
+
 
     // Clear input first
     searchInput.focus();
