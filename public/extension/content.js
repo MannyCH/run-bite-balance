@@ -105,52 +105,70 @@
       this.addedProductNames = new Set();
     }
 
-    async addToMigros(item) {
-      const searchInput = document.querySelector('input#autocompleteSearchInput') ||
-                          document.querySelector('input[data-cy="autocompleteSearchInput"]');
+async addToMigros(item) {
+  try {
+    const searchInput = document.querySelector('input#autocompleteSearchInput') ||
+                        document.querySelector('input[data-cy="autocompleteSearchInput"]');
 
-      if (!searchInput) return false;
+    if (!searchInput) {
+      console.warn('Search input not found');
+      return false;
+    }
 
-      // Clear and type
-      searchInput.focus();
-      searchInput.value = '';
-      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      await this.delay(300);
-      searchInput.value = item.name;
-      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+    // Clear previous input
+    searchInput.focus();
+    searchInput.value = '';
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await this.delay(300); // Small pause before typing new term
 
-      await this.delay(1500);
+    // Enter new item name
+    searchInput.value = item.name;
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    searchInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-      const suggestedProducts = document.querySelector('ul#suggestedProducts[data-cy="suggested-products"]');
-      if (!suggestedProducts) return false;
+    // Wait for search results to update
+    await this.delay(3000);
 
-      const firstProduct = suggestedProducts.querySelector('li:first-child article[mo-instant-search-product-item]');
-      if (!firstProduct) return false;
+    const suggestedProducts = document.querySelector('ul#suggestedProducts[data-cy="suggested-products"]');
+    if (!suggestedProducts) {
+      console.warn('Suggested products list not found');
+      return false;
+    }
 
-      const productName = firstProduct.innerText.trim().toLowerCase();
-      if (this.addedProductNames.has(productName)) {
-        console.log('Duplicate item skipped:', item.name);
-        return true; // skip silently
-      }
-      this.addedProductNames.add(productName);
+    const firstProduct = suggestedProducts.querySelector('li:first-child article[mo-instant-search-product-item]');
+    if (!firstProduct) {
+      console.warn('First product not found');
+      return false;
+    }
 
-      let targetQuantity = 1;
+    let targetQuantity = 1;
+    if (this.quantityParser) {
       try {
-        targetQuantity = this.quantityParser.calculateRequiredQuantityFromElement(item.name, item.quantity, firstProduct);
-      } catch {
+        targetQuantity = this.quantityParser.calculateRequiredQuantityFromElement(
+          item.name,
+          item.quantity,
+          firstProduct
+        );
+      } catch (e) {
+        console.warn('Quantity parsing failed, defaulting to 1:', e);
         targetQuantity = 1;
       }
-
-      const success = await this.setQuantityAndAddToCart(firstProduct, targetQuantity);
-
-      if (success) {
-        searchInput.value = '';
-        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-
-      return success;
     }
+
+    const success = await this.setQuantityAndAddToCart(firstProduct, targetQuantity);
+
+    // Always clear the input after each addition
+    searchInput.value = '';
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await this.delay(500);
+
+    return success;
+  } catch (e) {
+    console.error('Error in addToMigros:', e);
+    return false;
+  }
+}
+
 
     async setQuantityAndAddToCart(productElement, targetQuantity) {
       try {
