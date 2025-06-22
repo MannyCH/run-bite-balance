@@ -107,40 +107,55 @@
 
 async addToMigros(item) {
   try {
+    console.log('[Migros] Attempting to add:', item.name, item.quantity);
+
+    // Init tracking set & list if not already present
+    this.addedItemNames = this.addedItemNames || new Set();
+    this.addedItemLog = this.addedItemLog || [];
+
+    const lowerName = item.name.toLowerCase();
+    if (this.addedItemNames.has(lowerName)) {
+      console.warn('[Migros] Skipping duplicate item:', item.name);
+      return false;
+    }
+    this.addedItemNames.add(lowerName);
+
     const searchInput = document.querySelector('input#autocompleteSearchInput') ||
                         document.querySelector('input[data-cy="autocompleteSearchInput"]');
 
     if (!searchInput) {
-      console.warn('Search input not found');
+      console.warn('[Migros] Search input not found');
       return false;
     }
 
-    // Clear previous input
+    // Clear input first
     searchInput.focus();
     searchInput.value = '';
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-    await this.delay(300); // Small pause before typing new term
+    await this.delay(300);
 
-    // Enter new item name
+    // Enter item name
     searchInput.value = item.name;
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     searchInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-    // Wait for search results to update
-    await this.delay(3000);
+    await this.delay(3000); // Allow time for results to update
 
     const suggestedProducts = document.querySelector('ul#suggestedProducts[data-cy="suggested-products"]');
     if (!suggestedProducts) {
-      console.warn('Suggested products list not found');
+      console.warn('[Migros] No suggested products list');
       return false;
     }
 
     const firstProduct = suggestedProducts.querySelector('li:first-child article[mo-instant-search-product-item]');
     if (!firstProduct) {
-      console.warn('First product not found');
+      console.warn('[Migros] No first product found');
       return false;
     }
 
+    console.log('[Migros] Found product:', firstProduct.textContent.trim().slice(0, 100));
+
+    // Quantity calculation
     let targetQuantity = 1;
     if (this.quantityParser) {
       try {
@@ -149,25 +164,39 @@ async addToMigros(item) {
           item.quantity,
           firstProduct
         );
-      } catch (e) {
-        console.warn('Quantity parsing failed, defaulting to 1:', e);
+      } catch (err) {
+        console.warn('[Migros] Quantity parsing failed, defaulting to 1');
         targetQuantity = 1;
       }
     }
 
     const success = await this.setQuantityAndAddToCart(firstProduct, targetQuantity);
 
-    // Always clear the input after each addition
+    if (success) {
+      this.addedItemLog.push({
+        name: item.name,
+        quantity: item.quantity,
+        addedQuantity: targetQuantity,
+        time: new Date().toISOString()
+      });
+      console.log('[Migros] ✅ Added:', item.name, '| Quantity:', targetQuantity);
+    } else {
+      console.warn('[Migros] ❌ Failed to add:', item.name);
+    }
+
+    // Clear search for next item
     searchInput.value = '';
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     await this.delay(500);
 
     return success;
-  } catch (e) {
-    console.error('Error in addToMigros:', e);
+  } catch (err) {
+    console.error('[Migros] Error in addToMigros:', err);
     return false;
   }
 }
+
+
 
 
     async setQuantityAndAddToCart(productElement, targetQuantity) {
