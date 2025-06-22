@@ -2,29 +2,25 @@
 // Content script for Migros and Coop automation
 console.log('Content script loading on:', window.location.href);
 
-// Load the quantity parser and automation modules
-const script1 = document.createElement('script');
-script1.src = chrome.runtime.getURL('quantity-parser.js');
-document.head.appendChild(script1);
-
-const script2 = document.createElement('script');
-script2.src = chrome.runtime.getURL('migros-automation.js');
-document.head.appendChild(script2);
-
 class ShoppingAutomation {
   constructor() {
     this.currentSite = this.detectSite();
     this.progress = 0;
     this.totalItems = 0;
     this.isReady = false;
+    this.quantityParser = null;
+    this.migrosAutomation = null;
     
     console.log('ShoppingAutomation initialized for site:', this.currentSite);
     this.initializeWhenReady();
   }
 
   async initializeWhenReady() {
+    console.log('Starting initialization...');
+    
     // Wait for DOM to be ready
     if (document.readyState !== 'complete') {
+      console.log('Waiting for DOM to be ready...');
       await new Promise(resolve => {
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', resolve);
@@ -34,20 +30,28 @@ class ShoppingAutomation {
       });
     }
     
-    // Wait for our automation modules to load
-    let retries = 0;
-    const maxRetries = 10;
+    console.log('DOM ready, loading scripts...');
     
-    while (retries < maxRetries && (!window.QuantityParser || !window.MigrosAutomation)) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      retries++;
-    }
-    
-    if (window.QuantityParser && window.MigrosAutomation) {
+    // Load scripts sequentially to ensure proper dependency order
+    try {
+      await this.loadScript('quantity-parser.js');
+      console.log('QuantityParser script loaded');
+      
+      await this.loadScript('migros-automation.js');
+      console.log('MigrosAutomation script loaded');
+      
+      // Wait for modules to be available
+      await this.waitForModules();
+      
+      // Initialize modules
+      this.quantityParser = new window.QuantityParser();
       this.migrosAutomation = new window.MigrosAutomation();
-      console.log('Automation modules loaded successfully');
-    } else {
-      console.error('Failed to load automation modules');
+      
+      console.log('All modules initialized successfully');
+      
+    } catch (error) {
+      console.error('Failed to load scripts:', error);
+      return;
     }
     
     // Give additional time for any dynamic content to load
@@ -55,6 +59,45 @@ class ShoppingAutomation {
       this.isReady = true;
       console.log('ShoppingAutomation ready');
     }, 1000);
+  }
+
+  loadScript(filename) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = chrome.runtime.getURL(filename);
+      script.onload = () => {
+        console.log(`Script loaded: ${filename}`);
+        resolve();
+      };
+      script.onerror = (error) => {
+        console.error(`Failed to load script: ${filename}`, error);
+        reject(error);
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  async waitForModules() {
+    console.log('Waiting for modules to be available...');
+    let retries = 0;
+    const maxRetries = 20;
+    const retryDelay = 250;
+    
+    while (retries < maxRetries) {
+      if (window.QuantityParser && window.MigrosAutomation) {
+        console.log('All modules are available');
+        return;
+      }
+      
+      console.log(`Modules not ready yet, retry ${retries + 1}/${maxRetries}`);
+      console.log('QuantityParser available:', !!window.QuantityParser);
+      console.log('MigrosAutomation available:', !!window.MigrosAutomation);
+      
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      retries++;
+    }
+    
+    throw new Error('Modules failed to load after maximum retries');
   }
 
   detectSite() {
@@ -65,18 +108,23 @@ class ShoppingAutomation {
   }
 
   async addItemsToCart(items) {
+    console.log('addItemsToCart called with items:', items);
+    
     if (!this.isReady) {
       console.log('Automation not ready yet, waiting...');
-      await new Promise(resolve => {
-        const checkReady = () => {
-          if (this.isReady) {
-            resolve();
-          } else {
-            setTimeout(checkReady, 500);
-          }
-        };
-        checkReady();
-      });
+      let waitRetries = 0;
+      const maxWaitRetries = 20;
+      
+      while (!this.isReady && waitRetries < maxWaitRetries) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        waitRetries++;
+        console.log(`Waiting for automation to be ready... ${waitRetries}/${maxWaitRetries}`);
+      }
+      
+      if (!this.isReady) {
+        console.error('Automation failed to become ready');
+        return { success: [], failed: items };
+      }
     }
     
     console.log(`Starting automation for ${items.length} items on ${this.currentSite}`);
@@ -131,8 +179,6 @@ class ShoppingAutomation {
     try {
       console.log('Adding to Coop:', item.name, 'quantity:', item.quantity);
       
-      // This is a placeholder - we need the actual Coop HTML structure
-      // Similar implementation for Coop with flexible selectors
       const searchSelectors = [
         'input[placeholder*="Suchen"]',
         'input[name="search"]',
