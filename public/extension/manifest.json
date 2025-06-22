@@ -21,6 +21,10 @@
     {
       "matches": ["https://www.migros.ch/*", "https://www.coop.ch/*"],
       "js": ["content.js"]
+    },
+    {
+      "matches": ["https://*.lovable.app/*"],
+      "js": ["app-bridge.js"]
     }
   ],
   "action": {
