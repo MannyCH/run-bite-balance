@@ -15,39 +15,102 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'startAutomation') {
     console.log('Starting automation for:', request.site, 'with items:', request.items);
     
-    // Find or create a tab for the target site
-    const siteUrl = request.site === 'migros' 
+    // More flexible URL patterns to handle redirects
+    const sitePatterns = {
+      migros: ['https://www.migros.ch/*', 'https://migros.ch/*'],
+      coop: ['https://www.coop.ch/*', 'https://coop.ch/*']
+    };
+    
+    const baseUrl = request.site === 'migros' 
       ? 'https://www.migros.ch' 
       : 'https://www.coop.ch';
     
-    chrome.tabs.query({ url: siteUrl + '/*' }, (tabs) => {
-      if (tabs.length > 0) {
+    // Try to find existing tab with flexible pattern matching
+    const patterns = sitePatterns[request.site];
+    let foundTab = null;
+    
+    const checkExistingTabs = async () => {
+      for (const pattern of patterns) {
+        try {
+          const tabs = await chrome.tabs.query({ url: pattern });
+          if (tabs.length > 0) {
+            foundTab = tabs[0];
+            console.log('Found existing tab:', foundTab.url);
+            break;
+          }
+        } catch (error) {
+          console.log('Pattern failed:', pattern, error);
+        }
+      }
+    };
+    
+    const sendAutomationMessage = (tabId, retryCount = 0) => {
+      const maxRetries = 5;
+      const retryDelay = 1000;
+      
+      console.log(`Attempting to send automation message to tab ${tabId}, retry ${retryCount}`);
+      
+      chrome.tabs.sendMessage(tabId, {
+        action: 'startAutomation',
+        items: request.items
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('Message send failed:', chrome.runtime.lastError.message);
+          
+          if (retryCount < maxRetries) {
+            console.log(`Retrying in ${retryDelay}ms...`);
+            setTimeout(() => {
+              sendAutomationMessage(tabId, retryCount + 1);
+            }, retryDelay * (retryCount + 1)); // Exponential backoff
+          } else {
+            console.error('Max retries reached, giving up');
+            sendResponse({ 
+              error: 'Failed to connect to shopping site. Please make sure the page is fully loaded.' 
+            });
+          }
+        } else {
+          console.log('Automation message sent successfully:', response);
+          sendResponse(response || { success: true });
+        }
+      });
+    };
+    
+    checkExistingTabs().then(() => {
+      if (foundTab) {
         // Use existing tab
-        const tab = tabs[0];
-        chrome.tabs.update(tab.id, { active: true }, () => {
-          // Send automation message to the content script
-          chrome.tabs.sendMessage(tab.id, {
-            action: 'startAutomation',
-            items: request.items
-          }, (response) => {
-            sendResponse(response);
-          });
+        chrome.tabs.update(foundTab.id, { active: true }, () => {
+          // Wait a bit for tab to become active
+          setTimeout(() => {
+            sendAutomationMessage(foundTab.id);
+          }, 500);
         });
       } else {
         // Create new tab
-        chrome.tabs.create({ url: siteUrl }, (tab) => {
-          // Wait for the tab to load before sending the message
-          chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
-            if (tabId === tab.id && info.status === 'complete') {
+        console.log('Creating new tab:', baseUrl);
+        chrome.tabs.create({ url: baseUrl }, (tab) => {
+          console.log('New tab created:', tab.id, tab.url);
+          
+          // Wait for the tab to load completely
+          const listener = (tabId, changeInfo, updatedTab) => {
+            if (tabId === tab.id && changeInfo.status === 'complete') {
+              console.log('Tab loading complete:', updatedTab.url);
               chrome.tabs.onUpdated.removeListener(listener);
-              chrome.tabs.sendMessage(tab.id, {
-                action: 'startAutomation',
-                items: request.items
-              }, (response) => {
-                sendResponse(response);
-              });
+              
+              // Give content script additional time to initialize
+              setTimeout(() => {
+                sendAutomationMessage(tab.id);
+              }, 1500);
             }
-          });
+          };
+          
+          chrome.tabs.onUpdated.addListener(listener);
+          
+          // Fallback timeout in case onUpdated doesn't fire
+          setTimeout(() => {
+            chrome.tabs.onUpdated.removeListener(listener);
+            console.log('Fallback: attempting to send message after timeout');
+            sendAutomationMessage(tab.id);
+          }, 5000);
         });
       }
     });
