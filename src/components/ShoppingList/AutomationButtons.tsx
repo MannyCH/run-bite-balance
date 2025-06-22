@@ -30,111 +30,103 @@ declare global {
 export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingList }) => {
   const [showExtensionAlert, setShowExtensionAlert] = useState(false);
   const [extensionAvailable, setExtensionAvailable] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string>('');
+  const [isAutomating, setIsAutomating] = useState(false);
 
   const uncompletedItems = shoppingList.filter(item => !item.isBought);
 
-  // Enhanced extension detection with retry mechanism
+  // Improved extension detection
   useEffect(() => {
-    let retryCount = 0;
-    const maxRetries = 10;
-    const retryDelay = 500;
-
     const checkExtension = () => {
-      const currentDomain = window.location.href;
-      const hasRunBiteFitExtension = !!window.runBiteFitExtension;
-      const hasChromeRuntime = !!window.chrome?.runtime;
-      const hasReadyFlag = !!window.__runBiteFitExtensionReady;
-      const hasExtension = hasRunBiteFitExtension || hasChromeRuntime || hasReadyFlag;
+      // Check for chrome extension context
+      const hasChromeRuntime = !!(window.chrome?.runtime?.sendMessage);
+      const hasCustomAPI = !!(window.runBiteFitExtension?.startAutomation);
       
-      const debugData = {
-        domain: currentDomain,
-        runBiteFitExtension: hasRunBiteFitExtension,
-        chromeRuntime: hasChromeRuntime,
-        readyFlag: hasReadyFlag,
-        hasExtension,
-        retryCount,
-        timestamp: new Date().toISOString()
-      };
+      console.log('Extension check:', {
+        hasChromeRuntime,
+        hasCustomAPI,
+        userAgent: navigator.userAgent
+      });
       
-      console.log('Extension check:', debugData);
-      setDebugInfo(JSON.stringify(debugData, null, 2));
-      
-      if (hasExtension) {
-        setExtensionAvailable(true);
-        console.log('Extension detected successfully!');
-        return true;
-      }
-      
-      return false;
+      return hasChromeRuntime || hasCustomAPI;
     };
 
+    let retryCount = 0;
+    const maxRetries = 5;
+    
     const retryCheck = () => {
-      if (checkExtension()) {
-        return; // Extension found, stop retrying
+      const detected = checkExtension();
+      
+      if (detected) {
+        setExtensionAvailable(true);
+        console.log('Extension detected successfully');
+        return;
       }
       
       retryCount++;
       if (retryCount < maxRetries) {
-        console.log(`Extension not detected, retrying (${retryCount}/${maxRetries})...`);
-        setTimeout(retryCheck, retryDelay * Math.pow(1.5, retryCount)); // Exponential backoff
+        setTimeout(retryCheck, 500);
       } else {
-        console.log('Extension detection failed after maximum retries');
         setExtensionAvailable(false);
+        console.log('Extension not detected after retries');
       }
     };
 
-    // Start initial check
     retryCheck();
-
-    // Listen for extension ready events
-    const handleExtensionReady = () => {
-      console.log('Extension ready event received');
-      if (checkExtension()) {
-        setExtensionAvailable(true);
-      }
-    };
-
-    const events = ['runBiteFitExtensionReady', 'runBiteFitExtensionLoaded'];
-    events.forEach(event => {
-      window.addEventListener(event, handleExtensionReady);
-    });
-
-    return () => {
-      events.forEach(event => {
-        window.removeEventListener(event, handleExtensionReady);
-      });
-    };
   }, []);
 
-  const handleAutomatedShopping = (site: 'migros' | 'coop') => {
-    const exportData = formatShoppingListForExport(shoppingList);
-    console.log('Starting automation for:', site, 'with items:', exportData);
+  const handleAutomatedShopping = async (site: 'migros' | 'coop') => {
+    // Prevent multiple simultaneous calls
+    if (isAutomating) {
+      console.log('Automation already in progress, ignoring request');
+      return;
+    }
 
-    if (extensionAvailable && window.runBiteFitExtension) {
-      // Use our custom extension API
-      console.log('Using runBiteFitExtension API');
-      window.runBiteFitExtension.startAutomation(site, exportData);
-      toast.success(`Starting automated shopping on ${site.charAt(0).toUpperCase() + site.slice(1)}`);
-    } else if (extensionAvailable && window.chrome?.runtime) {
+    setIsAutomating(true);
+    
+    try {
+      const exportData = formatShoppingListForExport(shoppingList);
+      console.log('Starting automation for:', site, 'with items:', exportData);
+
+      if (!extensionAvailable) {
+        console.log('Extension not available, showing alert');
+        setShowExtensionAlert(true);
+        return;
+      }
+
+      // Try custom extension API first
+      if (window.runBiteFitExtension?.startAutomation) {
+        console.log('Using runBiteFitExtension API');
+        window.runBiteFitExtension.startAutomation(site, exportData);
+        toast.success(`Starting automated shopping on ${site.charAt(0).toUpperCase() + site.slice(1)}`);
+      } 
       // Fallback to chrome.runtime API
-      console.log('Using chrome.runtime API');
-      window.chrome.runtime.sendMessage({
-        action: 'startAutomation',
-        site: site,
-        items: exportData
-      }, (response) => {
-        console.log('Extension response:', response);
-        if (response?.error) {
-          toast.error(`Automation failed: ${response.error}`);
-        } else {
-          toast.success(`Starting automated shopping on ${site.charAt(0).toUpperCase() + site.slice(1)}`);
-        }
-      });
-    } else {
-      // Extension not available, show installation instructions
-      console.log('Extension not available, showing alert');
-      setShowExtensionAlert(true);
+      else if (window.chrome?.runtime?.sendMessage) {
+        console.log('Using chrome.runtime API');
+        window.chrome.runtime.sendMessage({
+          action: 'startAutomation',
+          site: site,
+          items: exportData
+        }, (response) => {
+          console.log('Extension response:', response);
+          if (response?.error) {
+            toast.error(`Automation failed: ${response.error}`);
+          } else {
+            toast.success(`Starting automated shopping on ${site.charAt(0).toUpperCase() + site.slice(1)}`);
+          }
+        });
+      } else {
+        // Should not reach here if extensionAvailable is true
+        console.error('Extension methods not available despite detection');
+        setShowExtensionAlert(true);
+      }
+    } catch (error) {
+      console.error('Automation error:', error);
+      toast.error('Failed to start automation');
+    } finally {
+      // Reset automation state after a delay
+      setTimeout(() => {
+        setIsAutomating(false);
+      }, 2000);
     }
   };
 
@@ -154,7 +146,6 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
   };
 
   const downloadExtension = () => {
-    // Create a zip file with extension files or provide download link
     toast.info('Extension download will be available soon. Use manual export for now.');
   };
 
@@ -164,32 +155,6 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
 
   return (
     <div className="space-y-4">
-      {/* Enhanced debug info for development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="text-xs text-gray-500 p-3 bg-gray-50 rounded border">
-          <div className="font-semibold mb-2">Extension Debug Info:</div>
-          <div className="whitespace-pre-wrap font-mono text-xs">
-            Extension Available: {extensionAvailable ? '✅ YES' : '❌ NO'}
-            <br />
-            Current Domain: {window.location.href}
-            <br />
-            runBiteFitExtension: {window.runBiteFitExtension ? '✅' : '❌'}
-            <br />
-            chrome.runtime: {window.chrome?.runtime ? '✅' : '❌'}
-            <br />
-            Ready Flag: {window.__runBiteFitExtensionReady ? '✅' : '❌'}
-          </div>
-          {debugInfo && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-xs font-semibold">Full Debug Data</summary>
-              <pre className="text-xs mt-1 p-2 bg-white rounded border overflow-auto max-h-32">
-                {debugInfo}
-              </pre>
-            </details>
-          )}
-        </div>
-      )}
-
       {showExtensionAlert && (
         <Alert className="border-blue-200 bg-blue-50">
           <AlertCircle className="h-4 w-4 text-blue-600" />
@@ -225,10 +190,10 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
           <Button
             onClick={() => handleAutomatedShopping('migros')}
             className="bg-orange-600 hover:bg-orange-700 text-white"
-            disabled={!extensionAvailable}
+            disabled={!extensionAvailable || isAutomating}
           >
             <ShoppingCart className="h-4 w-4 mr-2" />
-            Auto-add to Migros
+            {isAutomating ? 'Adding...' : 'Auto-add to Migros'}
             <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-800">
               {uncompletedItems.length}
             </Badge>
@@ -237,10 +202,10 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
           <Button
             onClick={() => handleAutomatedShopping('coop')}
             className="bg-red-600 hover:bg-red-700 text-white"
-            disabled={!extensionAvailable}
+            disabled={!extensionAvailable || isAutomating}
           >
             <ShoppingCart className="h-4 w-4 mr-2" />
-            Auto-add to Coop
+            {isAutomating ? 'Adding...' : 'Auto-add to Coop'}
             <Badge variant="secondary" className="ml-2 bg-red-100 text-red-800">
               {uncompletedItems.length}
             </Badge>

@@ -1,5 +1,7 @@
 
 // Background script for the shopping assistant extension
+let activeAutomations = new Map(); // Track active automations to prevent duplicates
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background script received message:', request);
   
@@ -15,6 +17,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'startAutomation') {
     console.log('Starting automation for:', request.site, 'with items:', request.items);
     
+    // Prevent duplicate automations for the same site
+    const automationKey = `${request.site}-${Date.now()}`;
+    if (activeAutomations.has(request.site)) {
+      console.log('Automation already in progress for', request.site);
+      sendResponse({ error: 'Automation already in progress for this site' });
+      return;
+    }
+
+    activeAutomations.set(request.site, automationKey);
+    
+    // Clean up after 30 seconds
+    setTimeout(() => {
+      activeAutomations.delete(request.site);
+    }, 30000);
+    
     const baseUrl = request.site === 'migros' 
       ? 'https://www.migros.ch' 
       : 'https://www.coop.ch';
@@ -25,13 +42,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
     console.log('Looking for existing tab with pattern:', urlPattern);
     
-    // Find existing tab with simplified logic
+    // Find existing tab with improved logic
     chrome.tabs.query({ url: urlPattern }, (tabs) => {
       console.log(`Found ${tabs.length} existing tabs`);
       
-      if (tabs.length > 0) {
-        // Use the first existing tab
-        const existingTab = tabs[0];
+      // Filter for active/loaded tabs
+      const activeTabs = tabs.filter(tab => tab.status === 'complete' && !tab.discarded);
+      console.log(`Found ${activeTabs.length} active tabs`);
+      
+      if (activeTabs.length > 0) {
+        // Use the most recent active tab
+        const existingTab = activeTabs[0];
         console.log('Using existing tab:', existingTab.id, existingTab.url);
         
         chrome.tabs.update(existingTab.id, { active: true }, () => {
@@ -41,8 +62,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           }, 1000);
         });
       } else {
-        // Create new tab only if none exists
-        console.log('No existing tab found, creating new one:', baseUrl);
+        // Create new tab only if no active tabs exist
+        console.log('No active tab found, creating new one:', baseUrl);
         chrome.tabs.create({ url: baseUrl }, (tab) => {
           console.log('New tab created:', tab.id, tab.url);
           
@@ -90,12 +111,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }, retryDelay);
           } else {
             console.error('Max retries reached');
+            activeAutomations.delete(request.site); // Clean up
             sendResponse({ 
               error: 'Failed to connect to shopping site. Please refresh the page and try again.' 
             });
           }
         } else {
           console.log('Automation message sent successfully:', response);
+          activeAutomations.delete(request.site); // Clean up on success
           sendResponse(response || { success: true });
         }
       });

@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { CalendarDays, ChevronRight, Menu, Home, MapPin, UtensilsCrossed, LogIn, ShoppingCart } from "lucide-react";
@@ -35,11 +36,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
 
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-teal-500 transition-transform transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto lg:h-screen",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-teal-500 transition-transform transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto lg:min-h-screen",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex flex-col h-full p-3">
+        <div className="flex flex-col min-h-screen p-3">
           <div className="flex items-center justify-between p-4">
             <Link to="/" className="text-white text-xl font-bold">
               RunBiteFit
