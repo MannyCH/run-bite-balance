@@ -9,97 +9,118 @@
   
 let isAutomationRunning = false;
 
-  class QuantityParser {
-    constructor() {
-      this.unitMappings = {
-        'g': 1, 'gram': 1, 'gramm': 1, 'gr': 1,
-        'kg': 1000, 'kilo': 1000, 'kilogram': 1000,
-        'ml': 1, 'milliliter': 1,
-        'l': 1000, 'liter': 1000, 'litre': 1000,
-        'dl': 100, 'deciliter': 100,
-        'cl': 10, 'centiliter': 10,
-        'stk': 1, 'stück': 1, 'piece': 1, 'pieces': 1, 'pc': 1, 'pcs': 1, 'x': 1,
-        'pkg': 1, 'package': 1, 'pack': 1, 'packs': 1, 'packet': 1, 'packets': 1,
-        'box': 1, 'boxes': 1, 'can': 1, 'cans': 1,
-        'bottle': 1, 'bottles': 1, 'jar': 1, 'jars': 1,
-        'bag': 1, 'bags': 1, 'bunch': 1, 'bunches': 1,
-        'head': 1, 'heads': 1
-      };
+class QuantityParser {
+  constructor() {
+    this.unitMappings = {
+      // Weight & volume
+      'g': 1, 'gram': 1, 'gramm': 1, 'gr': 1,
+      'kg': 1000, 'kilo': 1000, 'kilogram': 1000,
+      'ml': 1, 'milliliter': 1,
+      'l': 1000, 'liter': 1000, 'litre': 1000,
+      'dl': 100, 'deciliter': 100,
+      'cl': 10, 'centiliter': 10,
+      // Kitchen units
+      'tsp': 5, 'teaspoon': 5,
+      'tbsp': 15, 'tablespoon': 15,
+      'pinch': 0.3,
+      // Countable items
+      'stk': 1, 'stück': 1, 'piece': 1, 'pieces': 1, 'pc': 1, 'pcs': 1, 'x': 1,
+      'bunch': 1, 'bunches': 1,
+      'egg': 1, 'eggs': 1
+    };
 
-      this.defaultWeights = {
-        'banana': 120, 'bananas': 120,
-        'apple': 180, 'apples': 180,
-        'carrot': 150, 'karotten': 150, 'rüebli': 150,
-        'broccoli': 500, 'cauliflower': 800,
-        'onion': 100, 'onions': 100, 'zwiebel': 100,
-        'pepper': 200, 'paprika': 200,
-        'tomato': 150, 'tomaten': 150,
-        'zucchini': 250, 'cucumber': 300, 'salad': 300
-      };
+    this.defaultWeights = {
+      'banana': 120, 'apple': 180, 'carrot': 150, 'onion': 100,
+      'broccoli': 500, 'cauliflower': 800, 'pepper': 200,
+      'tomato': 150, 'zucchini': 250, 'cucumber': 300,
+      'spring onion': 15, 'bouillon': 5, 'egg': 60
+    };
+  }
+
+  parseQuantity(str) {
+    if (!str || typeof str !== 'string') return { amount: 1, unit: 'piece', originalText: str };
+    const match = str.toLowerCase().match(/(\d+(?:[.,]\d+)?)(\s*[a-zA-Z]*)?/);
+    const amount = match ? parseFloat(match[1].replace(',', '.')) : 1;
+    const unit = match && match[2] ? match[2].trim().toLowerCase() || 'piece' : 'piece';
+    return { amount, unit, originalText: str };
+  }
+
+  convertToBaseUnits(amount, unit) {
+    const normalized = unit.toLowerCase();
+    const factor = this.unitMappings[normalized];
+    return factor ? amount * factor : amount;
+  }
+
+  extractMigrosPackageSize(productElement) {
+    if (!productElement) return null;
+    const weightNode = productElement.querySelector('.weight-priceUnit');
+    if (!weightNode) return null;
+
+    const text = weightNode.textContent.trim().replace(',', '.');
+    const match = text.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|dl|cl)/i);
+    if (!match) return null;
+
+    let [_, number, unit] = match;
+    number = parseFloat(number);
+    unit = unit.toLowerCase();
+
+    const baseUnit = ['kg', 'g'].includes(unit) ? 'g' : 'ml';
+    const factor = this.unitMappings[unit] || 1;
+    return { amount: number * factor, unit: baseUnit };
+  }
+
+  calculateRequiredQuantityFromElement(itemName, requiredQuantity, productElement) {
+    const parsed = this.parseQuantity(requiredQuantity);
+    console.log('=== Quantity Debug ===');
+    console.log('Item:', itemName, '| Required:', requiredQuantity, '| Parsed:', parsed);
+
+    const packageSize = this.extractMigrosPackageSize(productElement);
+    console.log('Extracted package size:', packageSize);
+
+    const isBouillon = itemName.toLowerCase().includes('bouillon');
+    const requiredGrams = isBouillon && ['dl', 'l'].includes(parsed.unit)
+      ? this.convertBrothToBouillonGrams(parsed)
+      : this.convertToBaseUnits(parsed.amount, parsed.unit);
+
+    if (packageSize && packageSize.amount > 0) {
+      const packagesNeeded =
+        requiredGrams > packageSize.amount
+          ? Math.ceil(requiredGrams / packageSize.amount)
+          : 1;
+      return packagesNeeded;
     }
 
-    parseQuantity(str) {
-      if (!str || typeof str !== 'string') return { amount: 1, unit: 'piece', originalText: str };
-      const match = str.toLowerCase().match(/(\d+(?:[.,]\d+)?)(\s*[a-zA-Z]*)?/);
-      const amount = match ? parseFloat(match[1].replace(',', '.')) : 1;
-      const unit = match && match[2] ? match[2].trim().toLowerCase() || 'piece' : 'piece';
-      return { amount, unit, originalText: str };
-    }
+    return this.calculateFallbackPackages(itemName, parsed, packageSize?.amount || 150);
+  }
 
-    convertToBaseUnits(amount, unit) {
-      const factor = this.unitMappings[unit.toLowerCase()] || 1;
-      return amount * factor;
-    }
+  convertBrothToBouillonGrams(parsed) {
+    const dlAmount = this.convertToBaseUnits(parsed.amount, parsed.unit) / 100;
+    return dlAmount * 5; // 1 dl broth ≈ 5g bouillon
+  }
 
-    extractMigrosPackageSize(productElement) {
-      const weightNode = productElement.querySelector('.weight-priceUnit');
-      if (!weightNode) return null;
-      const text = weightNode.textContent.trim().replace(',', '.');
-      const match = text.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|dl|cl)/i);
-      if (!match) return null;
+  calculateFallbackPackages(itemName, parsed, packageWeight) {
+    const name = itemName.toLowerCase();
+    const key = Object.keys(this.defaultWeights).find(k => name.includes(k));
+    const assumedWeight = key ? this.defaultWeights[key] : 150;
 
-      const number = parseFloat(match[1]);
-      const unit = match[2].toLowerCase();
-      const normalizedUnit = ['kg', 'g'].includes(unit) ? 'g' : 'ml';
-      const factor = this.unitMappings[unit] || 1;
+    const estimatedWeight = ['piece', 'pcs', 'stk', 'x'].includes(parsed.unit)
+      ? parsed.amount * assumedWeight
+      : this.convertToBaseUnits(parsed.amount, parsed.unit);
 
-      return { amount: number * factor, unit: normalizedUnit };
-    }
-
-    calculateRequiredQuantityFromElement(itemName, requiredQuantity, productElement) {
-      const parsed = this.parseQuantity(requiredQuantity);
-      const packageSize = this.extractMigrosPackageSize(productElement);
-      const requiredGrams = this.convertToBaseUnits(parsed.amount, parsed.unit);
-
-      if (packageSize && packageSize.amount > 0) {
-        const compatible =
-          (packageSize.unit === 'g' && ['g', 'kg'].includes(parsed.unit)) ||
-          (packageSize.unit === 'ml' && ['ml', 'l', 'dl', 'cl'].includes(parsed.unit));
-        if (compatible) {
-          return requiredGrams > packageSize.amount
-            ? Math.ceil(requiredGrams / packageSize.amount)
-            : 1;
-        }
-      }
-
-      return this.calculateFallbackPackages(itemName, parsed, packageSize?.amount || 150);
-    }
-
-    calculateFallbackPackages(itemName, parsed, packageWeight) {
-      const itemKey = Object.keys(this.defaultWeights).find(k =>
-        itemName.toLowerCase().includes(k)
-      );
-      const assumedWeight = itemKey ? this.defaultWeights[itemKey] : 150;
-      const estimatedWeight =
-        parsed.unit === 'piece'
-          ? parsed.amount * assumedWeight
-          : this.convertToBaseUnits(parsed.amount, parsed.unit);
-
-      return estimatedWeight > packageWeight
+    const packagesNeeded =
+      estimatedWeight > packageWeight
         ? Math.ceil(estimatedWeight / packageWeight)
         : 1;
-    }
+
+    // Prevent silly overbuying for eggs or bouillon
+    if (name.includes('egg') && packagesNeeded > 2) return 2;
+    if (name.includes('bouillon') && packagesNeeded > 1) return 1;
+    if (name.includes('spring onion') && packagesNeeded > 1) return 1;
+
+    return packagesNeeded;
   }
+}
+
 
     class MigrosAutomation {
     constructor(quantityParser) {
