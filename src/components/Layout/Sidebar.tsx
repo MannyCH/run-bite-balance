@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { CalendarDays, ChevronRight, Menu, Home, MapPin, UtensilsCrossed, LogIn, ShoppingCart } from "lucide-react";
@@ -17,7 +16,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
 
   const menuItems = [
     { name: "Dashboard", path: "/", icon: Home },
-    { name: "Suggested Meals", path: "/suggested-meals", icon: UtensilsCrossed },
+    { name: "Recipes", path: "/suggested-meals", icon: UtensilsCrossed },
     { name: "Planned Runs", path: "/planned-runs", icon: MapPin },
     { name: "Meal Planner", path: "/meal-planner", icon: CalendarDays },
     { name: "Shopping List", path: "/shopping-list", icon: ShoppingCart },

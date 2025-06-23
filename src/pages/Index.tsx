@@ -1,13 +1,7 @@
 
 import React, { useEffect, useState } from "react";
 import MainLayout from "../components/Layout/MainLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import NutritionSummary from "../components/Dashboard/NutritionSummary";
-import RunSummary from "../components/Dashboard/RunSummary";
-import WeeklyCalendar from "../components/Dashboard/WeeklyCalendar";
 import ActivityTimeline from "../components/Dashboard/ActivityTimeline";
-import { RecipeSeasonalClassifier } from "@/components/Recipe/RecipeSeasonalClassifier";
-import { RecipeMealTypeClassifier } from "@/components/Recipe/RecipeMealTypeClassifier";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useMealPlan } from "@/hooks/useMealPlan";
@@ -80,18 +74,6 @@ const Index: React.FC = () => {
           </AlertDescription>
         </Alert>
       )}
-
-      {/* Recipe Classification Section */}
-      <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RecipeSeasonalClassifier />
-        <RecipeMealTypeClassifier />
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-        <WeeklyCalendar />
-        <NutritionSummary />
-        <RunSummary />
-      </div>
 
       <div className="mb-6">
         <ActivityTimeline 
