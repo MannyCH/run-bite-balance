@@ -218,7 +218,7 @@ async setQuantityAndAddToCart(productElement, targetQuantity) {
     for (let i = 0; i < targetQuantity; i++) {
       addToCartButton.click();
       console.log(`[Migros] 🛒 Clicked "Add to cart" (${i + 1}/${targetQuantity})`);
-      await this.delay(1000); // wait for UI to react
+      await this.delay(600); // wait for UI to react
     }
 
     return true;
@@ -263,7 +263,7 @@ async setQuantityAndAddToCart(productElement, targetQuantity) {
         } catch {
           results.failed.push(item);
         }
-        await this.delay(2000);
+        await this.delay(800);
       }
 
       return results;
