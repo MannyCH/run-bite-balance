@@ -8,9 +8,8 @@ import { AppProvider } from './context/AppContext';
 import { ProfileProvider } from './context/ProfileContext';
 import OnboardingCheck from './components/Auth/OnboardingCheck';
 import { ShoppingListProvider } from './context/ShoppingListContext';
-import Index from './pages/Index';
-import Account from './pages/Account';
 import WeeklyMealPlanner from './pages/WeeklyMealPlanner';
+import Account from './pages/Account';
 import ShoppingList from './pages/ShoppingList';
 import ProfileSetup from './pages/ProfileSetup';
 import RecipeImporterPage from './pages/RecipeImporter';
@@ -41,7 +40,7 @@ function App() {
                       element={
                         <AuthGuard>
                           <OnboardingCheck>
-                            <Index />
+                            <WeeklyMealPlanner />
                           </OnboardingCheck>
                         </AuthGuard>
                       }
