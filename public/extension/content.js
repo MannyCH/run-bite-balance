@@ -152,14 +152,14 @@ async addToMigros(item) {
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     searchInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-    await this.delay(300); // Small pause before typing
+    await this.delay(100); // Small pause before typing
     searchInput.value = item.name;
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     searchInput.dispatchEvent(new Event('change', { bubbles: true }));
 
     let firstProduct = null;
     for (let tries = 0; tries < 10; tries++) {
-      await this.delay(300); // Check every 300ms
+      await this.delay(150); // Check every 300ms
       const suggestedProducts = document.querySelector('ul#suggestedProducts[data-cy="suggested-products"]');
       if (suggestedProducts) {
         firstProduct = suggestedProducts.querySelector('li:first-child article[mo-instant-search-product-item]');
@@ -218,7 +218,7 @@ async setQuantityAndAddToCart(productElement, targetQuantity) {
     for (let i = 0; i < targetQuantity; i++) {
       addToCartButton.click();
       console.log(`[Migros] 🛒 Clicked "Add to cart" (${i + 1}/${targetQuantity})`);
-      await this.delay(600); // wait for UI to react
+      await this.delay(300); // wait for UI to react
     }
 
     return true;
@@ -263,7 +263,7 @@ async setQuantityAndAddToCart(productElement, targetQuantity) {
         } catch {
           results.failed.push(item);
         }
-        await this.delay(800);
+        await this.delay(300);
       }
 
       return results;
@@ -334,7 +334,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           isAutomationRunning = false;
           sendResponse({ error: error.message });
         });
-    }, 3000);
+    }, 1000);
 
     return true;
   }
