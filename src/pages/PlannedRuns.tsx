@@ -53,7 +53,7 @@ const PlannedRuns: React.FC = () => {
         </Dialog>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-8">
         {plannedRuns.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-gray-500 text-lg">No planned runs found</p>
@@ -61,61 +61,69 @@ const PlannedRuns: React.FC = () => {
           </div>
         ) : (
           plannedRuns.map((run) => (
-            <div
-              key={run.id}
-              className={`flex flex-col md:flex-row bg-white rounded-lg shadow overflow-hidden ${
-                run.isImported ? 'border-l-4 border-blue-500' : 'border-l-4 border-green-500'
-              }`}
-            >
-              {run.imgUrl && (
-                <div className="md:w-1/3">
-                  <img
-                    src={run.imgUrl}
-                    alt={run.title}
-                    className="h-48 w-full md:h-full object-cover"
-                  />
+            <div key={run.id} className="space-y-3">
+              {/* Prominent date header */}
+              <div className="flex items-center">
+                <h2 className="text-xl font-bold text-gray-900">
+                  {format(new Date(run.date), "EEEE, MMMM d, yyyy")}
+                </h2>
+                <div className="ml-4 flex items-center text-gray-600">
+                  <Clock className="h-4 w-4 mr-1" />
+                  <span className="font-medium">
+                    {format(new Date(run.date), "h:mm a")}
+                  </span>
                 </div>
-              )}
-              <div className="p-4 flex-1">
-                <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
-                  <div className="flex items-center">
-                    {run.isImported ? (
-                      <Route className="mr-2 h-5 w-5 text-blue-500" />
-                    ) : (
-                      <MapPin className="mr-2 h-5 w-5 text-green-500" />
-                    )}
-                    <h3 className="text-lg font-semibold">
-                      {run.title} 
-                      {run.isImported && (
-                        <span className="text-xs text-blue-500 ml-2 bg-blue-100 px-2 py-1 rounded-full">
-                          Imported
-                        </span>
-                      )}
-                    </h3>
+              </div>
+              
+              {/* Run details card */}
+              <div
+                className={`flex flex-col md:flex-row bg-white rounded-lg shadow overflow-hidden ${
+                  run.isImported ? 'border-l-4 border-blue-500' : 'border-l-4 border-green-500'
+                }`}
+              >
+                {run.imgUrl && (
+                  <div className="md:w-1/3">
+                    <img
+                      src={run.imgUrl}
+                      alt={run.title}
+                      className="h-48 w-full md:h-full object-cover"
+                    />
                   </div>
-                  <div className="flex flex-col items-end text-sm text-gray-500">
-                    <span>{format(new Date(run.date), "MMM d, yyyy")}</span>
-                    <span className="flex items-center">
-                      <Clock className="h-4 w-4 mr-1" />
-                      {format(new Date(run.date), "h:mm a")}
+                )}
+                <div className="p-4 flex-1">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      {run.isImported ? (
+                        <Route className="mr-2 h-5 w-5 text-blue-500" />
+                      ) : (
+                        <MapPin className="mr-2 h-5 w-5 text-green-500" />
+                      )}
+                      <h3 className="text-lg font-semibold">
+                        {run.title} 
+                        {run.isImported && (
+                          <span className="text-xs text-blue-500 ml-2 bg-blue-100 px-2 py-1 rounded-full">
+                            Imported
+                          </span>
+                        )}
+                      </h3>
+                    </div>
+                  </div>
+                  {run.route && (
+                    <p className="text-gray-600 mb-2">
+                      <span>Route: {run.route}</span>
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded">
+                      {run.distance} km
+                    </span>
+                    <span className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded">
+                      {Math.floor(run.duration / 60)} min
+                    </span>
+                    <span className="bg-purple-50 text-purple-700 text-xs px-2 py-1 rounded">
+                      {run.pace}/km pace
                     </span>
                   </div>
-                </div>
-                {run.route && (
-                  <p className="text-gray-600 mb-2">
-                    <span>Route: {run.route}</span>
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded">
-                    {run.distance} km
-                  </span>
-                  <span className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded">
-                    {Math.floor(run.duration / 60)} min
-                  </span>
-                  <span className="bg-purple-50 text-purple-700 text-xs px-2 py-1 rounded">
-                    {run.pace}/km pace
-                  </span>
                 </div>
               </div>
             </div>
