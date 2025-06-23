@@ -69,13 +69,11 @@ const SuggestedMeals: React.FC = () => {
   return (
     <MainLayout>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Suggested Meals</h1>
+        <h1 className="text-3xl font-bold mb-2">Recipes</h1>
         <p className="text-gray-600">
           Discover recipes from your Supabase database for {format(selectedDate, "MMMM d, yyyy")}
         </p>
       </div>
-
-      <RecipeImporter />
 
       {isLoadingRecipes ? (
         <div className="flex justify-center items-center py-20">
@@ -83,7 +81,7 @@ const SuggestedMeals: React.FC = () => {
           <div className="text-lg text-gray-600">Loading recipes from Supabase...</div>
         </div>
       ) : recipes.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
           {recipes.map((recipe) => (
             <Card key={recipe.id} className="overflow-hidden flex flex-col">
               <Link to={`/recipe/${recipe.id}`} className="cursor-pointer">
@@ -173,12 +171,14 @@ const SuggestedMeals: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="text-center py-10 border border-dashed rounded-lg bg-gray-50">
+        <div className="text-center py-10 border border-dashed rounded-lg bg-gray-50 mb-8">
           <Archive className="w-10 h-10 mx-auto text-gray-400 mb-2" />
           <h3 className="text-lg font-medium text-gray-700 mb-1">No recipes found</h3>
-          <p className="text-gray-500 mb-4">Import recipes using the ZIP uploader above or add recipes manually</p>
+          <p className="text-gray-500 mb-4">Import recipes using the ZIP uploader below or add recipes manually</p>
         </div>
       )}
+
+      <RecipeImporter />
     </MainLayout>
   );
 };
