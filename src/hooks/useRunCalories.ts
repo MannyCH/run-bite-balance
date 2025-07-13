@@ -22,11 +22,10 @@ export const useRunCalories = (run: Run | null) => {
       return;
     }
 
-    console.log('Processing imported run for calories:', {
+    console.log('Using imported run data:', {
       title: run.title,
-      distance: run.distance + 'km',
-      isImported: run.isImported,
-      date: run.date
+      distance: run.distance + 'km (imported from iCal)',
+      isImported: run.isImported
     });
 
     // Simple calorie calculation based on distance and weight

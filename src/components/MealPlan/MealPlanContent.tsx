@@ -37,13 +37,13 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
     isSameDay(new Date(run.date), selectedDate)
   );
 
-  console.log('Found runs for selected date:', plannedRunsForDate.map(r => ({ 
-    title: r.title, 
-    distance: r.distance + 'km', 
-    isImported: r.isImported 
-  })));
-
   const primaryRun = plannedRunsForDate.length > 0 ? plannedRunsForDate[0] : null;
+  
+  console.log('Displaying run for meal plan:', primaryRun ? {
+    title: primaryRun.title,
+    distance: primaryRun.distance + 'km (from iCal import)',
+    isImported: primaryRun.isImported
+  } : 'No run found for this date');
   const { calorieEstimate, isLoading: isLoadingCalories } = useRunCalories(primaryRun);
 
   // Get meals for the selected date with proper sorting
