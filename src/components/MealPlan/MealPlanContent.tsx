@@ -124,7 +124,6 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
                       <span className="font-medium">{primaryRun.title}</span>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                      <span>{primaryRun.distance} km</span>
                       {calorieEstimate && (
                         <span className="font-medium">
                           {calorieEstimate.recommendedIntake} calories recommended
