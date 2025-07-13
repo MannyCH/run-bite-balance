@@ -112,29 +112,20 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
             <Alert className="border-orange-200 bg-orange-50">
               <Flame className="h-4 w-4 text-orange-600" />
               <AlertDescription className="text-orange-800">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    <span className="font-medium">{primaryRun.title}</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      <span className="font-medium">{primaryRun.title}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      <span>{primaryRun.distance} km</span>
+                      {calorieEstimate && (
+                        <span className="font-medium">
+                          {calorieEstimate.recommendedIntake} calories recommended
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4 text-sm">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {Math.round(primaryRun.duration / 60)} min
-                    </span>
-                    <span>{primaryRun.distance} km</span>
-                    {calorieEstimate && (
-                      <span className="font-medium">
-                        ~{calorieEstimate.recommendedIntake} calories recommended for fueling & recovery
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {calorieEstimate && (
-                  <div className="mt-2 text-sm text-orange-700">
-                    {calorieEstimate.explanation}
-                  </div>
-                )}
               </AlertDescription>
             </Alert>
           </div>

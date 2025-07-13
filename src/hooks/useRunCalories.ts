@@ -39,11 +39,7 @@ export const useRunCalories = (run: Run | null) => {
     // Add 30% buffer for fueling and recovery
     const recommendedIntake = Math.round(caloriesBurned * 1.3);
     
-    // Calculate estimated pace for reference
-    const paceMinutesPerKm = run.duration / 60 / run.distance;
-    const paceDisplay = `${Math.floor(paceMinutesPerKm)}:${Math.round((paceMinutesPerKm % 1) * 60).toString().padStart(2, '0')}`;
-    
-    const explanation = `Estimated ${caloriesBurned} calories burned (${run.distance}km × ${weight}kg × 0.75) at ~${paceDisplay}/km pace. Extra 30% added for fueling & recovery.`;
+    const explanation = `${caloriesBurned} calories burned + 30% for fueling & recovery = ${recommendedIntake} total calories recommended.`;
 
     setCalorieEstimate({
       caloriesBurned,
