@@ -22,10 +22,10 @@ export const useRunCalories = (run: Run | null) => {
       return;
     }
 
-    console.log('Calculating calories for run:', {
+    console.log('Processing imported run for calories:', {
       title: run.title,
-      distance: run.distance,
-      duration: run.duration,
+      distance: run.distance + 'km',
+      isImported: run.isImported,
       date: run.date
     });
 

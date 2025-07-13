@@ -37,6 +37,12 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
     isSameDay(new Date(run.date), selectedDate)
   );
 
+  console.log('Found runs for selected date:', plannedRunsForDate.map(r => ({ 
+    title: r.title, 
+    distance: r.distance + 'km', 
+    isImported: r.isImported 
+  })));
+
   const primaryRun = plannedRunsForDate.length > 0 ? plannedRunsForDate[0] : null;
   const { calorieEstimate, isLoading: isLoadingCalories } = useRunCalories(primaryRun);
 
