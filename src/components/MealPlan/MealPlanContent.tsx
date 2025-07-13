@@ -123,19 +123,14 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
                       {Math.round(primaryRun.duration / 60)} min
                     </span>
                     <span>{primaryRun.distance} km</span>
-                    {isLoadingCalories ? (
-                      <span className="flex items-center gap-1">
-                        <Loader className="h-3 w-3 animate-spin" />
-                        Calculating calories...
-                      </span>
-                    ) : calorieEstimate ? (
+                    {calorieEstimate && (
                       <span className="font-medium">
                         ~{calorieEstimate.recommendedIntake} calories recommended for fueling & recovery
                       </span>
-                    ) : null}
+                    )}
                   </div>
                 </div>
-                {calorieEstimate && !isLoadingCalories && (
+                {calorieEstimate && (
                   <div className="mt-2 text-sm text-orange-700">
                     {calorieEstimate.explanation}
                   </div>
