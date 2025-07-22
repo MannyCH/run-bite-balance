@@ -57,11 +57,11 @@ const WeeklyMealPlanner: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="mb-8">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Weekly Meal Planner</h1>
-            <p className="text-gray-600">
+      <div className="mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Weekly Meal Planner</h1>
+            <p className="text-gray-600 text-sm sm:text-base">
               View your personalized meal plan based on your profile
             </p>
           </div>
@@ -70,10 +70,11 @@ const WeeklyMealPlanner: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={handleClearMealPlan}
-              className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+              className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 flex-shrink-0"
             >
               <Trash2 className="h-4 w-4 mr-2" />
-              Clear Meal Plan
+              <span className="hidden sm:inline">Clear Meal Plan</span>
+              <span className="sm:hidden">Clear</span>
             </Button>
           )}
         </div>

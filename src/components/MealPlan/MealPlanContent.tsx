@@ -98,13 +98,13 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle className="flex items-center">
-              <Calendar className="h-5 w-5 mr-2" />
-              Meals for {format(selectedDate, "EEEE, MMMM d")}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex items-center text-lg sm:text-xl">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 mr-2 flex-shrink-0" />
+              <span className="truncate">Meals for {format(selectedDate, "EEEE, MMM d")}</span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
               Your personalized meal plan for this day
               {primaryRun && ` • Run day: ${primaryRun.title}`}
             </CardDescription>
@@ -150,13 +150,14 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
         )}
       </CardContent>
       {Object.keys(recipes).length > 0 && (
-        <CardFooter className="border-t pt-4 flex justify-end">
+        <CardFooter className="border-t pt-4 flex flex-col sm:flex-row sm:justify-end gap-2">
           <Button 
             onClick={handleGenerateShoppingList}
-            className="flex items-center"
+            className="flex items-center w-full sm:w-auto"
           >
             <ShoppingCart className="h-4 w-4 mr-2" />
-            Generate Shopping List
+            <span className="hidden sm:inline">Generate Shopping List</span>
+            <span className="sm:hidden">Shopping List</span>
             {profile?.batch_cooking_people && profile.batch_cooking_people > 1 && (
               <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
                 {profile.batch_cooking_people} people

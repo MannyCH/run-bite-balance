@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { CalendarDays, ChevronRight, Menu, MapPin, UtensilsCrossed, LogIn, ShoppingCart } from "lucide-react";
+import { CalendarDays, ChevronRight, Menu, MapPin, UtensilsCrossed, LogIn, ShoppingCart, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import UserButton from "@/components/Auth/UserButton";
 import { useAuth } from "@/context/AuthContext";
@@ -20,6 +20,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
     { name: "Recipes", path: "/suggested-meals", icon: UtensilsCrossed },
     { name: "Planned Runs", path: "/planned-runs", icon: MapPin },
     { name: "Shopping List", path: "/shopping-list", icon: ShoppingCart },
+    ...(user ? [{ name: "Account", path: "/account", icon: Settings }] : []),
   ];
 
   return (
