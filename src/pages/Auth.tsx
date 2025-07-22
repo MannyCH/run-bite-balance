@@ -111,10 +111,10 @@ const Auth = () => {
   return (
     <MainLayout>
       <div className="flex items-center justify-center min-h-[80vh]">
-        <div className="max-w-md w-full p-4">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold">Welcome to RunBiteFit</h1>
-            <p className="text-gray-500 mt-2">
+        <div className="max-w-md w-full p-4 mx-4">
+          <div className="text-center mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold">Welcome to RunBiteFit</h1>
+            <p className="text-gray-500 mt-2 text-sm sm:text-base">
               Track your nutrition and running activities
             </p>
           </div>

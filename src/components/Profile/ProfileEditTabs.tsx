@@ -15,11 +15,11 @@ export function ProfileEditTabs({ onSave }: ProfileEditTabsProps) {
   return (
     <>
       <Tabs defaultValue="basic" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="basic">Basic Info</TabsTrigger>
-          <TabsTrigger value="fitness">Fitness</TabsTrigger>
-          <TabsTrigger value="dietary">Diet</TabsTrigger>
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+          <TabsTrigger value="basic" className="text-xs sm:text-sm">Basic Info</TabsTrigger>
+          <TabsTrigger value="fitness" className="text-xs sm:text-sm">Fitness</TabsTrigger>
+          <TabsTrigger value="dietary" className="text-xs sm:text-sm">Diet</TabsTrigger>
+          <TabsTrigger value="preferences" className="text-xs sm:text-sm">Preferences</TabsTrigger>
         </TabsList>
         
         <TabsContent value="basic">

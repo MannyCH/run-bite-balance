@@ -63,13 +63,13 @@ const ShoppingList: React.FC = () => {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
           <CardTitle className="flex items-center">
             <ListChecks className="h-5 w-5 mr-2" />
             Ingredients ({purchasedItems}/{totalItems})
           </CardTitle>
-          <div className="flex space-x-2">
-            <div className="relative w-64">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search ingredients..."
@@ -78,7 +78,7 @@ const ShoppingList: React.FC = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button variant="outline" onClick={handleClearList} disabled={shoppingList.length === 0}>
+            <Button variant="outline" onClick={handleClearList} disabled={shoppingList.length === 0} className="w-full sm:w-auto">
               Clear List
             </Button>
           </div>
@@ -105,7 +105,7 @@ const ShoppingList: React.FC = () => {
                     {items.map((item) => (
                       <li 
                         key={item.id} 
-                        className="flex items-center p-2 border-b last:border-0 hover:bg-gray-50 rounded-md"
+                        className="flex items-center p-3 sm:p-2 border-b last:border-0 hover:bg-gray-50 rounded-md"
                       >
                         <Checkbox 
                           id={item.id} 
@@ -114,18 +114,20 @@ const ShoppingList: React.FC = () => {
                           className="mr-3 flex-shrink-0"
                         />
                         
-                        {item.quantity && (
-                          <Badge variant="secondary" className="mr-3 text-sm px-2 py-0.5">
-                            {item.quantity}
-                          </Badge>
-                        )}
-                        
-                        <label 
-                          htmlFor={item.id} 
-                          className={`flex flex-1 cursor-pointer ${item.isBought ? 'line-through text-gray-400' : ''}`}
-                        >
-                          <span className="font-medium capitalize">{item.name}</span>
-                        </label>
+                        <div className="flex flex-col sm:flex-row sm:items-center flex-1 space-y-1 sm:space-y-0">
+                          {item.quantity && (
+                            <Badge variant="secondary" className="mr-0 sm:mr-3 text-xs px-2 py-0.5 w-fit">
+                              {item.quantity}
+                            </Badge>
+                          )}
+                          
+                          <label 
+                            htmlFor={item.id} 
+                            className={`cursor-pointer ${item.isBought ? 'line-through text-gray-400' : ''}`}
+                          >
+                            <span className="font-medium capitalize text-sm sm:text-base">{item.name}</span>
+                          </label>
+                        </div>
                       </li>
                     ))}
                   </ul>
