@@ -112,16 +112,16 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
     <div className="space-y-4">
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-2 min-w-0 flex-1">
               <h3 className="text-lg font-medium flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
+                <Calendar className="h-5 w-5 flex-shrink-0" />
                 Generate Seasonal Meal Plan
               </h3>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 Generate a personalized plan based on your profile, planned runs, and current weather
               </p>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Thermometer className="h-4 w-4" />
                   <span>Current season: {getCurrentSeason()}</span>
@@ -140,6 +140,7 @@ export const GenerateMealPlan: React.FC<GenerateMealPlanProps> = ({
               onClick={handleGenerateMealPlan}
               disabled={isGenerating}
               size="lg"
+              className="w-full sm:w-auto flex-shrink-0"
             >
               {isGenerating ? 'Generating...' : 'Generate New Plan'}
             </Button>

@@ -29,7 +29,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="container mx-auto py-4 sm:py-8 px-3 sm:px-6 lg:px-8 max-w-full">
-            {children}
+            <div className="pl-12 lg:pl-0">
+              {children}
+            </div>
           </div>
         </main>
       </div>
