@@ -68,7 +68,7 @@ const SuggestedMeals: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="mb-6 sm:mb-8">
+      <div className="mb-6 sm:mb-8 pt-16 lg:pt-0">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">Recipes</h1>
         <p className="text-gray-600 text-sm sm:text-base">
           Discover recipes from your Supabase database for {format(selectedDate, "MMMM d, yyyy")}

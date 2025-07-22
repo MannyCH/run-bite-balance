@@ -14,7 +14,7 @@ const Index: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="mb-6 sm:mb-8">
+      <div className="mb-6 sm:mb-8 pt-16 lg:pt-0">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">Dashboard</h1>
         <p className="text-gray-600 text-sm sm:text-base">
           Track your nutrition and training all in one place

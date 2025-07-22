@@ -28,7 +28,7 @@ const PlannedRuns: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="flex justify-between items-start mb-8">
+      <div className="flex justify-between items-start mb-6 sm:mb-8 pt-16 lg:pt-0">
         <PlannedRunsHeader 
           importedRunsCount={importedRunsCount}
           manualRunsCount={manualRunsCount}

@@ -57,7 +57,7 @@ const WeeklyMealPlanner: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="mb-6 sm:mb-8">
+      <div className="mb-6 sm:mb-8 pt-16 lg:pt-0">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Weekly Meal Planner</h1>

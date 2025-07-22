@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { CalendarDays, ChevronRight, Menu, MapPin, UtensilsCrossed, LogIn, ShoppingCart, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,16 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
   const location = useLocation();
   const { user } = useAuth();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const menuItems = [
     { name: "Meal Planner", path: "/", icon: CalendarDays },
@@ -28,7 +38,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
       <div className="fixed top-0 left-0 z-40 lg:hidden">
         <button
           onClick={toggleSidebar}
-          className="p-4 text-gray-600 focus:outline-none"
+          className={cn(
+            "p-4 text-gray-600 focus:outline-none transition-opacity duration-300",
+            isScrolled ? "opacity-30" : "opacity-100"
+          )}
         >
           <Menu size={24} />
         </button>

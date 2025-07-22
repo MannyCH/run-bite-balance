@@ -47,12 +47,12 @@ const ShoppingList: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2 flex items-center">
+      <div className="mb-6 sm:mb-8 pt-16 lg:pt-0">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2 flex items-center">
           <ShoppingCart className="mr-2" />
           Shopping List
         </h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 text-sm sm:text-base">
           Items from your meal plan recipes, organized by category
         </p>
       </div>
