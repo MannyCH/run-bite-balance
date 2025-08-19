@@ -85,36 +85,38 @@ export const ReplaceRecipeDialog: React.FC<ReplaceRecipeDialogProps> = ({
         });
       }
 
-      // Score recipes by meal type suitability if we have profile
-      if (profile) {
-        const recipesWithScores = suitableRecipes.map(recipe => {
-          const scores = getMealTypeSuitabilityScores(recipe);
-          const suitabilityScore = scores[mealType] || 0;
-          return { ...recipe, suitabilityScore };
-        });
-
-        // Sort by suitability score (highest first), then by calorie proximity
-        recipesWithScores.sort((a, b) => {
-          const scoreDiff = (b.suitabilityScore || 0) - (a.suitabilityScore || 0);
-          if (Math.abs(scoreDiff) > 0.1) return scoreDiff;
-          
-          // If scores are similar, prefer recipes closer to target calories
-          const aCalorieDiff = Math.abs((a.calories || 0) - targetCalories);
-          const bCalorieDiff = Math.abs((b.calories || 0) - targetCalories);
-          return aCalorieDiff - bCalorieDiff;
-        });
-
-        setAvailableRecipes(recipesWithScores.slice(0, 10)); // Limit to top 10
-      } else {
-        // Without profile, just sort by calorie proximity
-        suitableRecipes.sort((a, b) => {
-          const aCalorieDiff = Math.abs((a.calories || 0) - targetCalories);
-          const bCalorieDiff = Math.abs((b.calories || 0) - targetCalories);
-          return aCalorieDiff - bCalorieDiff;
-        });
+      // Score recipes based on meal type suitability and calorie proximity
+      const scoredRecipes = suitableRecipes.map(recipe => {
+        let suitabilityScore = 0;
         
-        setAvailableRecipes(suitableRecipes.slice(0, 10));
-      }
+        if (profile) {
+          // Map snack types to 'snack' for scoring
+          const scoringMealType = mealType.includes('snack') ? 'snack' : mealType;
+          const scores = getMealTypeSuitabilityScores(recipe);
+          suitabilityScore = scores[scoringMealType] || 0;
+        }
+        
+        const calorieProximity = Math.max(0, 100 - Math.abs(recipe.calories - targetCalories));
+        const totalScore = suitabilityScore * 100 + calorieProximity;
+        
+        return {
+          ...recipe,
+          suitabilityScore,
+          calorieProximity,
+          totalScore
+        };
+      });
+
+      // Sort by total score and normalize match percentages to 0-100% scale
+      const sortedRecipes = scoredRecipes.sort((a, b) => b.totalScore - a.totalScore);
+      const maxScore = sortedRecipes[0]?.totalScore || 1;
+      
+      const recipesWithNormalizedMatch = sortedRecipes.map(recipe => ({
+        ...recipe,
+        matchPercentage: Math.round((recipe.totalScore / maxScore) * 100)
+      }));
+
+      setAvailableRecipes(recipesWithNormalizedMatch.slice(0, 10));
     } catch (error) {
       console.error('Error fetching suitable recipes:', error);
       toast.error('Failed to load replacement options');
@@ -193,9 +195,18 @@ export const ReplaceRecipeDialog: React.FC<ReplaceRecipeDialogProps> = ({
                 {availableRecipes.map((recipe) => (
                   <Card key={recipe.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
-                      <div className="flex justify-between items-start gap-4">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium truncate">{recipe.title}</h3>
+                       <div className="flex justify-between items-start gap-4">
+                         <div className="flex items-start gap-3 flex-1 min-w-0">
+                           <img
+                             src={recipe.imgurl || "/placeholder.svg"}
+                             alt={recipe.title}
+                             className="w-12 h-12 rounded object-cover flex-shrink-0"
+                             onError={(e) => {
+                               e.currentTarget.src = "/placeholder.svg";
+                             }}
+                           />
+                           <div className="flex-1 min-w-0">
+                             <h3 className="font-medium truncate">{recipe.title}</h3>
                           <div className="flex flex-wrap gap-2 mt-2">
                             <Badge variant="outline" className="text-xs">
                               {recipe.calories || 0} cal
@@ -209,14 +220,14 @@ export const ReplaceRecipeDialog: React.FC<ReplaceRecipeDialogProps> = ({
                             <Badge variant="outline" className="text-xs">
                               {recipe.fat || 0}g fat
                             </Badge>
-                            {recipe.suitabilityScore !== undefined && (
-                              <Badge 
-                                variant={recipe.suitabilityScore > 0.7 ? "default" : "secondary"} 
-                                className="text-xs"
-                              >
-                                {Math.round(recipe.suitabilityScore * 100)}% match
-                              </Badge>
-                            )}
+                             {recipe.matchPercentage !== undefined && (
+                               <Badge 
+                                 variant={recipe.matchPercentage > 70 ? "default" : "secondary"} 
+                                 className="text-xs"
+                               >
+                                 {recipe.matchPercentage}% match
+                               </Badge>
+                             )}
                           </div>
                           {recipe.categories && recipe.categories.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
@@ -226,9 +237,10 @@ export const ReplaceRecipeDialog: React.FC<ReplaceRecipeDialogProps> = ({
                                 </span>
                               ))}
                             </div>
-                          )}
-                        </div>
-                        <Button
+                           )}
+                           </div>
+                         </div>
+                         <Button
                           onClick={() => handleReplaceRecipe(recipe)}
                           disabled={isReplacing}
                           size="sm"
