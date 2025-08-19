@@ -74,7 +74,7 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
     retryCheck();
   }, []);
 
-  const handleAutomatedShopping = async (site: 'migros' | 'coop') => {
+  const handleAutomatedShopping = async () => {
     // Prevent multiple simultaneous calls
     if (isAutomating) {
       console.log('Automation already in progress, ignoring request');
@@ -85,7 +85,7 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
     
     try {
       const exportData = formatShoppingListForExport(shoppingList);
-      console.log('Starting automation for:', site, 'with items:', exportData);
+      console.log('Starting automation for Migros with items:', exportData);
 
       if (!extensionAvailable) {
         console.log('Extension not available, showing alert');
@@ -96,22 +96,22 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
       // Try custom extension API first
       if (window.runBiteFitExtension?.startAutomation) {
         console.log('Using runBiteFitExtension API');
-        window.runBiteFitExtension.startAutomation(site, exportData);
-        toast.success(`Starting automated shopping on ${site.charAt(0).toUpperCase() + site.slice(1)}`);
+        window.runBiteFitExtension.startAutomation('migros', exportData);
+        toast.success('Starting automated shopping on Migros');
       } 
       // Fallback to chrome.runtime API
       else if (window.chrome?.runtime?.sendMessage) {
         console.log('Using chrome.runtime API');
         window.chrome.runtime.sendMessage({
           action: 'startAutomation',
-          site: site,
+          site: 'migros',
           items: exportData
         }, (response) => {
           console.log('Extension response:', response);
           if (response?.error) {
             toast.error(`Automation failed: ${response.error}`);
           } else {
-            toast.success(`Starting automated shopping on ${site.charAt(0).toUpperCase() + site.slice(1)}`);
+            toast.success('Starting automated shopping on Migros');
           }
         });
       } else {
@@ -130,19 +130,18 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
     }
   };
 
-  const handleManualExport = (site: 'migros' | 'coop') => {
+  const handleManualExport = () => {
     const exportData = formatShoppingListForExport(shoppingList);
     const exportText = exportData.map(item => `${item.quantity} ${item.name}`).join('\n');
     
     navigator.clipboard.writeText(exportText).then(() => {
-      toast.success(`Shopping list copied to clipboard for ${site.charAt(0).toUpperCase() + site.slice(1)}`);
+      toast.success('Shopping list copied to clipboard for Migros');
     }).catch(() => {
       toast.error('Failed to copy to clipboard');
     });
 
-    // Open the site
-    const siteUrl = site === 'migros' ? 'https://www.migros.ch' : 'https://www.coop.ch';
-    window.open(siteUrl, '_blank');
+    // Open Migros
+    window.open('https://www.migros.ch', '_blank');
   };
 
   const downloadExtension = () => {
@@ -185,54 +184,26 @@ export const AutomationButtons: React.FC<AutomationButtonsProps> = ({ shoppingLi
         </Alert>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => handleAutomatedShopping('migros')}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
-            disabled={!extensionAvailable || isAutomating}
-          >
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            {isAutomating ? 'Adding...' : 'Auto-add to Migros'}
-            <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-800">
-              {uncompletedItems.length}
-            </Badge>
-          </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={handleAutomatedShopping}
+          className="bg-orange-600 hover:bg-orange-700 text-white"
+          disabled={!extensionAvailable || isAutomating}
+        >
+          <ShoppingCart className="h-4 w-4 mr-2" />
+          {isAutomating ? 'Adding...' : 'Auto-add to Migros'}
+          <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-800">
+            {uncompletedItems.length}
+          </Badge>
+        </Button>
 
-          <Button
-            onClick={() => handleAutomatedShopping('coop')}
-            className="bg-red-600 hover:bg-red-700 text-white"
-            disabled={!extensionAvailable || isAutomating}
-          >
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            {isAutomating ? 'Adding...' : 'Auto-add to Coop'}
-            <Badge variant="secondary" className="ml-2 bg-red-100 text-red-800">
-              {uncompletedItems.length}
-            </Badge>
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-1 text-sm text-gray-500">
-          <span>or</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => handleManualExport('migros')}
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Export to Migros
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => handleManualExport('coop')}
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Export to Coop
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          onClick={handleManualExport}
+        >
+          <ExternalLink className="h-4 w-4 mr-2" />
+          Export to Migros
+        </Button>
       </div>
     </div>
   );
