@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY_PERSONAL') || Deno.env.get('OPENAI_API_KEY');
+const OPENAI_API_KEY_PERSONAL = Deno.env.get("OPENAI_API_KEY_PERSONAL");
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
