@@ -149,7 +149,7 @@ export const ReplaceRecipeDialog: React.FC<ReplaceRecipeDialogProps> = ({
                        <div className="flex justify-between items-start gap-4">
                           <div className="flex items-start gap-3 flex-1 min-w-0">
                             <img
-                              src={recipe.image_url || "/placeholder.svg"}
+                              src={recipe.imgurl || "/placeholder.svg"}
                               alt={recipe.title}
                               className="w-12 h-12 rounded object-cover flex-shrink-0"
                               onError={(e) => {

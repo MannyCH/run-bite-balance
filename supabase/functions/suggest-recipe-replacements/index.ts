@@ -58,7 +58,7 @@ serve(async (req) => {
 
     const { data: candidateRecipes, error: recipesError } = await supabase
       .from('recipes')
-      .select('id, title, calories, protein, carbs, fat, ingredients, categories, meal_type, seasonal_suitability, temperature_preference, dish_type, image_url')
+      .select('id, title, calories, protein, carbs, fat, ingredients, categories, meal_type, seasonal_suitability, temperature_preference, dish_type, imgurl')
       .not('id', 'in', `(${excludeIds.join(',')})`)
       .gte('calories', targetCalories * 0.4)
       .lte('calories', targetCalories * 1.6);
