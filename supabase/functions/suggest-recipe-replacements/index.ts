@@ -7,9 +7,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const OPENAI_API_KEY_PERSONAL = Deno.env.get("OPENAI_API_KEY_PERSONAL");
+const openAIApiKey = Deno.env.get("OPENAI_API_KEY_PERSONAL") || Deno.env.get("OPENAI_API_KEY");
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+console.log("Using OPENAI_API_KEY_PERSONAL for OpenAI auth");
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -60,19 +62,15 @@ serve(async (req) => {
     const minCalories = Math.floor(targetCalories * 0.4);
     const maxCalories = Math.ceil(targetCalories * 1.6);
 
-    let candidateQuery = supabase
+    // Fetch candidate recipes with meal type filter
+    const { data: candidateRecipes, error: recipesError } = await supabase
       .from('recipes')
       .select('id, title, calories, protein, carbs, fat, ingredients, categories, meal_type, seasonal_suitability, temperature_preference, dish_type, imgurl')
       .gte('calories', minCalories)
-      .lte('calories', maxCalories);
+      .lte('calories', maxCalories)
+      .contains('meal_type', [mealType]);
 
-    // Only add NOT IN clause if there are IDs to exclude
-    if (excludeIds.length > 0) {
-      const quotedIds = excludeIds.map(id => `'${id}'`).join(',');
-      candidateQuery = candidateQuery.not('id', 'in', `(${quotedIds})`);
-    }
-
-    const { data: candidateRecipes, error: recipesError } = await candidateQuery;
+    console.log(`Total candidates fetched: ${candidateRecipes?.length || 0}`);
 
     if (recipesError) {
       throw new Error(`Failed to fetch recipes: ${recipesError.message}`);
@@ -83,6 +81,10 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+
+    // Filter out excluded IDs in memory to avoid UUID quoting issues
+    const filteredCandidates = candidateRecipes.filter(recipe => !excludeIds.includes(recipe.id));
+    console.log(`Candidates after exclusion: ${filteredCandidates.length}`);
 
     // Prepare context for OpenAI
     const currentSeason = getCurrentSeason();
@@ -108,7 +110,7 @@ CONTEXT:
 - Target Calories: ${targetCalories} (±30% acceptable)
 
 CANDIDATE RECIPES:
-${candidateRecipes.slice(0, 30).map((recipe, index) => `
+${filteredCandidates.slice(0, 30).map((recipe, index) => `
 ${index + 1}. ${recipe.title}
    - Calories: ${recipe.calories}
    - Protein: ${recipe.protein}g, Carbs: ${recipe.carbs}g, Fat: ${recipe.fat}g
@@ -153,12 +155,15 @@ Select exactly 8 recipes, ordered by suitability (best first). Match percentage 
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-5-2025-08-07',
+            model: 'gpt-4.1-2025-04-14',
             messages: [
-              { role: 'system', content: 'You are a nutrition expert. Return only valid JSON.' },
-              { role: 'user', content: contextPrompt }
+              { role: 'system', content: contextPrompt }
             ],
-            max_completion_tokens: 1000
+            temperature: 0.7,
+            max_tokens: 1024,
+            top_p: 1,
+            frequency_penalty: 0,
+            presence_penalty: 0
           }),
         });
 
@@ -177,7 +182,7 @@ Select exactly 8 recipes, ordered by suitability (best first). Match percentage 
 
         openAIData = await openAIResponse.json();
         content = openAIData.choices[0].message.content;
-        console.log(`OpenAI success on attempt ${attempt}`);
+        console.log(`OpenAI success on attempt ${attempt}, response length: ${content?.length || 0}`);
         break;
         
       } catch (error) {
@@ -204,7 +209,7 @@ Select exactly 8 recipes, ordered by suitability (best first). Match percentage 
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
       // Fallback to simple scoring
-      aiSuggestions = candidateRecipes.slice(0, 8).map((recipe, index) => ({
+      aiSuggestions = filteredCandidates.slice(0, 8).map((recipe, index) => ({
         recipeIndex: index + 1,
         matchPercentage: Math.max(20, 90 - index * 10),
         reason: "AI parsing failed, using fallback scoring"
@@ -213,7 +218,7 @@ Select exactly 8 recipes, ordered by suitability (best first). Match percentage 
 
     // Map AI suggestions to full recipe data
     const suggestions = aiSuggestions.map((suggestion: any) => {
-      const recipe = candidateRecipes[suggestion.recipeIndex - 1];
+      const recipe = filteredCandidates[suggestion.recipeIndex - 1];
       if (!recipe) return null;
       
       return {
