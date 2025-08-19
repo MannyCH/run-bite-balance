@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY_PERSONAL') || Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -56,12 +56,23 @@ serve(async (req) => {
 
     const excludeIds = [currentRecipeId, ...(existingRecipeIds?.map(item => item.recipe_id).filter(Boolean) || [])];
 
-    const { data: candidateRecipes, error: recipesError } = await supabase
+    // Build calorie bounds as integers to avoid decimal precision errors
+    const minCalories = Math.floor(targetCalories * 0.4);
+    const maxCalories = Math.ceil(targetCalories * 1.6);
+
+    let candidateQuery = supabase
       .from('recipes')
       .select('id, title, calories, protein, carbs, fat, ingredients, categories, meal_type, seasonal_suitability, temperature_preference, dish_type, imgurl')
-      .not('id', 'in', `(${excludeIds.join(',')})`)
-      .gte('calories', targetCalories * 0.4)
-      .lte('calories', targetCalories * 1.6);
+      .gte('calories', minCalories)
+      .lte('calories', maxCalories);
+
+    // Only add NOT IN clause if there are IDs to exclude
+    if (excludeIds.length > 0) {
+      const quotedIds = excludeIds.map(id => `'${id}'`).join(',');
+      candidateQuery = candidateQuery.not('id', 'in', `(${quotedIds})`);
+    }
+
+    const { data: candidateRecipes, error: recipesError } = await candidateQuery;
 
     if (recipesError) {
       throw new Error(`Failed to fetch recipes: ${recipesError.message}`);
@@ -127,30 +138,59 @@ Return ONLY a JSON array with this exact format:
 Select exactly 8 recipes, ordered by suitability (best first). Match percentage should be 0-100.
 `;
 
-    // Call OpenAI
-    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          { role: 'system', content: 'You are a nutrition expert. Return only valid JSON.' },
-          { role: 'user', content: contextPrompt }
-        ],
-        max_tokens: 1000,
-        temperature: 0.3
-      }),
-    });
+    // Call OpenAI with retry logic
+    let openAIData;
+    let content;
+    
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`OpenAI attempt ${attempt}/3`);
+        
+        const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-5-2025-08-07',
+            messages: [
+              { role: 'system', content: 'You are a nutrition expert. Return only valid JSON.' },
+              { role: 'user', content: contextPrompt }
+            ],
+            max_completion_tokens: 1000
+          }),
+        });
 
-    if (!openAIResponse.ok) {
-      throw new Error(`OpenAI API error: ${openAIResponse.statusText}`);
+        if (!openAIResponse.ok) {
+          const errorText = await openAIResponse.text();
+          console.error(`OpenAI API error (attempt ${attempt}):`, openAIResponse.status, errorText);
+          
+          if (attempt === 3) {
+            throw new Error(`OpenAI API error after 3 attempts: ${openAIResponse.statusText}`);
+          }
+          
+          // Wait before retry with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+
+        openAIData = await openAIResponse.json();
+        content = openAIData.choices[0].message.content;
+        console.log(`OpenAI success on attempt ${attempt}`);
+        break;
+        
+      } catch (error) {
+        console.error(`OpenAI attempt ${attempt} failed:`, error);
+        
+        if (attempt === 3) {
+          throw error;
+        }
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
     }
-
-    const openAIData = await openAIResponse.json();
-    const content = openAIData.choices[0].message.content;
     
     console.log('OpenAI response:', content);
 
