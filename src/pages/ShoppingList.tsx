@@ -7,13 +7,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ListChecks, Search, ShoppingCart, Trash2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ListChecks, Search, ShoppingCart, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ShoppingListItem } from "@/types/shoppingList";
 import { AutomationButtons } from "@/components/ShoppingList/AutomationButtons";
 
 const ShoppingList: React.FC = () => {
-  const { shoppingList, groupedByRecipe, toggleItemBought, clearShoppingList, removeRecipeFromList } = useShoppingList();
+  const { shoppingList, groupedByRecipe, isUpdating, toggleItemBought, clearShoppingList, removeRecipeFromList } = useShoppingList();
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"all" | "recipe">("all");
 
@@ -83,6 +84,7 @@ const ShoppingList: React.FC = () => {
               <CardTitle className="flex items-center">
                 <ListChecks className="h-5 w-5 mr-2" />
                 Ingredients ({purchasedItems}/{totalItems})
+                {isUpdating && <span className="text-muted-foreground ml-2 text-sm">(Updating...)</span>}
               </CardTitle>
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
                 <div className="relative w-full sm:w-64">
@@ -92,14 +94,26 @@ const ShoppingList: React.FC = () => {
                     className="pl-8"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    disabled={isUpdating}
                   />
                 </div>
-                <Button variant="outline" onClick={handleClearList} disabled={shoppingList.length === 0} className="w-full sm:w-auto">
+                <Button variant="outline" onClick={handleClearList} disabled={shoppingList.length === 0 || isUpdating} className="w-full sm:w-auto">
                   Clear List
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
+              {isUpdating && (
+                <div className="space-y-4 mb-6">
+                  <Skeleton className="h-6 w-32" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-3/4" />
+                    <Skeleton className="h-8 w-5/6" />
+                  </div>
+                </div>
+              )}
+              
               {filteredItems.length === 0 ? (
                 <div className="text-center py-10">
                   {shoppingList.length === 0 ? (
@@ -128,6 +142,7 @@ const ShoppingList: React.FC = () => {
                               checked={item.isBought}
                               onCheckedChange={() => handleCheckboxChange(item.id)}
                               className="mr-3 flex-shrink-0"
+                              disabled={isUpdating}
                             />
                             
                             <div className="flex flex-col sm:flex-row sm:items-center flex-1 space-y-1 sm:space-y-0">
@@ -175,8 +190,13 @@ const ShoppingList: React.FC = () => {
                       size="sm"
                       onClick={() => handleRemoveRecipe(recipeGroup.recipeId, recipeGroup.recipeTitle)}
                       className="flex items-center space-x-1"
+                      disabled={isUpdating}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {isUpdating ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                       <span>Remove All</span>
                     </Button>
                   </CardHeader>

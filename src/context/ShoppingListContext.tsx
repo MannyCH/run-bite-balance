@@ -7,10 +7,12 @@ import { summarizeWithAI } from "@/utils/shoppingList/summarizeIngredients";
 import { extractRawIngredientsWithFrequency } from "@/utils/shoppingList/extractIngredients";
 import { parseRecipeServings } from "@/utils/shoppingList/servingsParser";
 import { multiplyIngredientQuantity } from "@/utils/shoppingList/quantityMultiplier";
+import { toast } from "@/hooks/use-toast";
 
 interface ShoppingListContextType {
   shoppingList: ShoppingList;
   groupedByRecipe: RecipeGroup[];
+  isUpdating: boolean;
   setShoppingList: React.Dispatch<React.SetStateAction<ShoppingList>>;
   generateShoppingList: (recipes: Recipe[], mealPlanItems: MealPlanItem[], batchCookingPeople?: number) => void;
   removeRecipeFromList: (recipeId: string) => void;
@@ -33,6 +35,7 @@ const STORAGE_KEY = "runbitefit-shopping-list";
 export const ShoppingListProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [shoppingList, setShoppingList] = useState<ShoppingList>([]);
   const [groupedByRecipe, setGroupedByRecipe] = useState<RecipeGroup[]>([]);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [lastGenerationInput, setLastGenerationInput] = useState<{
     recipes: Recipe[];
     mealPlanItems: MealPlanItem[];
@@ -115,11 +118,45 @@ export const ShoppingListProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const removeRecipeFromList = async (recipeId: string) => {
     if (!lastGenerationInput) return;
     
-    const filteredRecipes = lastGenerationInput.recipes.filter(recipe => recipe.id !== recipeId);
-    const filteredMealPlanItems = lastGenerationInput.mealPlanItems.filter(item => item.recipe_id !== recipeId);
+    // Optimistic update: immediately remove recipe from grouped view
+    const removedRecipe = groupedByRecipe.find(group => group.recipeId === recipeId);
+    setGroupedByRecipe(current => current.filter(group => group.recipeId !== recipeId));
     
-    // Regenerate shopping list without the removed recipe
-    await generateShoppingList(filteredRecipes, filteredMealPlanItems, lastGenerationInput.batchCookingPeople);
+    // Show feedback
+    toast({
+      title: "Recipe removed",
+      description: `${removedRecipe?.recipeTitle || 'Recipe'} ingredients removed. Updating shopping list...`,
+    });
+    
+    // Start background regeneration
+    setIsUpdating(true);
+    
+    try {
+      const filteredRecipes = lastGenerationInput.recipes.filter(recipe => recipe.id !== recipeId);
+      const filteredMealPlanItems = lastGenerationInput.mealPlanItems.filter(item => item.recipe_id !== recipeId);
+      
+      // Regenerate shopping list without the removed recipe
+      await generateShoppingList(filteredRecipes, filteredMealPlanItems, lastGenerationInput.batchCookingPeople);
+      
+      toast({
+        title: "Shopping list updated",
+        description: "All ingredients have been recalculated.",
+      });
+    } catch (error) {
+      console.error("Failed to regenerate shopping list:", error);
+      toast({
+        title: "Update failed",
+        description: "Failed to update shopping list. Please try again.",
+        variant: "destructive",
+      });
+      
+      // Revert optimistic update on error
+      if (removedRecipe) {
+        setGroupedByRecipe(current => [...current, removedRecipe]);
+      }
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const toggleItemBought = (id: string) => {
@@ -141,6 +178,7 @@ export const ShoppingListProvider: React.FC<{ children: React.ReactNode }> = ({ 
       value={{
         shoppingList,
         groupedByRecipe,
+        isUpdating,
         setShoppingList,
         generateShoppingList,
         removeRecipeFromList,
