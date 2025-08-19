@@ -102,6 +102,8 @@ const WeeklyMealPlanner: React.FC = () => {
             selectedDate={selectedDate}
             mealPlanItems={mealPlanItems}
             recipes={recipes}
+            onRefresh={fetchLatestMealPlan}
+            mealPlanId={mealPlan.id}
           />
         </>
       ) : (

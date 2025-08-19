@@ -8,16 +8,20 @@ import { useNutritionAnalysis } from "@/hooks/useNutritionAnalysis";
 import { MealPlanItemHeader } from "./MealPlanItemHeader";
 import { CustomSnackDisplay } from "./CustomSnackDisplay";
 import { RegularRecipeDisplay } from "./RegularRecipeDisplay";
+import { ReplaceRecipeDialog } from "./ReplaceRecipeDialog";
 
 interface MealPlanItemProps {
   item: MealPlanItemType;
   recipe: any;
+  onRefresh?: () => void;
+  mealPlanId?: string;
 }
 
-export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
+export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe, onRefresh, mealPlanId }) => {
   const navigate = useNavigate();
   const { analyzeAndSaveRecipeNutrition, isAnalyzing } = useNutritionAnalysis();
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
+  const [showReplaceDialog, setShowReplaceDialog] = useState(false);
 
   // Check if this is a custom snack (no recipe)
   const isCustomSnack = !item.recipe_id && (item.meal_type === 'pre_run_snack' || item.meal_type === 'post_run_snack');
@@ -79,12 +83,24 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
   const isPostRunLunch = item.meal_type === 'lunch' && 
     item.nutritional_context?.includes('POST-RUN RECOVERY');
 
+  const handleReplaceRecipe = () => {
+    setShowReplaceDialog(true);
+  };
+
+  const handleReplaceSuccess = () => {
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
+
   return (
     <div key={item.id} className="border rounded-lg overflow-hidden">
       <MealPlanItemHeader 
         mealType={item.meal_type}
         nutritionalContext={item.nutritional_context}
         isPostRunLunch={isPostRunLunch}
+        isCustomSnack={isCustomSnack}
+        onReplaceRecipe={!isCustomSnack && recipe ? handleReplaceRecipe : undefined}
       />
       
       <div className="p-4">
@@ -117,6 +133,19 @@ export const MealPlanItem: React.FC<MealPlanItemProps> = ({ item, recipe }) => {
             View Recipe Details
           </Button>
         </CardFooter>
+      )}
+
+      {/* Replace Recipe Dialog */}
+      {showReplaceDialog && recipe && mealPlanId && (
+        <ReplaceRecipeDialog
+          isOpen={showReplaceDialog}
+          onClose={() => setShowReplaceDialog(false)}
+          currentRecipe={recipe}
+          mealType={item.meal_type}
+          currentCalories={displayValues.calories}
+          onReplaceSuccess={handleReplaceSuccess}
+          mealPlanId={mealPlanId}
+        />
       )}
     </div>
   );

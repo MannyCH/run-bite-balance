@@ -1,17 +1,23 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
 interface MealPlanItemHeaderProps {
   mealType: string;
   nutritionalContext?: string | null;
   isPostRunLunch: boolean;
+  isCustomSnack?: boolean;
+  onReplaceRecipe?: () => void;
 }
 
 export const MealPlanItemHeader: React.FC<MealPlanItemHeaderProps> = ({
   mealType,
   nutritionalContext,
-  isPostRunLunch
+  isPostRunLunch,
+  isCustomSnack = false,
+  onReplaceRecipe
 }) => {
   // Format meal type for display
   const formatMealType = (type: string) => {
@@ -49,11 +55,24 @@ export const MealPlanItemHeader: React.FC<MealPlanItemHeaderProps> = ({
           </Badge>
         )}
       </div>
-      {nutritionalContext && (
-        <span className="text-sm text-muted-foreground">
-          {nutritionalContext}
-        </span>
-      )}
+      <div className="flex items-center gap-2">
+        {nutritionalContext && (
+          <span className="text-sm text-muted-foreground">
+            {nutritionalContext}
+          </span>
+        )}
+        {!isCustomSnack && onReplaceRecipe && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onReplaceRecipe}
+            className="h-6 w-6 p-0 hover:bg-gray-200"
+            title="Replace recipe"
+          >
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 };

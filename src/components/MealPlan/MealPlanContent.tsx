@@ -18,12 +18,16 @@ interface MealPlanContentProps {
   selectedDate: Date;
   mealPlanItems: MealPlanItemType[];
   recipes: Record<string, any>;
+  onRefresh?: () => void;
+  mealPlanId?: string;
 }
 
 export const MealPlanContent: React.FC<MealPlanContentProps> = ({
   selectedDate,
   mealPlanItems,
-  recipes
+  recipes,
+  onRefresh,
+  mealPlanId
 }) => {
   const { generateShoppingList } = useShoppingList();
   const { profile } = useProfile();
@@ -144,7 +148,15 @@ export const MealPlanContent: React.FC<MealPlanContentProps> = ({
           <div className="space-y-6">
             {selectedDateMeals.map((item) => {
               const recipe = item.recipe_id ? recipes[item.recipe_id] : null;
-              return <MealPlanItem key={item.id} item={item} recipe={recipe} />;
+              return (
+                <MealPlanItem 
+                  key={item.id} 
+                  item={item} 
+                  recipe={recipe}
+                  onRefresh={onRefresh}
+                  mealPlanId={mealPlanId}
+                />
+              );
             })}
           </div>
         )}
