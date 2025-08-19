@@ -7,4 +7,10 @@ export interface ShoppingListItem {
   category?: string;
 }
 
+export interface RecipeGroup {
+  recipeId: string;
+  recipeTitle: string;
+  items: ShoppingListItem[];
+}
+
 export type ShoppingList = ShoppingListItem[];
