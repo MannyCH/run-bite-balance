@@ -46,6 +46,16 @@ function App() {
                       }
                     />
                     <Route
+                      path="/index"
+                      element={
+                        <AuthGuard>
+                          <OnboardingCheck>
+                            <WeeklyMealPlanner />
+                          </OnboardingCheck>
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
                       path="/profile"
                       element={
                         <AuthGuard>
