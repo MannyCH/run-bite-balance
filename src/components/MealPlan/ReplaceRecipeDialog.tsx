@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/context/ProfileContext";
 import { toast } from "sonner";
 import { getMealTypeSuitabilityScores } from "@/utils/mealPlan";
+import { calculateSeasonalScore, getCurrentSeason, getTemperatureCategory } from "@/utils/mealPlan/seasonalFiltering";
 
 interface ReplaceRecipeDialogProps {
   isOpen: boolean;
@@ -85,23 +86,35 @@ export const ReplaceRecipeDialog: React.FC<ReplaceRecipeDialogProps> = ({
         });
       }
 
-      // Score recipes based on meal type suitability and calorie proximity
+      // Score recipes based on meal type suitability, seasonal relevance, and calorie proximity
+      const season = getCurrentSeason();
+      const temperatureCategory = getTemperatureCategory(season);
+      const seasonalContext = {
+        season,
+        averageTemp: temperatureCategory === 'hot' ? 25 : temperatureCategory === 'cold' ? 5 : 15,
+        temperatureCategory
+      };
+
       const scoredRecipes = suitableRecipes.map(recipe => {
-        let suitabilityScore = 0;
+        // Meal type suitability score (0-10+ scale, normalized to 0-100)
+        const scoringMealType = mealType.includes('snack') ? 'snack' : mealType;
+        const mealTypeScores = getMealTypeSuitabilityScores(recipe);
+        const mealTypeSuitability = Math.max(0, (mealTypeScores[scoringMealType] || 0) * 10); // Scale to 0-100
         
-        if (profile) {
-          // Map snack types to 'snack' for scoring
-          const scoringMealType = mealType.includes('snack') ? 'snack' : mealType;
-          const scores = getMealTypeSuitabilityScores(recipe);
-          suitabilityScore = scores[scoringMealType] || 0;
-        }
+        // Seasonal relevance score (0-10 scale, normalized to 0-100)
+        const seasonalScore = calculateSeasonalScore(recipe, seasonalContext) * 10; // Scale to 0-100
         
-        const calorieProximity = Math.max(0, 100 - Math.abs(recipe.calories - targetCalories));
-        const totalScore = suitabilityScore * 100 + calorieProximity;
+        // Calorie proximity score (0-100 scale)
+        const maxCalorieDiff = Math.max(targetCalories * 0.5, 200); // Don't penalize too harshly for calorie differences
+        const calorieProximity = Math.max(0, 100 - (Math.abs(recipe.calories - targetCalories) / maxCalorieDiff) * 100);
+        
+        // Combined weighted score: meal type (55%), seasonal (25%), calories (20%)
+        const totalScore = (mealTypeSuitability * 0.55) + (seasonalScore * 0.25) + (calorieProximity * 0.20);
         
         return {
           ...recipe,
-          suitabilityScore,
+          mealTypeSuitability,
+          seasonalScore,
           calorieProximity,
           totalScore
         };
