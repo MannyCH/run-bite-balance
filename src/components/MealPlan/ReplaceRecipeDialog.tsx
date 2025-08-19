@@ -43,96 +43,34 @@ export const ReplaceRecipeDialog: React.FC<ReplaceRecipeDialogProps> = ({
   }, [isOpen, currentRecipe, mealType, currentCalories]);
 
   const fetchSuitableRecipes = async () => {
+    if (!currentRecipe || !mealPlanId || !profile?.id) return;
+    
     setIsLoading(true);
     try {
-      // Fetch all recipes except the current one
-      const { data: recipes, error } = await supabase
-        .from('recipes')
-        .select('*')
-        .neq('id', currentRecipe.id);
+      // Call the AI-powered recipe replacement edge function
+      const { data, error } = await supabase.functions.invoke('suggest-recipe-replacements', {
+        body: {
+          currentRecipeId: currentRecipe.id,
+          mealType,
+          targetCalories: currentCalories > 0 ? currentCalories : 250,
+          userId: profile.id,
+          mealPlanId
+        }
+      });
 
-      if (error) throw error;
-
-      if (!recipes) {
-        setAvailableRecipes([]);
+      if (error) {
+        console.error('Error calling suggest-recipe-replacements:', error);
+        toast.error('Failed to get AI-powered recipe suggestions');
         return;
       }
 
-      // Calculate calorie range for filtering (±15% of current calories, minimum range of 50-300)
-      const targetCalories = currentCalories > 0 ? currentCalories : 250; // fallback for 0 calories
-      const calorieRange = Math.max(targetCalories * 0.15, 50);
-      const minCalories = Math.max(targetCalories - calorieRange, 50);
-      const maxCalories = targetCalories + calorieRange;
+      const suggestions = data?.suggestions || [];
+      console.log('Received AI suggestions:', suggestions);
 
-      // Filter recipes based on meal type suitability and calorie range
-      let suitableRecipes = recipes.filter(recipe => {
-        // Check calorie range
-        const recipeCalories = recipe.calories || 0;
-        const inCalorieRange = recipeCalories >= minCalories && recipeCalories <= maxCalories;
-        
-        // If we have very few recipes in range, expand the range
-        return inCalorieRange;
-      });
-
-      // If we have too few recipes, expand calorie range
-      if (suitableRecipes.length < 3) {
-        const expandedRange = targetCalories * 0.3;
-        const expandedMin = Math.max(targetCalories - expandedRange, 0);
-        const expandedMax = targetCalories + expandedRange;
-        
-        suitableRecipes = recipes.filter(recipe => {
-          const recipeCalories = recipe.calories || 0;
-          return recipeCalories >= expandedMin && recipeCalories <= expandedMax;
-        });
-      }
-
-      // Score recipes based on meal type suitability, seasonal relevance, and calorie proximity
-      const season = getCurrentSeason();
-      const temperatureCategory = getTemperatureCategory(season);
-      const seasonalContext = {
-        season,
-        averageTemp: temperatureCategory === 'hot' ? 25 : temperatureCategory === 'cold' ? 5 : 15,
-        temperatureCategory
-      };
-
-      const scoredRecipes = suitableRecipes.map(recipe => {
-        // Meal type suitability score (0-10+ scale, normalized to 0-100)
-        const scoringMealType = mealType.includes('snack') ? 'snack' : mealType;
-        const mealTypeScores = getMealTypeSuitabilityScores(recipe);
-        const mealTypeSuitability = Math.max(0, (mealTypeScores[scoringMealType] || 0) * 10); // Scale to 0-100
-        
-        // Seasonal relevance score (0-10 scale, normalized to 0-100)
-        const seasonalScore = calculateSeasonalScore(recipe, seasonalContext) * 10; // Scale to 0-100
-        
-        // Calorie proximity score (0-100 scale)
-        const maxCalorieDiff = Math.max(targetCalories * 0.5, 200); // Don't penalize too harshly for calorie differences
-        const calorieProximity = Math.max(0, 100 - (Math.abs(recipe.calories - targetCalories) / maxCalorieDiff) * 100);
-        
-        // Combined weighted score: meal type (55%), seasonal (25%), calories (20%)
-        const totalScore = (mealTypeSuitability * 0.55) + (seasonalScore * 0.25) + (calorieProximity * 0.20);
-        
-        return {
-          ...recipe,
-          mealTypeSuitability,
-          seasonalScore,
-          calorieProximity,
-          totalScore
-        };
-      });
-
-      // Sort by total score and normalize match percentages to 0-100% scale
-      const sortedRecipes = scoredRecipes.sort((a, b) => b.totalScore - a.totalScore);
-      const maxScore = sortedRecipes[0]?.totalScore || 1;
-      
-      const recipesWithNormalizedMatch = sortedRecipes.map(recipe => ({
-        ...recipe,
-        matchPercentage: Math.round((recipe.totalScore / maxScore) * 100)
-      }));
-
-      setAvailableRecipes(recipesWithNormalizedMatch.slice(0, 10));
+      setAvailableRecipes(suggestions);
     } catch (error) {
-      console.error('Error fetching suitable recipes:', error);
-      toast.error('Failed to load replacement options');
+      console.error('Error fetching AI recipe suggestions:', error);
+      toast.error('Failed to fetch replacement recipes');
     } finally {
       setIsLoading(false);
     }
@@ -209,50 +147,55 @@ export const ReplaceRecipeDialog: React.FC<ReplaceRecipeDialogProps> = ({
                   <Card key={recipe.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                        <div className="flex justify-between items-start gap-4">
-                         <div className="flex items-start gap-3 flex-1 min-w-0">
-                           <img
-                             src={recipe.imgurl || "/placeholder.svg"}
-                             alt={recipe.title}
-                             className="w-12 h-12 rounded object-cover flex-shrink-0"
-                             onError={(e) => {
-                               e.currentTarget.src = "/placeholder.svg";
-                             }}
-                           />
-                           <div className="flex-1 min-w-0">
-                             <h3 className="font-medium truncate">{recipe.title}</h3>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            <Badge variant="outline" className="text-xs">
-                              {recipe.calories || 0} cal
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {recipe.protein || 0}g protein
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {recipe.carbs || 0}g carbs
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {recipe.fat || 0}g fat
-                            </Badge>
-                             {recipe.matchPercentage !== undefined && (
-                               <Badge 
-                                 variant={recipe.matchPercentage > 70 ? "default" : "secondary"} 
-                                 className="text-xs"
-                               >
-                                 {recipe.matchPercentage}% match
-                               </Badge>
-                             )}
-                          </div>
-                          {recipe.categories && recipe.categories.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {recipe.categories.slice(0, 3).map((category: string) => (
-                                <span key={category} className="text-xs text-muted-foreground bg-muted px-1 rounded">
-                                  {category}
-                                </span>
-                              ))}
-                            </div>
-                           )}
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <img
+                              src={recipe.image_url || "/placeholder.svg"}
+                              alt={recipe.title}
+                              className="w-12 h-12 rounded object-cover flex-shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.src = "/placeholder.svg";
+                              }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium truncate">{recipe.title}</h3>
+                              {recipe.reason && (
+                                <p className="text-xs text-muted-foreground mt-1 italic">
+                                  {recipe.reason}
+                                </p>
+                              )}
+                           <div className="flex flex-wrap gap-2 mt-2">
+                             <Badge variant="outline" className="text-xs">
+                               {recipe.calories || 0} cal
+                             </Badge>
+                             <Badge variant="outline" className="text-xs">
+                               {recipe.protein || 0}g protein
+                             </Badge>
+                             <Badge variant="outline" className="text-xs">
+                               {recipe.carbs || 0}g carbs
+                             </Badge>
+                             <Badge variant="outline" className="text-xs">
+                               {recipe.fat || 0}g fat
+                             </Badge>
+                              {recipe.matchPercentage !== undefined && (
+                                <Badge 
+                                  variant={recipe.matchPercentage > 70 ? "default" : "secondary"} 
+                                  className="text-xs"
+                                >
+                                  {recipe.matchPercentage}% match
+                                </Badge>
+                              )}
                            </div>
-                         </div>
+                           {recipe.categories && recipe.categories.length > 0 && (
+                             <div className="flex flex-wrap gap-1 mt-1">
+                               {recipe.categories.slice(0, 3).map((category: string) => (
+                                 <span key={category} className="text-xs text-muted-foreground bg-muted px-1 rounded">
+                                   {category}
+                                 </span>
+                               ))}
+                             </div>
+                            )}
+                            </div>
+                          </div>
                          <Button
                           onClick={() => handleReplaceRecipe(recipe)}
                           disabled={isReplacing}
