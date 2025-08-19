@@ -86,6 +86,36 @@ serve(async (req) => {
     const filteredCandidates = candidateRecipes.filter(recipe => !excludeIds.includes(recipe.id));
     console.log(`Candidates after exclusion: ${filteredCandidates.length}`);
 
+    let finalCandidates = filteredCandidates;
+    let isUsingFallback = false;
+
+    // If no suitable candidates found, use fallback with broader criteria
+    if (filteredCandidates.length === 0) {
+      console.log("No suitable candidates found, using fallback criteria");
+      isUsingFallback = true;
+      
+      // Fetch with broader criteria: no meal type filter, wider calorie range
+      const fallbackMinCalories = Math.floor(targetCalories * 0.2);
+      const fallbackMaxCalories = Math.ceil(targetCalories * 2.0);
+      
+      const { data: fallbackRecipes, error: fallbackError } = await supabase
+        .from('recipes')
+        .select('id, title, calories, protein, carbs, fat, ingredients, categories, meal_type, seasonal_suitability, temperature_preference, dish_type, imgurl')
+        .gte('calories', fallbackMinCalories)
+        .lte('calories', fallbackMaxCalories)
+        .order('calories', { ascending: true })
+        .limit(30);
+
+      if (fallbackError) {
+        throw new Error(`Failed to fetch fallback recipes: ${fallbackError.message}`);
+      }
+
+      if (fallbackRecipes && fallbackRecipes.length > 0) {
+        finalCandidates = fallbackRecipes.filter(recipe => !excludeIds.includes(recipe.id));
+        console.log(`Fallback candidates after exclusion: ${finalCandidates.length}`);
+      }
+    }
+
     // Prepare context for OpenAI
     const currentSeason = getCurrentSeason();
     const contextPrompt = `
@@ -110,7 +140,7 @@ CONTEXT:
 - Target Calories: ${targetCalories} (±30% acceptable)
 
 CANDIDATE RECIPES:
-${filteredCandidates.slice(0, 30).map((recipe, index) => `
+${finalCandidates.slice(0, 30).map((recipe, index) => `
 ${index + 1}. ${recipe.title}
    - Calories: ${recipe.calories}
    - Protein: ${recipe.protein}g, Carbs: ${recipe.carbs}g, Fat: ${recipe.fat}g
@@ -209,7 +239,7 @@ Select exactly 8 recipes, ordered by suitability (best first). Match percentage 
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
       // Fallback to simple scoring
-      aiSuggestions = filteredCandidates.slice(0, 8).map((recipe, index) => ({
+      aiSuggestions = finalCandidates.slice(0, 8).map((recipe, index) => ({
         recipeIndex: index + 1,
         matchPercentage: Math.max(20, 90 - index * 10),
         reason: "AI parsing failed, using fallback scoring"
@@ -218,13 +248,14 @@ Select exactly 8 recipes, ordered by suitability (best first). Match percentage 
 
     // Map AI suggestions to full recipe data
     const suggestions = aiSuggestions.map((suggestion: any) => {
-      const recipe = filteredCandidates[suggestion.recipeIndex - 1];
+      const recipe = finalCandidates[suggestion.recipeIndex - 1];
       if (!recipe) return null;
       
       return {
         ...recipe,
         matchPercentage: suggestion.matchPercentage,
-        reason: suggestion.reason
+        reason: suggestion.reason,
+        notSuitable: isUsingFallback
       };
     }).filter(Boolean);
 

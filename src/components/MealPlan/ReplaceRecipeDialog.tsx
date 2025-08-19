@@ -173,17 +173,25 @@ export const ReplaceRecipeDialog: React.FC<ReplaceRecipeDialogProps> = ({
                              <Badge variant="outline" className="text-xs">
                                {recipe.carbs || 0}g carbs
                              </Badge>
-                             <Badge variant="outline" className="text-xs">
-                               {recipe.fat || 0}g fat
-                             </Badge>
-                              {recipe.matchPercentage !== undefined && (
-                                <Badge 
-                                  variant={recipe.matchPercentage > 70 ? "default" : "secondary"} 
-                                  className="text-xs"
-                                >
-                                  {recipe.matchPercentage}% match
-                                </Badge>
-                              )}
+                              <Badge variant="outline" className="text-xs">
+                                {recipe.fat || 0}g fat
+                              </Badge>
+                               {recipe.matchPercentage !== undefined && (
+                                 <Badge 
+                                   variant={recipe.matchPercentage > 70 ? "default" : "secondary"} 
+                                   className="text-xs"
+                                 >
+                                   {recipe.matchPercentage}% match
+                                 </Badge>
+                               )}
+                               {recipe.notSuitable && (
+                                 <Badge 
+                                   variant="destructive" 
+                                   className="text-xs"
+                                 >
+                                   Not suitable
+                                 </Badge>
+                               )}
                            </div>
                            {recipe.categories && recipe.categories.length > 0 && (
                              <div className="flex flex-wrap gap-1 mt-1">
