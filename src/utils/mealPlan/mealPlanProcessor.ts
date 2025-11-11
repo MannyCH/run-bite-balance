@@ -38,7 +38,7 @@ export async function processAIMealPlan(
   endDate: string,
   recipesMap: Record<string, Recipe>,
   runs: any[] = []
-): Promise<MealPlanItem[] | null> {
+): Promise<{ mealPlan: any; items: MealPlanItem[] } | null> {
   try {
     console.log('Processing AI meal plan response');
     console.log(`Runs provided for processing: ${runs.length}`);
@@ -120,7 +120,7 @@ export async function processAIMealPlan(
     }
 
     console.log(`Successfully processed ${savedItems.length} meal plan items`);
-    return savedItems;
+    return { mealPlan, items: savedItems };
   } catch (error) {
     console.error('Error processing AI meal plan:', error);
     return null;

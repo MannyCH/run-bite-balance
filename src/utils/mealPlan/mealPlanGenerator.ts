@@ -54,7 +54,7 @@ export async function generateMealPlan({
       } else if (data && data.mealPlan) {
         console.log('✅ AI meal plan generated successfully');
         // Process the AI-generated meal plan with runs data
-        const mealPlanItems = await processAIMealPlan(
+        const result = await processAIMealPlan(
           userId, 
           data, 
           startDate, 
@@ -63,32 +63,22 @@ export async function generateMealPlan({
           runs // Pass runs to the processor
         );
         
-        if (mealPlanItems) {
-          // Get the meal plan record
-          const { data: mealPlans } = await supabase
-            .from('meal_plans')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1);
-            
-          if (mealPlans && mealPlans.length > 0) {
-            const planData = mealPlans[0];
-            // Make sure we validate the status to match our expected type
-            const mealPlan: MealPlan = {
-              id: planData.id,
-              user_id: planData.user_id,
-              week_start_date: planData.week_start_date,
-              week_end_date: planData.week_end_date,
-              created_at: planData.created_at,
-              status: validateStatus(planData.status)
-            };
-            
-            return {
-              mealPlan,
-              mealPlanItems
-            };
-          }
+        if (result) {
+          console.log('✅ Meal plan saved successfully with', result.items.length, 'items');
+          // Convert to the expected type
+          const mealPlan: MealPlan = {
+            id: result.mealPlan.id,
+            user_id: result.mealPlan.user_id,
+            week_start_date: result.mealPlan.week_start_date,
+            week_end_date: result.mealPlan.week_end_date,
+            created_at: result.mealPlan.created_at,
+            status: validateStatus(result.mealPlan.status)
+          };
+          
+          return {
+            mealPlan,
+            mealPlanItems: result.items
+          };
         }
       } else {
         console.log('AI meal planner returned no data, falling back to algorithmic approach');
