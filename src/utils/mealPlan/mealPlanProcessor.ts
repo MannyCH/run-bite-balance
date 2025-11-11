@@ -42,6 +42,7 @@ export async function processAIMealPlan(
   try {
     console.log('Processing AI meal plan response');
     console.log(`Runs provided for processing: ${runs.length}`);
+    console.log(`Expected date range: ${startDate} to ${endDate}`);
     
     if (!aiResponse?.mealPlan?.days) {
       console.error('Invalid AI meal plan structure');
@@ -66,6 +67,19 @@ export async function processAIMealPlan(
     const allRecipes = Object.values(recipesMap);
     const diversityManager = new RecipeDiversityManager();
     diversityManager.reset();
+
+    // Validate dates are within expected range
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+    const invalidDates = aiResponse.mealPlan.days.filter((day: AIMealPlanDay) => {
+      const dayDate = new Date(day.date);
+      return dayDate < startDateObj || dayDate > endDateObj;
+    });
+    
+    if (invalidDates.length > 0) {
+      console.warn(`⚠️ AI generated ${invalidDates.length} days outside expected range (${startDate} to ${endDate}):`, 
+        invalidDates.map((d: AIMealPlanDay) => d.date));
+    }
 
     // Process each day from the AI response
     for (const day of aiResponse.mealPlan.days) {

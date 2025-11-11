@@ -60,6 +60,9 @@ export async function buildSystemPrompt(
 **WEATHER & SEASON:**
 ${weatherContext}
 
+**DATE RANGE:**
+Generate meals for exactly 7 days from ${startDate} to ${endDate}. Each day in your response MUST use these exact dates in YYYY-MM-DD format, starting with ${startDate} and ending with ${endDate}.
+
 **RUN SCHEDULE:**${runContext}
 
 **BATCH COOKING SETTINGS:**
@@ -92,7 +95,7 @@ ${snackRecipes.map(r => `${r.id}|${r.title}|${r.calories}c`).join('\n')}
   "mealPlan": {
     "days": [
       {
-        "date": "YYYY-MM-DD",
+        "date": "YYYY-MM-DD (start with ${startDate}, increment daily until ${endDate})",
         "meals": [
           {
             "meal_type": "breakfast|lunch|dinner|pre_run_snack",
