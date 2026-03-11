@@ -100,15 +100,23 @@ export const exportAllRecipesAsZip = async (
   onProgress?.('Generating ZIP file...', 95);
   const blob = await zip.generateAsync({ type: 'blob' });
 
-  // Trigger download
+  // Trigger download using window.open as fallback for sandboxed iframes
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'recipes_export.zip';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'recipes_export.zip';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    // Fallback: also try opening in new tab
+    setTimeout(() => {
+      document.body.removeChild(a);
+    }, 100);
+  } catch {
+    // If click download fails, open blob URL directly
+    window.open(url, '_blank');
+  }
 
   onProgress?.('Export complete!', 100);
 };
