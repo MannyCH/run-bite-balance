@@ -99,16 +99,42 @@ const AccountTab = () => {
 };
 
 const RecipeManagementTab = () => {
+  const { recipes } = useApp();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (recipes.length === 0) {
+      toast.error('No recipes to export');
+      return;
+    }
+    setIsExporting(true);
+    try {
+      await exportAllRecipesAsZip(recipes);
+      toast.success(`Exported ${recipes.length} recipes as ZIP`);
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast.error('Failed to export recipes');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   console.log('RecipeManagementTab: Rendering');
   
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>Recipe Classification Tools</CardTitle>
-          <CardDescription>
-            Manage and classify your recipe database for better meal planning
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Recipe Classification Tools</CardTitle>
+            <CardDescription>
+              Manage and classify your recipe database for better meal planning
+            </CardDescription>
+          </div>
+          <Button onClick={handleExport} disabled={isExporting || recipes.length === 0} variant="outline" size="sm">
+            {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            Export All ({recipes.length})
+          </Button>
         </CardHeader>
       </Card>
       
