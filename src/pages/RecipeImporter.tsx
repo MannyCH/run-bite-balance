@@ -1,21 +1,52 @@
 
-import React from 'react';
+
+import React, { useState } from 'react';
 import RecipeImporter from '@/components/Recipe/RecipeImporter';
 import { RecipeSeasonalClassifier } from '@/components/Recipe/RecipeSeasonalClassifier';
 import { RecipeMealTypeClassifier } from '@/components/Recipe/RecipeMealTypeClassifier';
 import MainLayout from '@/components/Layout/MainLayout';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, Info, Download, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useApp } from '@/context/AppContext';
+import { exportAllRecipesAsZip } from '@/utils/recipeExporter';
+import { toast } from 'sonner';
 
 const RecipeImporterPage: React.FC = () => {
+  const { recipes } = useApp();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (recipes.length === 0) {
+      toast.error('No recipes to export');
+      return;
+    }
+    setIsExporting(true);
+    try {
+      await exportAllRecipesAsZip(recipes);
+      toast.success(`Exported ${recipes.length} recipes as ZIP`);
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast.error('Failed to export recipes');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8 space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Recipe Management</h1>
-          <p className="text-muted-foreground mt-2">
-            Import recipes from ZIP files and manage classifications for smart meal planning
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Recipe Management</h1>
+            <p className="text-muted-foreground mt-2">
+              Import recipes from ZIP files and manage classifications for smart meal planning
+            </p>
+          </div>
+          <Button onClick={handleExport} disabled={isExporting || recipes.length === 0} variant="outline">
+            {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            Export All ({recipes.length})
+          </Button>
         </div>
 
         <Alert className="border-blue-200 bg-blue-50">
