@@ -1,14 +1,19 @@
 
-import React from "react";
+import React, { useState } from "react";
 import MainLayout from "@/components/Layout/MainLayout";
 import AccountSettings from "@/components/Auth/AccountSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProfile } from "@/context/ProfileContext";
 import { useAuth } from "@/context/AuthContext";
+import { useApp } from "@/context/AppContext";
 import { ProfileForm } from "@/components/Profile/ProfileForm";
 import { RecipeSeasonalClassifier } from "@/components/Recipe/RecipeSeasonalClassifier";
 import { RecipeMealTypeClassifier } from "@/components/Recipe/RecipeMealTypeClassifier";
+import { Button } from "@/components/ui/button";
+import { Download, Loader2 } from "lucide-react";
+import { exportAllRecipesAsZip } from "@/utils/recipeExporter";
+import { toast } from "sonner";
 
 const Account = () => {
   const { user } = useAuth();
